@@ -1,5 +1,5 @@
 // Training log: every session and run, records per lift, and logging a run by hand.
-import { clock, isoDate, newPrs, pace, parseClock, parseIsoDate, records, type SessionLog, sessionVolume } from '@rei/shared';
+import { clock, isoDate, pace, parseClock, parseIsoDate, prTimeline, records, type SessionLog, sessionOrder, sessionVolume } from '@rei/shared';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { TextInput, View } from 'react-native';
@@ -14,9 +14,9 @@ const dayLabel = (iso: string) => (parseIsoDate(iso) ?? new Date()).toLocaleDate
 export default function History() {
   const s = useStore();
   const [logging, setLogging] = useState(false);
-  const sorted = useMemo(() => [...s.sessions].sort((a, b) => (a.date === b.date ? (a.createdAt ?? 0) - (b.createdAt ?? 0) : a.date < b.date ? -1 : 1)), [s.sessions]);
-  // Records each session set, judged against the sessions before it.
-  const prsBy = useMemo(() => new Map(sorted.map((l, i) => [l, newPrs(l, sorted.slice(0, i)).length])), [sorted]);
+  const sorted = useMemo(() => [...s.sessions].sort(sessionOrder), [s.sessions]);
+  // Records each session set, judged against the sessions before it, in one pass.
+  const prsBy = useMemo(() => new Map([...prTimeline(sorted)].map(([l, prs]) => [l, prs.length])), [sorted]);
   const recs = useMemo(() => Object.values(records(s.sessions)).filter(r => r.best.e1rm != null).sort((a, b) => b.best.e1rm! - a.best.e1rm!).slice(0, 8), [s.sessions]);
 
   const [monthAgo] = useState(() => isoDate(new Date(Date.now() - 30 * 86400000)));

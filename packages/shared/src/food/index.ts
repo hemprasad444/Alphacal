@@ -144,8 +144,82 @@ function scoreFood(q: string[], phrase: string, x: Indexed): Match | null {
   return { food: x.food, score: total + coverage * 4, coverage };
 }
 
+// The built-in list is indexed once (token → foods, plus sorted tokens for prefixes), so a
+// keystroke only scores the foods that share a word with the query. Your own foods, a few
+// hundred at most, are scanned directly.
+interface CatalogIndex {
+  byToken: Map<string, Food[]>;
+  sorted: string[];
+  members: Set<Food>;
+}
+let catIndex: CatalogIndex | null = null;
+
+function catalogIndex(): CatalogIndex {
+  if (catIndex) return catIndex;
+  const byToken = new Map<string, Food[]>();
+  const all = catalog();
+  for (const f of all) {
+    const x = indexed(f);
+    for (const t of new Set([...x.name, ...x.alt])) {
+      const list = byToken.get(t);
+      if (list) list.push(f);
+      else byToken.set(t, [f]);
+    }
+  }
+  catIndex = { byToken, sorted: [...byToken.keys()].sort(), members: new Set(all) };
+  return catIndex;
+}
+
+/** Foods with a token equal to `w`, or starting with it (3+ letters), as scoreFood counts them. */
+function lookup(ix: CatalogIndex, w: string, into: Set<Food>) {
+  ix.byToken.get(w)?.forEach(f => into.add(f));
+  if (w.length < 3) return;
+  let lo = 0, hi = ix.sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (ix.sorted[mid] < w) lo = mid + 1;
+    else hi = mid;
+  }
+  for (let i = lo; i < ix.sorted.length && ix.sorted[i].startsWith(w); i++) ix.byToken.get(ix.sorted[i])!.forEach(f => into.add(f));
+}
+
+// Per list passed in: each food's position (results keep the list's order on ties) and the
+// foods that aren't built in. Cached by array identity.
+const views = new WeakMap<Food[], { pos: Map<Food, number>; extras: Food[] }>();
+function view(foods: Food[]) {
+  let v = views.get(foods);
+  if (!v) {
+    const { members } = catalogIndex();
+    v = { pos: new Map(foods.map((f, i) => [f, i])), extras: foods.filter(f => !members.has(f)) };
+    views.set(foods, v);
+  }
+  return v;
+}
+
+/** Build the index ahead of time (call once the first screen has drawn). */
+export function warmFoodSearch(): void {
+  catalogIndex();
+}
+
 /** Best matches for a query, yours first when they match as well. */
 export function searchFoods(query: string, foods: Food[], max = 8): Match[] {
+  const q = tokens(query);
+  if (!q.length) return [];
+  const phrase = q.join(' ');
+  const ix = catalogIndex(), v = view(foods);
+  const cand = new Set<Food>();
+  for (const w of q) lookup(ix, w, cand);
+  const pool = [...[...cand].filter(f => v.pos.has(f)), ...v.extras].sort((a, b) => v.pos.get(a)! - v.pos.get(b)!);
+  const out: Match[] = [];
+  for (const f of pool) {
+    const m = scoreFood(q, phrase, indexed(f));
+    if (m && m.coverage >= 0.5) out.push(m);
+  }
+  return out.sort((a, b) => b.coverage - a.coverage || b.score - a.score).slice(0, max);
+}
+
+/** The scan the index replaces; kept to check the index returns the same results. */
+export function searchFoodsLinear(query: string, foods: Food[], max = 8): Match[] {
   const q = tokens(query);
   if (!q.length) return [];
   const phrase = q.join(' ');

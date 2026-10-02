@@ -1,5 +1,5 @@
 import { ALIASES, alternatives, exerciseById, findExercise, library, searchExercises } from '../exercises';
-import { clock, e1rm, liftHistory, newPrs, pace, parseClock, records, restSeconds, sessionVolume } from '../strength';
+import { clock, e1rm, liftHistory, newPrs, pace, parseClock, prTimeline, records, restSeconds, sessionVolume } from '../strength';
 import { SESSIONS } from '../data';
 import type { SessionLog } from '../types';
 
@@ -95,5 +95,26 @@ describe('time and pace', () => {
     expect(restSeconds(5, 100)).toBe(180);
     expect(restSeconds(12, 20)).toBe(90);
     expect(restSeconds(15, null)).toBe(60);
+  });
+});
+
+describe('prTimeline', () => {
+  it('matches newPrs for every session of a random history', () => {
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const lifts = ['Bench press', 'Squat', 'Dips', 'Row'];
+    const sessions: SessionLog[] = Array.from({ length: 60 }, (_, i) => ({
+      date: `2026-${String(1 + Math.floor(i / 28)).padStart(2, '0')}-${String(1 + (i % 28)).padStart(2, '0')}`,
+      plan: i % 9 === 0 ? 'RUN' : 'PUSH', done: 1, total: 1, seconds: 1, createdAt: i,
+      sets: lifts.filter(() => rnd() > 0.3).map(e => {
+        const n = 1 + Math.floor(rnd() * 4);
+        const bw = e === 'Dips';
+        return { exercise: e, reps: Array.from({ length: n }, () => 1 + Math.floor(rnd() * 12)), kg: Array.from({ length: n }, () => (bw ? null : 40 + Math.round(rnd() * 80))), done: Array.from({ length: n }, () => rnd() > 0.2) };
+      }),
+    }));
+    const shuffled = [...sessions].sort(() => rnd() - 0.5);
+    const t = prTimeline(shuffled);
+    for (const [k, s] of sessions.entries()) expect(t.get(s)).toEqual(newPrs(s, sessions.slice(0, k)));
+    expect([...t.values()].flat().length).toBeGreaterThan(5);
   });
 });

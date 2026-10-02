@@ -47,26 +47,29 @@ export interface LiftRecord {
   lastDate: string;
 }
 
-const strengthLogs = (logs: SessionLog[]) => logs.filter(l => !l.cardio && l.plan !== 'RUN').sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.createdAt ?? 0) - (b.createdAt ?? 0)));
+const strengthLogs = (logs: SessionLog[]) => logs.filter(l => !l.cardio && l.plan !== 'RUN').sort((a, b) => (a.date === b.date ? (a.createdAt ?? 0) - (b.createdAt ?? 0) : a.date < b.date ? -1 : 1));
+
+/** Add one session's sets to a running records map. */
+function fold(out: Record<string, LiftRecord>, l: SessionLog): void {
+  for (const x of l.sets ?? []) {
+    const b = bestOf(x, l.date);
+    if (!b) continue;
+    const k = liftKey(x.exercise), h = heaviestOf(x, l.date), cur = out[k];
+    if (!cur) {
+      out[k] = { name: x.exercise, best: b, heaviest: h, sessions: 1, lastDate: l.date };
+      continue;
+    }
+    cur.sessions++;
+    cur.lastDate = l.date;
+    if (b.e1rm != null ? cur.best.e1rm == null || b.e1rm > cur.best.e1rm : cur.best.e1rm == null && b.reps > cur.best.reps) cur.best = b;
+    if (h && (!cur.heaviest || h.kg! > cur.heaviest.kg!)) cur.heaviest = h;
+  }
+}
 
 /** Personal records per lift, keyed by lowercased name. */
 export function records(logs: SessionLog[]): Record<string, LiftRecord> {
   const out: Record<string, LiftRecord> = {};
-  for (const l of strengthLogs(logs)) {
-    for (const x of l.sets ?? []) {
-      const b = bestOf(x, l.date);
-      if (!b) continue;
-      const k = liftKey(x.exercise), h = heaviestOf(x, l.date), cur = out[k];
-      if (!cur) {
-        out[k] = { name: x.exercise, best: b, heaviest: h, sessions: 1, lastDate: l.date };
-        continue;
-      }
-      cur.sessions++;
-      cur.lastDate = l.date;
-      if (b.e1rm != null ? cur.best.e1rm == null || b.e1rm > cur.best.e1rm : cur.best.e1rm == null && b.reps > cur.best.reps) cur.best = b;
-      if (h && (!cur.heaviest || h.kg! > cur.heaviest.kg!)) cur.heaviest = h;
-    }
-  }
+  for (const l of strengthLogs(logs)) fold(out, l);
   return out;
 }
 
@@ -104,10 +107,9 @@ export interface Pr {
 
 const kgText = (kg: number) => `${+kg.toFixed(1)}`;
 
-/** Records this session beat. A lift's first ever session sets the baseline, not a record. */
-export function newPrs(session: SessionLog, before: SessionLog[]): Pr[] {
+/** Records a session beat, judged against the records so far. */
+function prsAgainst(session: SessionLog, prior: Record<string, LiftRecord>): Pr[] {
   if (session.cardio || session.plan === 'RUN') return [];
-  const prior = records(before);
   const out: Pr[] = [];
   for (const x of session.sets ?? []) {
     const p = prior[liftKey(x.exercise)];
@@ -120,6 +122,28 @@ export function newPrs(session: SessionLog, before: SessionLog[]): Pr[] {
     } else if (b.e1rm == null && p.best.e1rm == null && b.kg == null && b.reps > p.best.reps) {
       out.push({ exercise: x.exercise, kind: 'reps', text: `${x.exercise} ${b.reps} reps (was ${p.best.reps})` });
     }
+  }
+  return out;
+}
+
+/** Records this session beat. A lift's first ever session sets the baseline, not a record. */
+export function newPrs(session: SessionLog, before: SessionLog[]): Pr[] {
+  return prsAgainst(session, records(before));
+}
+
+/** Oldest first: by date, then by when it was logged. */
+export const sessionOrder = (a: SessionLog, b: SessionLog) => (a.date === b.date ? (a.createdAt ?? 0) - (b.createdAt ?? 0) : a.date < b.date ? -1 : 1);
+
+/**
+ * Every session's PRs in one pass over history (O(total sets)), instead of rechecking
+ * all earlier sessions for each one. Keyed by the session object.
+ */
+export function prTimeline(sessions: SessionLog[]): Map<SessionLog, Pr[]> {
+  const out = new Map<SessionLog, Pr[]>();
+  const running: Record<string, LiftRecord> = {};
+  for (const s of [...sessions].sort(sessionOrder)) {
+    out.set(s, prsAgainst(s, running));
+    if (!s.cardio && s.plan !== 'RUN') fold(running, s);
   }
   return out;
 }

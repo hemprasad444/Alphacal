@@ -1,7 +1,7 @@
 // Progress over weeks: streaks, badges, body measurements, and the numbers behind REI's
 // weekly report. Pure functions, shared by the app and the report function.
 import { WEEK_PLAN, type WeekProgram } from './data';
-import { newPrs, pace } from './strength';
+import { pace, prTimeline, sessionOrder } from './strength';
 import { isoDate, parseIsoDate, weekdayIndex } from './time';
 import type { DayDoc, Profile, SessionLog, WeighIn } from './types';
 
@@ -143,10 +143,11 @@ function streakEvents(days: DaySummary[], ok: (d: DaySummary) => boolean): { dat
 }
 
 export function badges(i: { days: DaySummary[]; sessions: SessionLog[]; weighIns: WeighIn[]; profile: Profile }): Badge[] {
-  const sessions = [...i.sessions].sort((a, b) => (a.date === b.date ? (a.createdAt ?? 0) - (b.createdAt ?? 0) : a.date < b.date ? -1 : 1));
+  const sessions = [...i.sessions].sort(sessionOrder);
   const count = sessions.map((s, k) => ({ date: s.date, n: k + 1 }));
+  const timeline = prTimeline(sessions);
   let prs = 0;
-  const prEvents = sessions.map((s, k) => ({ date: s.date, n: (prs += newPrs(s, sessions.slice(0, k)).length) }));
+  const prEvents = sessions.map(s => ({ date: s.date, n: (prs += timeline.get(s)?.length ?? 0) }));
   const runs = sessions.filter(s => s.cardio && s.cardio.kind !== 'cycle' && s.cardio.kind !== 'walk').map(s => ({ date: s.date, n: s.cardio!.km }));
   const proteinT = num(i.profile.protein), target = Math.max(1, parseInt(i.profile.sessions, 10) || 4);
   const weighIns = [...i.weighIns].sort((a, b) => (a.date < b.date ? -1 : 1));
@@ -236,9 +237,10 @@ export function weekStats(i: WeekStatsInput): WeekStats {
   const logged = dates.map(d => daySummary(d, i.days[d])).filter(d => d.meals > 0);
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
   const planned = dates.filter((_, k) => (i.program ? !!i.program.days[k] : WEEK_PLAN[k] !== 'REST')).length;
-  const sorted = [...i.sessions].sort((a, b) => (a.date === b.date ? (a.createdAt ?? 0) - (b.createdAt ?? 0) : a.date < b.date ? -1 : 1));
+  const sorted = [...i.sessions].sort(sessionOrder);
   const inWeek = sorted.filter(s => s.date >= i.monday && s.date <= last);
-  const prs = inWeek.flatMap(s => newPrs(s, sorted.filter(x => x !== s && (x.date < s.date || (x.date === s.date && (x.createdAt ?? 0) < (s.createdAt ?? 0))))).map(p => p.text));
+  const timeline = prTimeline(sorted);
+  const prs = inWeek.flatMap(s => timeline.get(s) ?? []).map(p => p.text);
   const runs = inWeek.filter(s => s.cardio);
   const longest = runs.reduce<SessionLog | null>((a, s) => (!a || s.cardio!.km > a.cardio!.km ? s : a), null);
   const steps = dates.map(d => i.days[d]?.steps).filter((v): v is number => typeof v === 'number' && v > 0);

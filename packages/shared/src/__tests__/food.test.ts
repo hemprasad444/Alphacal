@@ -1,4 +1,4 @@
-import { catalog, DISHES, foodCandidates, foodFromMeal, IFCT, itemFor, matchMealText, mealFromItems, offToFood, resolveAiItems, searchFoods, splitMealText, unitFor, validFood, type Food } from '../food';
+import { catalog, DISHES, foodCandidates, searchFoodsLinear, foodFromMeal, IFCT, itemFor, matchMealText, mealFromItems, offToFood, resolveAiItems, searchFoods, splitMealText, unitFor, validFood, type Food } from '../food';
 
 const cat = catalog();
 const byId = (id: string) => cat.find(f => f.id === id)!;
@@ -137,4 +137,14 @@ it('saves a meal as a food counted in servings', () => {
   const f = foodFromMeal({ time: '08:00', name: 'Usual breakfast', kcal: 420, p: 30, c: 40, f: 14 }, 'm:abc123');
   expect(validFood(f)).toBe(true);
   expect(itemFor(f, 2)).toMatchObject({ unit: 'serving', g: 0, kcal: 840, p: 60 });
+});
+
+describe('search index', () => {
+  it('returns exactly what a full scan returns', () => {
+    const mine: Food = { id: 'm:x2', name: 'Paneer wrap, office canteen', per: 1, kcal: 420, p: 22, c: 40, f: 18, units: [{ n: 'serving', g: 1 }], src: 'mine', serving: true };
+    const lists = [cat, [mine, ...cat], cat.filter(f => f.id !== 'd:roti')];
+    for (const foods of lists)
+      for (const q of ['roti', 'pa', 'chi', 'dal', 'paneer wrap', 'egg', 'rice cook', 'moong', 'bajra', 'ban', 'curd rice', 'xyz', 'ghee', 'chicken breast', 'masala dosa'])
+        expect(searchFoods(q, foods, 8).map(m => m.food.id)).toEqual(searchFoodsLinear(q, foods, 8).map(m => m.food.id));
+  });
 });
