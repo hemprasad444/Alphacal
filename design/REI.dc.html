@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap">
+<script src="./image-slot.js"></script>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;-webkit-font-smoothing:antialiased}
+a{color:#9BE7F2;text-decoration:none}a:hover{color:#fff}
+input,textarea{font:inherit;color:inherit}
+input:focus,textarea:focus{outline:none}
+*::-webkit-scrollbar{display:none}
+@keyframes reiSpin{to{transform:rotate(360deg)}}
+@keyframes reiSpinR{to{transform:rotate(-360deg)}}
+@keyframes reiPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+@keyframes reiPulseFast{0%,100%{transform:scale(.95)}50%{transform:scale(1.09)}}
+@keyframes reiBreath{0%,100%{opacity:.5;transform:scale(.95)}50%{opacity:1;transform:scale(1.05)}}
+@keyframes reiOrbit{from{transform:rotate(0deg) translateX(var(--r))}to{transform:rotate(360deg) translateX(var(--r))}}
+@keyframes reiDot{0%,80%,100%{opacity:.2}40%{opacity:1}}
+@keyframes reiBar{0%,100%{transform:scaleY(.18)}50%{transform:scaleY(1)}}
+@keyframes reiBlink{50%{opacity:.25}}
+</style>
+</helmet>
+<div ref="{{ rootRef }}" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(80% 60% at 50% 40%, #0B0F14 0%, #000 70%);font-family:'Geist',-apple-system,system-ui,sans-serif;color:#EDEFF2">
+<div data-screen-label="REI phone" style="position:relative;width:402px;height:874px;flex:none;border-radius:58px;overflow:hidden;background:var(--bg,#050608);transition:background .4s;transform:scale(var(--s,1));box-shadow:0 0 0 1px rgba(255,255,255,.14),0 0 0 11px #0D0E10,0 0 0 12px rgba(255,255,255,.08),0 60px 120px rgba(0,0,0,.8)">
+
+<sc-if value="{{ hasEmblem }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;pointer-events:none;display:flex;justify-content:center;align-items:{{ emblemAlign }};padding:120px 0 150px;box-sizing:border-box;mix-blend-mode:screen">
+  <div style="width:{{ emblemSize }};height:{{ emblemSize }};opacity:{{ bgOpacity }};filter:saturate(.85);-webkit-mask-image:radial-gradient(circle, #000 52%, transparent 74%);mask-image:radial-gradient(circle, #000 52%, transparent 74%);transition:all .4s">
+    <div style="width:100%;height:100%;background-image:{{ emblemBg }};background-size:contain;background-position:center;background-repeat:no-repeat"></div>
+  </div>
+</div>
+</sc-if>
+<div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(80% 40% at 105% 108%, color-mix(in oklab, var(--acc2,#3A6FF2) 16%, transparent), transparent 70%)"></div>
+<div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(110% 55% at 50% -12%, color-mix(in oklab, var(--acc,#9BE7F2) 13%, transparent) 0%, transparent 62%)"></div>
+<sc-if value="{{ hudFx }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;inset:0;pointer-events:none;opacity:.5;background-image:linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);background-size:34px 34px;-webkit-mask-image:linear-gradient(180deg,#000 0%,transparent 45%);mask-image:linear-gradient(180deg,#000 0%,transparent 45%)"></div></sc-if>
+
+<sc-if value="{{ isToday }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="01 Today" style="zoom:var(--tz,1);position:absolute;inset:0;overflow-y:auto;padding:62px 20px 128px;box-sizing:border-box">
+  <sc-if value="{{ hud }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;right:7px;top:150px;writing-mode:vertical-rl;font-family:'Zen Kaku Gothic New',sans-serif;font-size:10px;letter-spacing:.5em;color:rgba(255,255,255,.16);pointer-events:none">{{ motto }}</div>
+  </sc-if>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding-top:6px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:6px;height:6px;border-radius:50%;background:var(--acc,#9BE7F2);box-shadow:0 0 10px var(--acc,#9BE7F2);animation:reiBlink 2.4s ease-in-out infinite"></div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#8A9099">REI · ONLINE · SYNCED 2M</div>
+    </div>
+    <div onClick="{{ goSettings }}" style="width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.14);display:grid;place-items:center;font-size:14px;font-weight:500;cursor:pointer;background:rgba(255,255,255,.03)">H</div>
+  </div>
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#6E757F;margin-top:6px">FRI 02 OCT · WEEK 14 · DAY 5</div>
+
+  <div style="display:flex;align-items:center;gap:22px;margin-top:26px">
+    <div style="width:116px;height:116px;flex:none;display:grid;place-items:center">{{ coreHero }}</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B">INTEGRITY · 7 DAYS</div>
+      <div style="display:flex;align-items:baseline;gap:2px">
+        <div style="font-size:60px;font-weight:300;letter-spacing:-.05em;line-height:.9">{{ integrity }}</div>
+        <div style="font-size:20px;font-weight:300;color:#6E757F">%</div>
+      </div>
+      <div style="font-size:13px;color:#8A9099">{{ integrityNote }}</div>
+    </div>
+  </div>
+
+  <div style="margin-top:30px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B">REI · 17:52</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;padding:3px 7px;border-radius:5px;color:{{ heroTagColor }};border:1px solid {{ heroTagColor }}">{{ heroTag }}</div>
+    </div>
+    <p style="font-size:25px;line-height:1.2;letter-spacing:-.025em;font-weight:400;margin:12px 0 0;text-wrap:pretty">
+      <sc-for list="{{ heroParts }}" as="hp" hint-placeholder-count="3"><span style="color:{{ hp.color }}">{{ hp.t }}</span></sc-for>
+    </p>
+    <div onClick="{{ openTalk }}" style="margin-top:14px;display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--acc,#9BE7F2);cursor:pointer">Answer REI <span style="font-family:'Geist Mono',monospace">→</span></div>
+  </div>
+
+  <div style="position:relative;margin-top:26px;padding:20px;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.018));border:1px solid rgba(255,255,255,.08)">
+    <div style="position:absolute;top:-1px;left:-1px;width:24px;height:24px;border-top:1.5px solid var(--acc,#9BE7F2);border-left:1.5px solid var(--acc,#9BE7F2);border-top-left-radius:24px;opacity:.8"></div>
+    <div style="position:absolute;top:-1px;right:-1px;width:24px;height:24px;border-top:1.5px solid var(--acc,#9BE7F2);border-right:1.5px solid var(--acc,#9BE7F2);border-top-right-radius:24px;opacity:.8"></div>
+    <div style="position:absolute;bottom:-1px;left:-1px;width:24px;height:24px;border-bottom:1.5px solid var(--acc,#9BE7F2);border-left:1.5px solid var(--acc,#9BE7F2);border-bottom-left-radius:24px;opacity:.8"></div>
+    <div style="position:absolute;bottom:-1px;right:-1px;width:24px;height:24px;border-bottom:1.5px solid var(--acc,#9BE7F2);border-right:1.5px solid var(--acc,#9BE7F2);border-bottom-right-radius:24px;opacity:.8"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B">NEXT DIRECTIVE</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:var(--acc,#9BE7F2)">{{ dir.time }}</div>
+    </div>
+    <div style="font-size:34px;font-weight:500;letter-spacing:-.035em;margin-top:14px;line-height:1">{{ dir.title }}</div>
+    <div style="font-size:14px;color:#9AA1AA;margin-top:8px">{{ dir.sub }}</div>
+    <div style="display:flex;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)">
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.14em;color:#6E757F;padding-top:2px">WHY</div>
+      <div style="font-size:14px;line-height:1.45;color:#C3C8CF;text-wrap:pretty">{{ dir.why }}</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px">
+      <div onClick="{{ dir.onPrimary }}" style="flex:1;height:52px;border-radius:26px;background:var(--acc,#9BE7F2);color:#050608;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;letter-spacing:-.01em;cursor:pointer;box-shadow:0 0 28px color-mix(in oklab, var(--acc,#9BE7F2) 35%, transparent)">{{ dir.primary }}</div>
+      <div onClick="{{ dir.onSecondary }}" style="height:52px;padding:0 20px;border-radius:26px;border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:15px;color:#C3C8CF;cursor:pointer">{{ dir.secondary }}</div>
+    </div>
+  </div>
+
+  <div style="margin-top:34px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B">TODAY'S PROTOCOL</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.14em;color:#8A9099">{{ protocolCount }}</div>
+    </div>
+    <div style="margin-top:10px;display:flex;flex-direction:column">
+      <sc-for list="{{ protocol }}" as="r" hint-placeholder-count="5">
+        <div onClick="{{ r.go }}" style="padding:15px 0 14px;border-top:1px solid rgba(255,255,255,.06);cursor:pointer">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <div style="font-size:16px;font-weight:500;letter-spacing:-.01em">{{ r.label }}</div>
+              <div style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:11px;color:#5C636C">{{ r.jp }}</div>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:12px">
+              <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:#C9CED4">{{ r.value }}</div>
+              <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:{{ r.color }};min-width:62px;text-align:right">{{ r.status }}</div>
+            </div>
+          </div>
+          <div style="margin-top:11px;height:2px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:{{ r.pct }};background:{{ r.color }};box-shadow:0 0 10px {{ r.color }};transition:width .8s cubic-bezier(.2,.8,.2,1)"></div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="margin-top:24px;padding:18px;border-radius:22px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02)">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B">WEEK 14</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:{{ weekSummaryColor }}">{{ weekSummary }}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:16px">
+      <sc-for list="{{ week }}" as="d" hint-placeholder-count="7">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+          <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:#6E757F">{{ d.day }}</div>
+          <div style="width:100%;max-width:40px;aspect-ratio:1;border-radius:13px;display:grid;place-items:center;background:{{ d.bg }};border:1px solid {{ d.border }};color:{{ d.fg }};font-size:13px;font-weight:600;box-shadow:{{ d.glow }}">{{ d.mark }}</div>
+          <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:8.5px;letter-spacing:.08em;color:{{ d.labelColor }}">{{ d.type }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="font-size:14px;color:#9AA1AA;margin-top:16px;line-height:1.45;text-wrap:pretty">{{ weekNote }}</div>
+  </div>
+
+  <div onClick="{{ goVow }}" style="margin-top:12px;padding:18px;border-radius:22px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);cursor:pointer">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B">TRAJECTORY</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:{{ traj.etaColor }}">{{ traj.eta }}</div>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:10px;margin-top:10px">
+      <div style="font-size:34px;font-weight:300;letter-spacing:-.04em">{{ traj.weight }}</div>
+      <div style="font-size:15px;color:#8A9099">→ {{ traj.target }} kg</div>
+    </div>
+    <svg viewBox="0 0 320 70" style="width:100%;height:64px;margin-top:6px;overflow:visible">
+      <line x1="0" x2="320" y1="{{ traj.ty }}" y2="{{ traj.ty }}" stroke="rgba(255,255,255,.14)" stroke-dasharray="2 4"></line>
+      <path d="{{ traj.path }}" fill="none" stroke="var(--acc,#9BE7F2)" stroke-width="1.6" stroke-linejoin="round"></path>
+      <path d="{{ traj.proj }}" fill="none" stroke="var(--acc,#9BE7F2)" stroke-opacity=".45" stroke-width="1.2" stroke-dasharray="3 4"></path>
+      <circle cx="{{ traj.lx }}" cy="{{ traj.ly }}" r="3.5" fill="var(--acc,#9BE7F2)"></circle>
+    </svg>
+    <div style="font-size:14px;color:#9AA1AA;margin-top:8px;line-height:1.45">{{ traj.note }}</div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isVow }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="03 Vow" style="zoom:var(--tz,1);position:absolute;inset:0;overflow-y:auto;padding:62px 20px 128px;box-sizing:border-box">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding-top:6px">
+    <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#8A9099">THE VOW · 誓</div>
+    <div onClick="{{ editWithRei }}" style="font-size:14px;color:var(--acc,#9BE7F2);cursor:pointer">Rewrite with REI</div>
+  </div>
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#6E757F;margin-top:30px">IN YOUR WORDS</div>
+  <textarea value="{{ goal }}" onChange="{{ onGoal }}" rows="5" style="display:block;width:100%;box-sizing:border-box;margin-top:10px;background:transparent;border:0;padding:0;resize:none;font-size:27px;line-height:1.2;letter-spacing:-.025em;font-weight:400;color:#EDEFF2"></textarea>
+  <div style="font-size:13px;color:#6E757F;margin-top:6px">Tap to edit. REI holds you to exactly what's written here.</div>
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-top:26px;padding:18px 0;border-top:1px solid rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.07)">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B">DEADLINE</div>
+      <input type="date" value="{{ deadline }}" onChange="{{ onDeadline }}" style="background:transparent;border:0;padding:0;font-size:17px;color-scheme:dark;color:#EDEFF2">
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:44px;font-weight:300;letter-spacing:-.04em;line-height:1">{{ daysLeft }}</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.16em;color:#7A818B;margin-top:4px">DAYS LEFT</div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:28px">
+    <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B">BODY</div>
+    <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:{{ paceColor }}">{{ paceLabel }}</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px">
+    <sc-for list="{{ bodyCells }}" as="c" hint-placeholder-count="6">
+      <div style="padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)">
+        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#7A818B">{{ c.label }}</div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-top:8px">
+          <input inputMode="decimal" value="{{ c.value }}" onChange="{{ c.onChange }}" style="width:100%;min-width:0;background:transparent;border:0;padding:0;font-size:28px;font-weight:300;letter-spacing:-.03em">
+          <div style="font-size:13px;color:#6E757F">{{ c.unit }}</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B;margin-top:30px">DAILY TARGETS</div>
+  <div style="margin-top:8px;display:flex;flex-direction:column">
+    <sc-for list="{{ targetRows }}" as="t" hint-placeholder-count="5">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 0;border-top:1px solid rgba(255,255,255,.06)">
+        <div style="font-size:16px">{{ t.label }}</div>
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <input inputMode="decimal" value="{{ t.value }}" onChange="{{ t.onChange }}" style="width:90px;text-align:right;background:transparent;border:0;padding:0;font-family:'Geist Mono',ui-monospace,monospace;font-size:16px;color:var(--acc,#9BE7F2)">
+          <div style="font-size:13px;color:#6E757F;width:42px">{{ t.unit }}</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B;margin-top:30px">DISCIPLINES</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+    <sc-for list="{{ disciplines }}" as="ds" hint-placeholder-count="4">
+      <div onClick="{{ ds.toggle }}" style="height:40px;padding:0 16px;border-radius:20px;display:flex;align-items:center;font-size:14px;cursor:pointer;background:{{ ds.bg }};color:{{ ds.fg }};border:1px solid {{ ds.border }}">{{ ds.label }}</div>
+    </sc-for>
+  </div>
+
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B;margin-top:30px">BENCHMARKS</div>
+  <div style="margin-top:8px;display:flex;flex-direction:column">
+    <sc-for list="{{ benchmarks }}" as="b" hint-placeholder-count="5">
+      <div style="padding:14px 0;border-top:1px solid rgba(255,255,255,.06)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+          <div style="font-size:16px">{{ b.name }}</div>
+          <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:#C9CED4">{{ b.now }} <span style="color:#5C636C">→</span> {{ b.goal }}</div>
+        </div>
+        <div style="margin-top:10px;height:2px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:{{ b.pct }};background:var(--acc,#9BE7F2)"></div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div onClick="{{ goSettings }}" style="margin-top:30px;padding:18px;border-radius:22px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);display:flex;align-items:center;gap:16px;cursor:pointer">
+    <div style="width:44px;height:44px;flex:none;display:grid;place-items:center">{{ coreSmall }}</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div style="font-size:15px;font-weight:500">REI intensity · {{ toneLabel }}</div>
+      <div style="font-size:13px;color:#8A9099;line-height:1.4">{{ toneNote }}</div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="07 Settings" style="zoom:var(--tz,1);position:absolute;inset:0;overflow-y:auto;padding:62px 20px 128px;box-sizing:border-box">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding-top:6px">
+    <div onClick="{{ goToday }}" style="width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.12);display:grid;place-items:center;font-size:18px;color:#C3C8CF;cursor:pointer">‹</div>
+    <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#8A9099">SETTINGS · 設定</div>
+    <div style="width:36px"></div>
+  </div>
+  <div onClick="{{ goVow }}" style="margin-top:24px;padding:16px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:14px;cursor:pointer">
+    <div style="width:56px;height:56px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:22px;font-weight:500;background:color-mix(in oklab, var(--acc,#9BE7F2) 16%, #0A0C0F);border:1px solid color-mix(in oklab, var(--acc,#9BE7F2) 45%, transparent);color:var(--acc,#9BE7F2)">H</div>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+      <div style="font-size:18px;font-weight:500;letter-spacing:-.01em">Hemprasad</div>
+      <div style="font-size:13px;color:#8A9099">{{ profileLine }}</div>
+    </div>
+    <div style="font-size:13px;color:var(--acc,#9BE7F2)">Vow ›</div>
+  </div>
+
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B;margin-top:30px">DISPLAY</div>
+  <div style="margin-top:10px;padding:0 16px;border-radius:20px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)">
+    <div onClick="{{ goAppearance }}" style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <div style="width:36px;height:36px;flex:none;border-radius:10px;background:linear-gradient(135deg, {{ curTheme.acc }} 0%, {{ curTheme.acc }} 48%, {{ curTheme.acc2 }} 52%, {{ curTheme.acc2 }} 100%);display:grid;place-items:center;font-family:'Zen Kaku Gothic New',sans-serif;font-size:16px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6)">{{ curTheme.kanji }}</div>
+        <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+          <div style="font-size:16px">Appearance</div>
+          <div style="font-size:13px;color:#6E757F">{{ appearanceSub }}</div>
+        </div>
+      </div>
+      <div style="font-size:18px;color:#5C636C">›</div>
+    </div>
+    <div style="padding:14px 0">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div style="font-size:16px">Text size</div>
+        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--acc,#9BE7F2)">{{ textSizeLabel }}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+        <div style="font-size:12px;color:#8A9099">A</div>
+        <div style="flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:3px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)">
+          <sc-for list="{{ textSizeOpts }}" as="ts" hint-placeholder-count="4"><div onClick="{{ ts.pick }}" style="height:32px;border-radius:9px;display:grid;place-items:center;font-size:{{ ts.px }};cursor:pointer;background:{{ ts.bg }};color:{{ ts.fg }}">Aa</div></sc-for>
+        </div>
+        <div style="font-size:18px;color:#8A9099">A</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B;margin-top:30px">REI</div>
+  <div style="margin-top:10px;padding:0 16px;border-radius:20px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+        <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+          <div style="font-size:16px">Intensity</div>
+          <div style="font-size:13px;color:#6E757F;line-height:1.35">{{ intensitySub }}</div>
+        </div>
+        <div style="display:flex;flex:none;padding:3px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)">
+          <sc-for list="{{ toneOpts }}" as="o" hint-placeholder-count="2"><div onClick="{{ o.pick }}" style="padding:7px 11px;border-radius:9px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</div></sc-for>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+        <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+          <div style="font-size:16px">In conversation</div>
+          <div style="font-size:13px;color:#6E757F;line-height:1.35">Show her portrait or the core</div>
+        </div>
+        <div style="display:flex;flex:none;padding:3px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)">
+          <sc-for list="{{ avatarOpts }}" as="o" hint-placeholder-count="2"><div onClick="{{ o.pick }}" style="padding:7px 11px;border-radius:9px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</div></sc-for>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+        <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+          <div style="font-size:16px">Speak replies aloud</div>
+          <div style="font-size:13px;color:#6E757F;line-height:1.35">In voice mode</div>
+        </div>
+        <div onClick="{{ tSpeak.toggle }}" style="width:48px;height:28px;flex:none;border-radius:14px;padding:3px;box-sizing:border-box;cursor:pointer;background:{{ tSpeak.bg }};display:flex;justify-content:{{ tSpeak.justify }};transition:background .2s"><div style="width:22px;height:22px;border-radius:50%;background:{{ tSpeak.knob }}"></div></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;">
+        <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+          <div style="font-size:16px">Proactive check-ins</div>
+          <div style="font-size:13px;color:#6E757F;line-height:1.35">REI messages you when you slip</div>
+        </div>
+        <div onClick="{{ tNudge.toggle }}" style="width:48px;height:28px;flex:none;border-radius:14px;padding:3px;box-sizing:border-box;cursor:pointer;background:{{ tNudge.bg }};display:flex;justify-content:{{ tNudge.justify }};transition:background .2s"><div style="width:22px;height:22px;border-radius:50%;background:{{ tNudge.knob }}"></div></div>
+      </div>
+  </div>
+
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B;margin-top:30px">DEMO</div>
+  <div style="margin-top:10px;padding:0 16px;border-radius:20px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;">
+        <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+          <div style="font-size:16px">Week scenario</div>
+          <div style="font-size:13px;color:#6E757F;line-height:1.35">Preview how REI reacts</div>
+        </div>
+        <div style="display:flex;flex:none;padding:3px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)">
+          <sc-for list="{{ scenarioOpts }}" as="o" hint-placeholder-count="2"><div onClick="{{ o.pick }}" style="padding:7px 11px;border-radius:9px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</div></sc-for>
+        </div>
+      </div>
+  </div>
+
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B;margin-top:30px">DATA</div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+    <div onClick="{{ clearChat }}" style="height:50px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);display:flex;align-items:center;padding:0 16px;font-size:15px;color:#C3C8CF;cursor:pointer">Clear conversation</div>
+    <div onClick="{{ resetDay }}" style="height:50px;border-radius:16px;border:1px solid rgba(255,90,60,.3);background:rgba(255,90,60,.05);display:flex;align-items:center;padding:0 16px;font-size:15px;color:#FF7A5F;cursor:pointer">Reset today's log</div>
+  </div>
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#4A5058;text-align:center;margin-top:26px">REI · 零 · BUILD 0.4</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isAppearance }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="08 Appearance" style="zoom:var(--tz,1);position:absolute;inset:0;overflow-y:auto;padding:62px 20px 128px;box-sizing:border-box">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding-top:6px">
+    <div onClick="{{ goSettings }}" style="width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.12);display:grid;place-items:center;font-size:18px;color:#C3C8CF;cursor:pointer">‹</div>
+    <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#8A9099">APPEARANCE · 外観</div>
+    <div style="width:36px"></div>
+  </div>
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B;margin-top:26px">THEME</div>
+  <div style="margin-top:10px;padding:16px;border-radius:20px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)">
+    <div style="font-size:16px">Theme</div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px">
+      <sc-for list="{{ themeOpts }}" as="th" hint-placeholder-count="6">
+        <div onClick="{{ th.pick }}" style="border-radius:18px;overflow:hidden;cursor:pointer;border:1px solid {{ th.border }};background:{{ th.bg }};box-shadow:{{ th.glow }}">
+          <div style="position:relative;height:64px;background:linear-gradient(135deg, {{ th.acc }} 0%, {{ th.acc }} 48%, {{ th.acc2 }} 52%, {{ th.acc2 }} 100%);display:flex;align-items:center;justify-content:center">
+            <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 30%,rgba(0,0,0,.55))"></div>
+            <div style="position:relative;font-family:'Zen Kaku Gothic New',sans-serif;font-size:30px;font-weight:500;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.6)">{{ th.kanji }}</div>
+          </div>
+          <div style="padding:10px 12px 12px;display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+              <div style="font-size:15px;font-weight:500">{{ th.name }}</div>
+              <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:{{ th.acc }}">{{ th.check }}</div>
+            </div>
+            <div style="font-size:12px;color:#7A818B">{{ th.vibe }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="font-size:16px;margin-top:22px">Accent override</div>
+    <div style="display:flex;gap:12px;margin-top:12px">
+      <sc-for list="{{ accentOpts }}" as="a" hint-placeholder-count="5">
+        <div onClick="{{ a.pick }}" style="width:40px;height:40px;border-radius:50%;display:grid;place-items:center;cursor:pointer;border:1.5px solid {{ a.ring }}">
+          <div style="width:28px;height:28px;border-radius:50%;background:{{ a.color }};box-shadow:0 0 14px {{ a.glow }}"></div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="font-size:16px;margin-top:22px">Typeface</div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px">
+      <sc-for list="{{ fontOpts }}" as="fo" hint-placeholder-count="4">
+        <div onClick="{{ fo.pick }}" style="padding:12px 14px;border-radius:16px;cursor:pointer;background:{{ fo.bg }};border:1px solid {{ fo.border }};display:flex;flex-direction:column;gap:6px">
+          <div style="font-family:{{ fo.family }};font-size:26px;font-weight:400;letter-spacing:-.03em;line-height:1">Aa 零</div>
+          <div style="font-family:{{ fo.family }};font-size:13px;color:{{ fo.fg }}">{{ fo.label }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="margin-top:10px;padding:0 16px;border-radius:20px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+        <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+          <div style="font-size:16px">Japanese accents</div>
+          <div style="font-size:13px;color:#6E757F;line-height:1.35">Kanji labels and side text</div>
+        </div>
+        <div onClick="{{ tJp.toggle }}" style="width:48px;height:28px;flex:none;border-radius:14px;padding:3px;box-sizing:border-box;cursor:pointer;background:{{ tJp.bg }};display:flex;justify-content:{{ tJp.justify }};transition:background .2s"><div style="width:22px;height:22px;border-radius:50%;background:{{ tJp.knob }}"></div></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;">
+        <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+          <div style="font-size:16px">HUD texture</div>
+          <div style="font-size:13px;color:#6E757F;line-height:1.35">Background grid and scanlines</div>
+        </div>
+        <div onClick="{{ tFx.toggle }}" style="width:48px;height:28px;flex:none;border-radius:14px;padding:3px;box-sizing:border-box;cursor:pointer;background:{{ tFx.bg }};display:flex;justify-content:{{ tFx.justify }};transition:background .2s"><div style="width:22px;height:22px;border-radius:50%;background:{{ tFx.knob }}"></div></div>
+      </div>
+  </div>
+
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B;margin-top:30px">REI BACKGROUND</div>
+  <div style="margin-top:10px;padding:16px;border-radius:20px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+      <div style="font-size:16px">{{ bgThemeName }} collection</div>
+      <div style="font-size:12px;color:#6E757F">Tap to use</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px">
+      <div onClick="{{ bgNone.pick }}" style="display:flex;flex-direction:column;gap:6px;cursor:pointer">
+        <div style="aspect-ratio:1;border-radius:14px;border:1.5px solid {{ bgNone.ring }};background:var(--bg,#050608);display:grid;place-items:center;font-family:'Zen Kaku Gothic New',sans-serif;font-size:22px;color:#4A5058">無</div>
+        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.12em;text-align:center;color:{{ bgNone.fg }}">{{ bgNone.label }}</div>
+      </div>
+      <sc-if value="{{ noEmblems }}" hint-placeholder-val="{{ false }}">
+        <div style="grid-column:span 2;aspect-ratio:2/1;border-radius:14px;border:1px dashed rgba(255,255,255,.12);display:grid;place-items:center;text-align:center;padding:10px;font-size:12px;line-height:1.4;color:#6E757F">Emblems for this theme are coming soon.</div>
+      </sc-if>
+      <sc-for list="{{ emblemItems }}" as="em" hint-placeholder-count="1">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div onClick="{{ em.pick }}" style="position:relative;aspect-ratio:1;border-radius:14px;cursor:pointer;border:1.5px solid {{ em.ring }};box-shadow:{{ em.glow }};background-color:rgba(255,255,255,.04);background-image:{{ em.bgImg }};background-size:78%;background-position:center;background-repeat:no-repeat"></div>
+          <div onClick="{{ em.pick }}" style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.12em;text-align:center;cursor:pointer;color:{{ em.fg }}">{{ em.label }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:18px">
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <div style="font-size:16px">Emblem strength</div>
+        <div style="font-size:13px;color:#6E757F">Watermark behind your screens</div>
+      </div>
+      <div style="display:flex;flex:none;padding:3px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)">
+        <sc-for list="{{ bgStrengthOpts }}" as="o" hint-placeholder-count="3"><div onClick="{{ o.pick }}" style="padding:7px 11px;border-radius:9px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</div></sc-for>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px">
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <div style="font-size:16px">Emblem size</div>
+        <div style="font-size:13px;color:#6E757F">Small, medium, large</div>
+      </div>
+      <div style="display:flex;flex:none;padding:3px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)">
+        <sc-for list="{{ emblemSizeOpts }}" as="o" hint-placeholder-count="3"><div onClick="{{ o.pick }}" style="padding:7px 11px;border-radius:9px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</div></sc-for>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px">
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <div style="font-size:16px">Position</div>
+        <div style="font-size:13px;color:#6E757F">Where it sits</div>
+      </div>
+      <div style="display:flex;flex:none;padding:3px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)">
+        <sc-for list="{{ emblemPosOpts }}" as="o" hint-placeholder-count="3"><div onClick="{{ o.pick }}" style="padding:7px 11px;border-radius:9px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</div></sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isFuel }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="06 Fuel" style="zoom:var(--tz,1);position:absolute;inset:0;overflow-y:auto;padding:62px 20px 128px;box-sizing:border-box">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding-top:6px">
+    <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#8A9099">FUEL · 食</div>
+    <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#6E757F">FRI 02 OCT · {{ mealCount }}</div>
+  </div>
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-top:28px">
+    <div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B">{{ kcalLeftLabel }}</div>
+      <div style="font-size:64px;font-weight:300;letter-spacing:-.05em;line-height:.95;margin-top:6px;color:{{ kcalLeftColor }}">{{ kcalLeft }}</div>
+    </div>
+    <div style="text-align:right;padding-bottom:6px">
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:15px;color:#C9CED4">{{ kcalEaten }} <span style="color:#5C636C">/ {{ kcalTarget }}</span></div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#7A818B;margin-top:4px">EATEN · TARGET</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;background:rgba(255,255,255,.06);margin-top:16px">
+    <sc-for list="{{ kcalSegs }}" as="sg" hint-placeholder-count="3"><div style="height:100%;width:{{ sg.w }};background:{{ sg.color }};transition:width .8s cubic-bezier(.2,.8,.2,1)"></div></sc-for>
+  </div>
+  <div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap">
+    <sc-for list="{{ kcalLegend }}" as="lg" hint-placeholder-count="3">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:6px;height:6px;border-radius:50%;background:{{ lg.color }}"></div>
+        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.12em;color:#8A9099">{{ lg.t }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:22px">
+    <sc-for list="{{ macros }}" as="mc" hint-placeholder-count="3">
+      <div style="padding:16px 6px 14px;border-radius:20px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="position:relative;width:76px;height:76px">
+          <svg viewBox="0 0 76 76" style="width:76px;height:76px;transform:rotate(-90deg)">
+            <circle cx="38" cy="38" r="32" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="4"></circle>
+            <circle cx="38" cy="38" r="32" fill="none" stroke="{{ mc.color }}" stroke-width="4" stroke-linecap="round" stroke-dasharray="{{ mc.dash }}" style="transition:stroke-dasharray .8s cubic-bezier(.2,.8,.2,1)"></circle>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="font-size:22px;font-weight:400;letter-spacing:-.03em;line-height:1">{{ mc.eaten }}</div>
+            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:#6E757F;margin-top:3px">/ {{ mc.target }}g</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <div style="font-size:14px;font-weight:500">{{ mc.label }}</div>
+          <div style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:10px;color:#5C636C">{{ mc.jp }}</div>
+        </div>
+        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.12em;color:{{ mc.statusColor }}">{{ mc.status }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="margin-top:12px;padding:16px;border-radius:20px;border:1px solid {{ fuelBorder }};background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));display:flex;gap:12px">
+    <div style="width:30px;height:30px;flex:none;display:grid;place-items:center">{{ coreFuel }}</div>
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:{{ fuelTagColor }}">REI · {{ fuelTag }}</div>
+      <div style="font-size:15px;line-height:1.45;color:#E6E9ED;text-wrap:pretty">{{ fuelVerdict }}</div>
+    </div>
+  </div>
+
+  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B;margin-top:28px">LOG A MEAL</div>
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <div style="flex:1;height:50px;border-radius:25px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;padding:0 18px">
+      <input ref="{{ fuelRef }}" value="{{ fuelDraft }}" onChange="{{ onFuelDraft }}" onKeyDown="{{ onFuelKey }}" placeholder="Describe it. REI does the math" style="flex:1;min-width:0;background:transparent;border:0;font-size:16px;color:#EDEFF2">
+    </div>
+    <div onClick="{{ logFuel }}" style="width:50px;height:50px;flex:none;border-radius:50%;background:{{ logBg }};color:{{ logFg }};display:grid;place-items:center;font-size:22px;font-weight:500;cursor:pointer">{{ logIcon }}</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+    <sc-for list="{{ fuelQuick }}" as="fq" hint-placeholder-count="4">
+      <div onClick="{{ fq.onClick }}" style="height:34px;padding:0 13px;border-radius:17px;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;font-size:13px;color:#C3C8CF;cursor:pointer;background:rgba(255,255,255,.02)">{{ fq.t }}</div>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:30px">
+    <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#7A818B">LOGGED TODAY</div>
+    <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#8A9099">{{ kcalEaten }} KCAL</div>
+  </div>
+  <div style="margin-top:8px;display:flex;flex-direction:column">
+    <sc-for list="{{ fuelMeals }}" as="ml" hint-placeholder-count="3">
+      <div style="display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-top:1px solid rgba(255,255,255,.06)">
+        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:#6E757F;width:38px;flex:none;padding-top:4px">{{ ml.time }}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+            <div style="font-size:16px;font-weight:500;letter-spacing:-.01em">{{ ml.name }}</div>
+            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:#C9CED4;flex:none">{{ ml.kcalL }}</div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:6px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px">
+            <div style="color:var(--acc,#9BE7F2)">P {{ ml.p }}</div>
+            <div style="color:#E8C27A">C {{ ml.c }}</div>
+            <div style="color:#B8A6FF">F {{ ml.f }}</div>
+          </div>
+        </div>
+        <div onClick="{{ ml.remove }}" style="width:28px;height:28px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:12px;color:#5C636C;cursor:pointer">✕</div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isTalk }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="02 Talk" style="zoom:var(--tz,1);position:absolute;inset:0;display:flex;flex-direction:column">
+  <div style="padding:58px 16px 12px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(5,6,8,.95),rgba(5,6,8,.75));backdrop-filter:blur(20px);position:relative;z-index:2">
+    <div onClick="{{ goToday }}" style="width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.12);display:grid;place-items:center;font-size:20px;color:#C3C8CF;cursor:pointer;flex:none">‹</div>
+    <div style="position:relative;width:48px;height:48px;flex:none;display:grid;place-items:center">
+      <sc-if value="{{ showCharacter }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0;border-radius:50%;border:1px solid var(--acc,#9BE7F2);box-shadow:0 0 14px color-mix(in oklab, var(--acc,#9BE7F2) 40%, transparent)"></div>
+        <image-slot id="{{ portraitChatId }}" shape="circle" placeholder="REI" style="width:42px;height:42px"></image-slot>
+      </sc-if>
+      <sc-if value="{{ showCoreAvatar }}" hint-placeholder-val="{{ false }}">{{ coreChat }}</sc-if>
+    </div>
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <div style="font-size:18px;font-weight:600;letter-spacing:-.01em">REI</div>
+        <div style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:13px;color:#7A818B">零</div>
+      </div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:var(--acc,#9BE7F2);margin-top:3px">{{ talkStatus }}</div>
+    </div>
+    <div onClick="{{ openVoice }}" style="width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;gap:2px;cursor:pointer;flex:none">
+      <div style="width:2px;height:8px;border-radius:2px;background:#C3C8CF"></div>
+      <div style="width:2px;height:16px;border-radius:2px;background:#C3C8CF"></div>
+      <div style="width:2px;height:11px;border-radius:2px;background:#C3C8CF"></div>
+      <div style="width:2px;height:6px;border-radius:2px;background:#C3C8CF"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:6px;padding:10px 16px;overflow-x:auto;flex:none;border-bottom:1px solid rgba(255,255,255,.04)">
+    <sc-for list="{{ contextChips }}" as="cc" hint-placeholder-count="4">
+      <div style="flex:none;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.12em;padding:5px 9px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);color:{{ cc.color }}">{{ cc.t }}</div>
+    </sc-for>
+  </div>
+  <div ref="{{ chatRef }}" style="flex:1;overflow-y:auto;padding:18px 18px 12px;display:flex;flex-direction:column;gap:16px">
+    <sc-for list="{{ messages }}" as="m" hint-placeholder-count="4">
+      <sc-if value="{{ m.isRei }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:6px;max-width:88%;align-self:flex-start">
+          <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:{{ m.labelColor }}">{{ m.label }}</div>
+          <div style="font-size:16px;line-height:1.45;color:#E6E9ED;padding:13px 16px;border-radius:4px 20px 20px 20px;background:rgba(255,255,255,.045);border:1px solid {{ m.border }};text-wrap:pretty">{{ m.text }}</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:80%;align-self:flex-end">
+          <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#5C636C">YOU · {{ m.time }}</div>
+          <div style="font-size:16px;line-height:1.45;color:#EDEFF2;padding:12px 16px;border-radius:20px 20px 4px 20px;background:color-mix(in oklab, var(--acc,#9BE7F2) 14%, #0A0C0F);border:1px solid color-mix(in oklab, var(--acc,#9BE7F2) 28%, transparent)">{{ m.text }}</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ m.isSys }}" hint-placeholder-val="{{ false }}">
+        <div style="align-self:center;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:var(--acc,#9BE7F2);padding:6px 12px;border-radius:8px;border:1px dashed color-mix(in oklab, var(--acc,#9BE7F2) 45%, transparent)">{{ m.text }}</div>
+      </sc-if>
+    </sc-for>
+    <sc-if value="{{ thinking }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:10px;align-self:flex-start">
+        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#7A818B">REI IS READING YOU</div>
+        {{ dots }}
+      </div>
+    </sc-if>
+  </div>
+  <div style="flex:none;padding:8px 0 30px;background:linear-gradient(180deg,rgba(5,6,8,0),rgba(5,6,8,.95) 30%)">
+    <div style="display:flex;gap:8px;overflow-x:auto;padding:0 16px 10px">
+      <sc-for list="{{ quick }}" as="q" hint-placeholder-count="4">
+        <div onClick="{{ q.onClick }}" style="flex:none;height:36px;padding:0 14px;border-radius:18px;border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;font-size:14px;color:#C3C8CF;cursor:pointer;background:rgba(255,255,255,.03)">{{ q.t }}</div>
+      </sc-for>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:0 16px">
+      <div style="flex:1;height:50px;border-radius:25px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;padding:0 18px">
+        <input ref="{{ inputRef }}" value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="Talk to REI…" style="flex:1;min-width:0;background:transparent;border:0;font-size:16px;color:#EDEFF2">
+      </div>
+      <sc-if value="{{ hasDraft }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ sendDraft }}" style="width:50px;height:50px;border-radius:50%;background:var(--acc,#9BE7F2);color:#050608;display:grid;place-items:center;font-size:20px;font-weight:600;cursor:pointer">↑</div>
+      </sc-if>
+      <sc-if value="{{ noDraft }}" hint-placeholder-val="{{ true }}">
+        <div onClick="{{ openVoice }}" style="width:50px;height:50px;border-radius:50%;background:var(--acc,#9BE7F2);display:flex;align-items:center;justify-content:center;gap:3px;cursor:pointer;box-shadow:0 0 22px color-mix(in oklab, var(--acc,#9BE7F2) 35%, transparent)">
+          <div style="width:2.5px;height:9px;border-radius:2px;background:#050608"></div>
+          <div style="width:2.5px;height:18px;border-radius:2px;background:#050608"></div>
+          <div style="width:2.5px;height:12px;border-radius:2px;background:#050608"></div>
+          <div style="width:2.5px;height:7px;border-radius:2px;background:#050608"></div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showTabs }}" hint-placeholder-val="{{ true }}">
+  <div style="position:absolute;left:24px;right:24px;bottom:26px;height:66px;border-radius:33px;background:rgba(16,18,22,.72);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:1px solid rgba(255,255,255,.09);display:flex;align-items:center;gap:6px;padding:0 7px;box-shadow:0 24px 48px rgba(0,0,0,.6);z-index:5">
+    <div onClick="{{ goToday }}" style="flex:1;height:52px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;background:{{ tabToday.bg }}">
+      <div style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;color:{{ tabToday.fg }}">今日</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:9px;letter-spacing:.16em;color:{{ tabToday.fg }}">TODAY</div>
+    </div>
+    <div onClick="{{ goFuel }}" style="flex:1;height:52px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;background:{{ tabFuel.bg }}">
+      <div style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;color:{{ tabFuel.fg }}">食</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:9px;letter-spacing:.16em;color:{{ tabFuel.fg }}">FUEL</div>
+    </div>
+    <div onClick="{{ openTalk }}" style="flex:1;height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer">
+      <div style="width:32px;height:32px;display:grid;place-items:center">{{ coreTab }}</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.16em;color:#C3C8CF">REI</div>
+    </div>
+    <div onClick="{{ goVow }}" style="flex:1;height:52px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;background:{{ tabVow.bg }}">
+      <div style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;color:{{ tabVow.fg }}">誓</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:9px;letter-spacing:.16em;color:{{ tabVow.fg }}">VOW</div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sessionOn }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="04 Session" style="zoom:var(--tz,1);position:absolute;inset:0;background:var(--bg,#050608);z-index:8;display:flex;flex-direction:column">
+  <div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(100% 40% at 50% 0%, color-mix(in oklab, var(--acc,#9BE7F2) 10%, transparent), transparent 70%)"></div>
+<sc-if value="{{ hasEmblem }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;pointer-events:none;display:flex;justify-content:center;align-items:{{ emblemAlign }};padding:120px 0 150px;box-sizing:border-box;mix-blend-mode:screen">
+  <div style="width:{{ emblemSize }};height:{{ emblemSize }};opacity:{{ bgOpacity }};filter:saturate(.85);-webkit-mask-image:radial-gradient(circle, #000 52%, transparent 74%);mask-image:radial-gradient(circle, #000 52%, transparent 74%);transition:all .4s">
+    <div style="width:100%;height:100%;background-image:{{ emblemBg }};background-size:contain;background-position:center;background-repeat:no-repeat"></div>
+  </div>
+</div>
+</sc-if>
+  <div style="padding:60px 20px 0;position:relative">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div onClick="{{ closeSession }}" style="width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.12);display:grid;place-items:center;font-size:15px;color:#C3C8CF;cursor:pointer">✕</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:#8A9099">SESSION · PUSH · 押</div>
+      <div style="width:40px"></div>
+    </div>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:22px">
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:52px;font-weight:400;letter-spacing:-.04em;line-height:1">{{ timer }}</div>
+      <div style="text-align:right">
+        <div style="font-size:24px;font-weight:300;letter-spacing:-.02em">{{ setsDone }}<span style="color:#6E757F"> / {{ setsTotal }}</span></div>
+        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.16em;color:#7A818B">SETS</div>
+      </div>
+    </div>
+    <div style="margin-top:14px;height:2px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden"><div style="height:100%;width:{{ setsPct }};background:var(--acc,#9BE7F2);box-shadow:0 0 10px var(--acc,#9BE7F2);transition:width .4s"></div></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:16px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07)">
+      <div style="width:30px;height:30px;flex:none;display:grid;place-items:center">{{ coreSession }}</div>
+      <div style="font-size:14px;line-height:1.4;color:#D6DAE0">{{ sessionLine }}</div>
+    </div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:8px 20px 20px;position:relative">
+    <sc-for list="{{ exercises }}" as="ex" hint-placeholder-count="6">
+      <div style="padding:16px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+          <div style="font-size:17px;font-weight:500;letter-spacing:-.01em">{{ ex.name }}</div>
+          <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:#C3C8CF">{{ ex.target }}</div>
+        </div>
+        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:#6E757F;margin-top:4px">{{ ex.last }}</div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <sc-for list="{{ ex.sets }}" as="st" hint-placeholder-count="3">
+            <div onClick="{{ st.toggle }}" style="width:48px;height:44px;border-radius:14px;display:grid;place-items:center;font-family:'Geist Mono',ui-monospace,monospace;font-size:14px;cursor:pointer;background:{{ st.bg }};color:{{ st.fg }};border:1px solid {{ st.border }};transition:all .2s">{{ st.reps }}</div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="padding:12px 20px 34px;border-top:1px solid rgba(255,255,255,.06);position:relative">
+    <div onClick="{{ completeSession }}" style="height:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;cursor:pointer;background:{{ completeBg }};color:{{ completeFg }}">{{ completeLabel }}</div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ voiceOn }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="05 Voice" style="zoom:var(--tz,1);position:absolute;inset:0;z-index:9;background:var(--bg,#050608);display:flex;flex-direction:column">
+  <div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(90% 38% at 50% 100%, color-mix(in oklab, var(--acc,#9BE7F2) 14%, transparent), transparent 70%)"></div>
+<sc-if value="{{ hasEmblem }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;pointer-events:none;display:flex;justify-content:center;align-items:{{ emblemAlign }};padding:120px 0 150px;box-sizing:border-box;mix-blend-mode:screen">
+  <div style="width:{{ emblemSize }};height:{{ emblemSize }};opacity:{{ bgOpacity }};filter:saturate(.85);-webkit-mask-image:radial-gradient(circle, #000 52%, transparent 74%);mask-image:radial-gradient(circle, #000 52%, transparent 74%);transition:all .4s">
+    <div style="width:100%;height:100%;background-image:{{ emblemBg }};background-size:contain;background-position:center;background-repeat:no-repeat"></div>
+  </div>
+</div>
+</sc-if>
+  <div style="position:relative;flex:none;padding:54px 16px 8px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.06)">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="font-size:14px;font-weight:600">Voice</div>
+      <div style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:11px;color:#7A818B">声</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:9px;letter-spacing:.14em;color:var(--acc,#9BE7F2)">· {{ voicePhase }}</div>
+    </div>
+    <div onClick="{{ closeVoice }}" style="width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.12);display:grid;place-items:center;font-size:12px;color:#C3C8CF;cursor:pointer">✕</div>
+  </div>
+  <div ref="{{ voiceRef }}" style="position:relative;flex:1;overflow-y:auto;padding:22px 22px 16px;display:flex;flex-direction:column;gap:24px">
+    <sc-if value="{{ voiceEmpty }}" hint-placeholder-val="{{ true }}">
+      <div style="margin:auto 0;display:flex;flex-direction:column;gap:10px;text-align:center">
+        <div style="font-size:24px;font-weight:400;letter-spacing:-.025em;color:#EDEFF2">What's on your mind?</div>
+        <div style="font-size:15px;line-height:1.45;color:#7A818B">Tap the core and talk. I'll answer out loud.</div>
+      </div>
+    </sc-if>
+    <sc-for list="{{ voiceTurns }}" as="vt" hint-placeholder-count="0">
+      <sc-if value="{{ vt.isRei }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:8px;max-width:94%">
+          <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#7A818B">REI · {{ vt.time }}</div>
+          <div style="font-size:20px;line-height:1.3;letter-spacing:-.02em;font-weight:500;color:#EDEFF2;text-wrap:pretty">{{ vt.lead }}</div>
+          <sc-if value="{{ vt.hasRest }}" hint-placeholder-val="{{ true }}">
+            <div style="font-size:16px;line-height:1.55;color:#AEB4BC;text-wrap:pretty;white-space:pre-line">{{ vt.rest }}</div>
+          </sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ vt.isUser }}" hint-placeholder-val="{{ false }}">
+        <div style="align-self:flex-end;display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:82%">
+          <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#5C636C">YOU · {{ vt.time }}</div>
+          <div style="font-size:16px;line-height:1.45;color:#EDEFF2;padding:11px 15px;border-radius:18px 18px 4px 18px;background:color-mix(in oklab, var(--acc,#9BE7F2) 14%, #0A0C0F);border:1px solid color-mix(in oklab, var(--acc,#9BE7F2) 28%, transparent)">{{ vt.text }}</div>
+        </div>
+      </sc-if>
+    </sc-for>
+    <sc-if value="{{ voiceInterimOn }}" hint-placeholder-val="{{ false }}">
+      <div style="align-self:flex-end;max-width:82%;font-size:16px;line-height:1.45;color:#8A9099;padding:11px 15px;border-radius:18px 18px 4px 18px;border:1px dashed rgba(255,255,255,.18)">{{ voiceInterim }}</div>
+    </sc-if>
+    <sc-if value="{{ voiceThinking }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#7A818B">REI</div>
+        {{ dots }}
+      </div>
+    </sc-if>
+  </div>
+  <div style="position:relative;flex:none;padding:4px 18px 22px;display:flex;flex-direction:column;gap:8px">
+    <sc-if value="{{ voiceTyping }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:8px">
+        <div style="flex:1;height:48px;border-radius:24px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;padding:0 16px">
+          <input value="{{ voiceDraft }}" onChange="{{ onVoiceDraft }}" onKeyDown="{{ onVoiceKey }}" placeholder="Type to REI…" autoFocus="{{ true }}" style="flex:1;min-width:0;background:transparent;border:0;font-size:16px;color:#EDEFF2">
+        </div>
+        <div onClick="{{ voiceSendDraft }}" style="width:48px;height:48px;flex:none;border-radius:50%;background:var(--acc,#9BE7F2);color:#050608;display:grid;place-items:center;font-size:19px;font-weight:600;cursor:pointer">↑</div>
+      </div>
+    </sc-if>
+    <div style="display:grid;grid-template-columns:44px 1fr 44px;align-items:center">
+      <div onClick="{{ toggleTyping }}" style="width:44px;height:44px;border-radius:50%;border:1px solid {{ typeBorder }};background:{{ typeBg }};display:grid;place-items:center;font-size:13px;font-weight:500;color:#C3C8CF;cursor:pointer">Aa</div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div onClick="{{ micTap }}" style="width:76px;height:76px;display:grid;place-items:center;cursor:pointer">{{ coreVoice }}</div>
+        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:9px;letter-spacing:.16em;color:{{ coreHintColor }}">{{ coreHint }}</div>
+      </div>
+      <div onClick="{{ closeVoice }}" style="width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.12);display:grid;place-items:center;font-size:15px;color:#C3C8CF;cursor:pointer">✓</div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<div style="position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:6px 34px 0 42px;box-sizing:border-box;z-index:20;pointer-events:none">
+  <div style="font-family:-apple-system,'SF Pro Text',system-ui;font-weight:600;font-size:16px;color:#fff">{{ clock }}</div>
+  <div style="display:flex;align-items:center;gap:6px">
+    <svg width="18" height="12" viewBox="0 0 19 12"><rect x="0" y="7.5" width="3.2" height="4.5" rx=".7" fill="#fff"></rect><rect x="4.8" y="5" width="3.2" height="7" rx=".7" fill="#fff"></rect><rect x="9.6" y="2.5" width="3.2" height="9.5" rx=".7" fill="#fff"></rect><rect x="14.4" y="0" width="3.2" height="12" rx=".7" fill="#fff"></rect></svg>
+    <svg width="26" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#fff" stroke-opacity=".35" fill="none"></rect><rect x="2" y="2" width="15" height="9" rx="2" fill="#fff"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="#fff" fill-opacity=".4"></path></svg>
+  </div>
+</div>
+<div style="position:absolute;top:11px;left:50%;width:124px;height:36px;margin-left:-62px;border-radius:20px;background:#000;z-index:21"></div>
+<div style="position:absolute;bottom:8px;left:50%;width:136px;height:5px;margin-left:-68px;border-radius:3px;background:rgba(255,255,255,.7);z-index:21;pointer-events:none"></div>
+<sc-if value="{{ hudFx }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;inset:0;pointer-events:none;z-index:22;background:repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px)"></div></sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#9BE7F2&quot;,&quot;options&quot;:[&quot;#9BE7F2&quot;,&quot;#FF6A4D&quot;,&quot;#B8A6FF&quot;,&quot;#E9E3D3&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Look&quot;},&quot;hud&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Look&quot;},&quot;avatar&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Character in chat&quot;,&quot;Core only&quot;],&quot;default&quot;:&quot;Character in chat&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Look&quot;},&quot;scenario&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Slipping week&quot;,&quot;Strong week&quot;],&quot;default&quot;:&quot;Slipping week&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Story&quot;},&quot;tone&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Tough love&quot;,&quot;Coach&quot;],&quot;default&quot;:&quot;Tough love&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Story&quot;}}">
+class Component extends DCLogic {
+  rootRef = React.createRef();
+  chatRef = React.createRef();
+  voiceRef = React.createRef();
+  inputRef = React.createRef();
+  fuelRef = React.createRef();
+  TODAY = new Date('2026-10-02T17:52:00');
+  EX = [
+    { name: 'Bench press', target: '4 × 6 · 82.5 kg', last: 'LAST · 80 × 6 6 5 5', reps: [6, 6, 6, 6] },
+    { name: 'Overhead press', target: '3 × 8 · 50 kg', last: 'LAST · 47.5 × 8 8 7', reps: [8, 8, 8] },
+    { name: 'Incline DB press', target: '3 × 10 · 28 kg', last: 'LAST · 26 × 10 10 9', reps: [10, 10, 10] },
+    { name: 'Weighted dips', target: '3 × 8 · +15 kg', last: 'LAST · +12.5 × 8 8 8', reps: [8, 8, 8] },
+    { name: 'Lateral raise', target: '3 × 15 · 10 kg', last: 'LAST · 10 × 15 14 12', reps: [15, 15, 15] },
+    { name: 'Rope pushdown', target: '3 × 12 · 25 kg', last: 'LAST · 22.5 × 12 12 12', reps: [12, 12, 12] },
+  ];
+  FONTS = { Geist: "'Geist',-apple-system,system-ui,sans-serif", 'Space Grotesk': "'Space Grotesk',-apple-system,system-ui,sans-serif", 'IBM Plex': "'IBM Plex Sans',-apple-system,system-ui,sans-serif", 'Zen Kaku': "'Zen Kaku Gothic New',-apple-system,system-ui,sans-serif" };
+  THEMES = [
+    { id: 'zero', name: 'REI Zero', kanji: '零', vibe: 'Ice cyan · cobalt', acc: '#9BE7F2', acc2: '#3A6FF2', bg: '#050608', motto: '自己規律プロトコル · 零' },
+    { id: 'shinobi', name: 'Naruto', kanji: '忍', vibe: 'Blaze orange · night indigo', acc: '#FF7A1A', acc2: '#2B4CC9', bg: '#07060A', motto: '決して諦めない · 忍の道' },
+    { id: 'voyager', name: 'One Piece', kanji: '航', vibe: 'Straw gold · captain red', acc: '#F5C542', acc2: '#D7263D', bg: '#06070A', motto: '自由への航海 · 夢を追え' },
+    { id: 'hero', name: 'My Hero Academia', kanji: '英', vibe: 'Hero green · signal red', acc: '#2FE08A', acc2: '#E8463B', bg: '#050807', motto: '限界を超えろ · 英雄の道' },
+    { id: 'cursed', name: 'Jujutsu Kaisen', kanji: '呪', vibe: 'Void blue · cursed violet', acc: '#6E8BFF', acc2: '#9B3CF5', bg: '#05040B', motto: '己を超えろ · 呪の領域' },
+    { id: 'slayer', name: 'Demon Slayer', kanji: '刃', vibe: 'Water teal · flame crimson', acc: '#2FC4A5', acc2: '#E0303F', bg: '#070506', motto: '刃を研げ · 夜明けまで' },
+  ];
+  accent() { const s = this.state.settings || {}, th = this.theme(); return s.accent ?? (s.theme ? th.acc : (this.props.accent ?? th.acc)); }
+  SEED_EMBLEMS = { shinobi: [{ id: 'seed-naruto-1', url: './assets/emblem-naruto-1.png' }, { id: 'seed-naruto-2', url: './assets/emblem-naruto-2.png?v=2' }] };
+  fileRef = React.createRef();
+  emblemItems() { return this.SEED_EMBLEMS[this.theme().id] || []; }
+  emblemUrl() { const id = this.bgSel(); if (!id) return ''; const it = this.emblemItems().find(x => x.id === id); return it ? it.url : ''; }
+  bgSel() { const m = (this.state.settings || {}).bgByTheme || {}, id = this.theme().id; return id in m ? m[id] : (id === 'shinobi' ? 'seed-naruto-1' : null); }
+  setBg(id) { const m = { ...((this.state.settings || {}).bgByTheme || {}), [this.theme().id]: id }; this.setOpt('bgByTheme', m); }
+  theme() { return this.THEMES.find(t => t.id === this.opt('theme', 'zero')) || this.THEMES[0]; }
+  HISTORY = [86.0, 85.4, 85.1, 84.3, 84.0, 83.6, 83.1, 82.7, 82.2, 81.9, 81.4];
+  UTTER = ["I'm wiped. Can we skip today and do double tomorrow?", "What should I eat for dinner?", "Fine. I'm going. What's the plan?"];
+  state = {
+    tab: 'today', sessionOn: false, sessionDone: false, loggedMin: 0, elapsed: 0,
+    sets: null, messages: [], draft: '', thinking: false, voice: null,
+    meals: [], fuelDraft: '', fuelBusy: false, fuelVerdict: '',
+    profile: { goal: 'Get lean to 74 kg with visible abs, bench 100 kg, and run a sub-24 5K by March 1st.', deadline: '2027-03-01', weight: '81.6', targetWeight: '74', bf: '19', targetBf: '12', height: '178', age: '26', kcal: '2300', protein: '170', carbs: '230', fat: '70', steps: '10000', sleep: '7.5', sessions: '5' },
+    disc: { Hypertrophy: true, Strength: true, Calisthenics: true, Running: true },
+    emblems: (() => { try { return JSON.parse(localStorage.getItem('rei-emblems') || '{}'); } catch (e) { return {}; } })(), emblemBusy: false,
+    settings: (() => { try { return JSON.parse(localStorage.getItem('rei-settings') || '{}'); } catch (e) { return {}; } })(),
+  };
+
+  opt(k, d) { const s = this.state.settings || {}; return s[k] ?? this.props[k] ?? d; }
+  setOpt(k, v) { this.setState(s => { const settings = { ...s.settings, [k]: v }; try { localStorage.setItem('rei-settings', JSON.stringify(settings)); } catch (e) {} return { settings }; }); }
+  strong() { return this.opt('scenario', 'Slipping week') === 'Strong week'; }
+  tough() { return this.opt('tone', 'Tough love') === 'Tough love'; }
+  n(k) { return parseFloat(this.state.profile[k]) || 0; }
+
+  componentDidMount() {
+    this.t0 = Date.now();
+    this.setState({ sets: this.EX.map(e => e.reps.map(() => false)) });
+    this.seed();
+    this.fit = () => {
+      const s = Math.min(1, (window.innerHeight - 40) / 874, (window.innerWidth - 40) / 402);
+      this.rootRef.current && this.rootRef.current.style.setProperty('--s', String(Math.max(0.3, s)));
+    };
+    this.fit(); window.addEventListener('resize', this.fit);
+    this.applyVars();
+    this.clockTimer = setInterval(() => this.forceUpdate(), 30000);
+
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this.fit); clearInterval(this.clockTimer); clearInterval(this.sessTimer); clearTimeout(this.vt); this.stopListening && this.stopListening(); }
+  componentDidUpdate() {
+    this.applyVars();
+    const sc = this.opt('scenario', 'Slipping week');
+    if (this._sc === undefined) this._sc = sc;
+    if (this._sc !== sc) { this._sc = sc; this.setState({ sessionDone: false }); this.seed(); }
+    const vv = this.state.voice, vkey = vv ? vv.turns.length + '|' + vv.phase + '|' + (vv.interim || '').length : '';
+    if (vkey !== this._vkey) { this._vkey = vkey; requestAnimationFrame(() => { const el = this.voiceRef.current; if (el) el.scrollTop = el.scrollHeight; }); }
+    const key = this.state.messages.length + '|' + this.state.thinking + '|' + this.state.tab;
+    if (key !== this._scrollKey) {
+      this._scrollKey = key;
+      requestAnimationFrame(() => { const el = this.chatRef.current; if (el) el.scrollTop = el.scrollHeight; });
+    }
+  }
+  applyVars() {
+    const r = this.rootRef.current; if (!r) return;
+    const th = this.theme();
+    r.style.setProperty('--acc', this.accent());
+    r.style.setProperty('--acc2', th.acc2);
+    r.style.setProperty('--bg', th.bg);
+    r.style.setProperty('--tz', String(this.opt('textSize', 1)));
+    r.style.fontFamily = this.FONTS[this.opt('font', 'Geist')] || this.FONTS.Geist;
+    r.style.setProperty('--alert', '#FF5A3C');
+  }
+  seed() {
+    const m = this.strong() ? [
+      { role: 'rei', time: '07:04', text: '7h 40m of sleep. Good. Recovery is training too.' },
+      { role: 'rei', time: '08:10', text: 'Yesterday: 21 sets, every rep logged. That was strong.' },
+      { role: 'user', time: '12:30', text: 'Feeling good today honestly.' },
+      { role: 'rei', time: '12:31', text: "Good. Don't let good make you casual. Push at 18:30. Top set 85 × 5." },
+      { role: 'rei', time: '17:45', text: "Protein 148 of 170. One more meal and today is clean." },
+    ] : [
+      { role: 'rei', time: '07:04', text: '6h 05m of sleep. Not great. Not an excuse either.' },
+      { role: 'rei', time: '12:40', alert: true, text: "Tuesday's run: skipped. Wednesday's pull: skipped. That's two this week. I'm not letting it become three." },
+      { role: 'user', time: '12:52', text: "Work has been insane. I'll make it up on the weekend." },
+      { role: 'rei', time: '12:53', alert: true, text: "You said that last Friday too. The weekend doesn't need two sessions. Tonight needs one. Push at 18:30. I already cut it to 52 minutes." },
+      { role: 'rei', time: '17:45', text: 'Calories at 1,840 of 2,300. Protein 92 of 170. Next meal is protein first: chicken or Greek yogurt, not the vending machine.' },
+    ];
+    const meals = this.strong() ? [
+      { time: '07:30', name: 'Eggs, oats & berries', kcal: 560, p: 38, c: 62, f: 18 },
+      { time: '12:30', name: 'Chicken, rice & greens', kcal: 720, p: 62, c: 80, f: 14 },
+      { time: '16:00', name: 'Whey + banana', kcal: 290, p: 30, c: 38, f: 3 },
+      { time: '17:45', name: 'Greek yogurt & honey', kcal: 390, p: 18, c: 40, f: 12 },
+    ] : [
+      { time: '07:40', name: 'Oat latte + croissant', kcal: 510, p: 14, c: 58, f: 24 },
+      { time: '12:20', name: 'Chicken wrap + crisps', kcal: 820, p: 46, c: 82, f: 34 },
+      { time: '16:05', name: 'Yogurt granola bowl', kcal: 510, p: 32, c: 60, f: 14 },
+    ];
+    this.setState({ messages: m, meals, fuelVerdict: '' });
+  }
+  estimate(t) {
+    const s = (t || '').toLowerCase();
+    const table = [[/burger|fries/, 1050, 40, 100, 52], [/pizza/, 850, 34, 96, 36], [/shake|whey/, 160, 30, 6, 2], [/chicken|turkey|fish|salmon/, 480, 50, 38, 12], [/egg/, 320, 20, 25, 15], [/salad/, 380, 22, 20, 22], [/steak|beef/, 620, 52, 20, 36]];
+    for (const [re, kcal, p, c, f] of table) if (re.test(s)) return { kcal, p, c, f };
+    return { kcal: 500, p: 28, c: 50, f: 18 };
+  }
+  addMeal(meal, fallbackName) {
+    const est = meal && +meal.kcal ? meal : this.estimate(fallbackName);
+    let name = String(est.name || fallbackName || 'Meal').trim().slice(0, 44);
+    name = name.charAt(0).toUpperCase() + name.slice(1);
+    const m = { time: this.now(), name, kcal: Math.round(+est.kcal) || 0, p: Math.round(+est.p) || 0, c: Math.round(+est.c) || 0, f: Math.round(+est.f) || 0 };
+    this.setState(s => ({ meals: [...s.meals, m] }));
+    return { role: 'sys', text: `MEAL LOGGED · ${m.kcal} KCAL · P ${m.p} · C ${m.c} · F ${m.f}` };
+  }
+  async logMeal(text) {
+    text = (text || '').trim(); if (!text || this.state.fuelBusy) return;
+    this.setState({ fuelBusy: true, fuelDraft: '' });
+    const userMsg = { role: 'user', text: 'Just ate: ' + text, time: this.now() };
+    const r = await this.complete([...this.state.messages, userMsg]);
+    const sys = this.addMeal(r.meal, text);
+    const reply = r.fb ? this.fuelLine(this.nutrition()) : r.text;
+    this.setState(s => ({ fuelBusy: false, fuelVerdict: reply, messages: [...s.messages, userMsg, { role: 'rei', text: reply, time: this.now() }, sys] }));
+  }
+  fuelLine(nu) {
+    const kL = this.n('kcal') - nu.kcal, pL = this.n('protein') - nu.protein;
+    if (kL < 0) return `Over by ${-kL} kcal. Kitchen's closed. Water, a walk, bed. And we don't repeat this tomorrow.`;
+    if (pL <= 0) return kL < 250 ? 'Protein hit, calories closed. That\u2019s a clean day. Kitchen\u2019s shut.' : `Protein hit. ${kL} kcal of room. You don't have to use it.`;
+    if (pL * 4 > kL * 0.6) return `${kL} kcal and ${pL} g protein left. Only lean protein fits now: chicken breast, white fish, egg whites, whey. No carbs tonight.`;
+    return `${kL} kcal and ${pL} g protein left. Room for a real meal. Build it around protein first, then fill.`;
+  }
+  nowMin() { return 17 * 60 + 52 + Math.floor((Date.now() - (this.t0 || Date.now())) / 60000); }
+  now() { const t = this.nowMin(); return String(Math.floor(t / 60) % 24).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); }
+
+  nutrition() {
+    const done = this.state.sessionDone, ms = this.state.meals || [];
+    const sum = k => ms.reduce((a, m) => a + (+m[k] || 0), 0);
+    const base = this.strong()
+      ? { steps: done ? 11240 : 9120, sleep: 7 + 40 / 60, sleepL: '7h 40m' }
+      : { steps: done ? 7840 : 4212, sleep: 6 + 5 / 60, sleepL: '6h 05m' };
+    return { ...base, kcal: sum('kcal'), protein: sum('p'), carbs: sum('c'), fat: sum('f') };
+  }
+
+  sysPrompt() {
+    const p = this.state.profile, nu = this.nutrition(), strong = this.strong();
+    const week = strong ? 'Mon push done, Tue run done, Wed pull done, Thu rest' : 'Mon push done, Tue run MISSED, Wed pull MISSED, Thu rest';
+    return `You are REI (零, "zero", as in zero excuses), a personal AI fitness companion living inside one person's iPhone. You are their tough-love best friend and elite coach in one. Intensity: ${this.tough() ? '10/10: blunt, direct, refuses excuses' : '6/10: firm but warmer'}.
+Rules: Be short and specific, 1 to 3 sentences, under 60 words. Use their real numbers. Call out excuses, broken commitments and negotiating plainly. Praise real effort briefly, then demand repetition. Never insult, demean, or comment negatively on their body. No em dashes, No emojis, no exclamation spam, no lists, no therapy-speak, no "as an AI". Speak like a person with character. End with a concrete next action when relevant.
+${this.opt('nudge', true) ? '' : 'The user turned off proactive check-ins: do not nag unprompted, but stay honest when asked. '}Context: now Fri 2 Oct, ${this.now()}. Goal (their words): "${p.goal}". Deadline ${p.deadline}. Weight ${p.weight} kg → ${p.targetWeight} kg. Body fat ${p.bf}% → ${p.targetBf}%. Height ${p.height} cm, age ${p.age}. Daily targets: ${p.kcal} kcal, ${p.protein} g protein, ${p.carbs} g carbs, ${p.fat} g fat, ${p.steps} steps, ${p.sleep} h sleep, ${p.sessions} sessions/week. Trains: hypertrophy, strength, calisthenics, running.
+This week: ${week}. Today: Push session at 18:30 (${this.state.sessionDone ? 'DONE' : 'not done yet'}). Calories ${nu.kcal}/${p.kcal}, protein ${nu.protein}/${p.protein} g, carbs ${nu.carbs}/${p.carbs} g, fat ${nu.fat}/${p.fat} g, steps ${nu.steps}, sleep last night ${nu.sleepL}. Meals today: ${(this.state.meals || []).map(m => `${m.time} ${m.name} (${m.kcal} kcal, P${m.p} C${m.c} F${m.f})`).join('; ')}.
+If the user reports eating something, estimate its macros realistically, react to how it fits the remaining budget (numbers after this meal), and append a final line exactly: MEAL {"name":"short name","kcal":n,"p":n,"c":n,"f":n}.
+If the user explicitly asks to change their goal, deadline, or a stat/target, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it) and append a final line exactly: UPDATE {json} using only these keys: goal (string), deadline (YYYY-MM-DD), weight, targetWeight, bf, targetBf, kcal, protein, carbs, fat, steps, sleep, sessions (numbers).`;
+  }
+
+  fallback(t) {
+    const s = t.toLowerCase(), tough = this.tough();
+    if (/tired|skip|wiped|exhausted|tomorrow|move|reschedule|double/.test(s)) return tough
+      ? "Tired is information, not a verdict. You slept six hours, so we cut volume, not the session. 35 minutes, compounds only. Shoes on."
+      : "Fair. Six hours of sleep is rough. Do a 35-minute version: bench, OHP, dips. Showing up matters more than volume tonight.";
+    if (/ate|eat|meal|dinner|lunch|pizza|snack|food/.test(s)) return this.fuelLine(this.nutrition());
+    if (/goal|change|target|vow/.test(s)) return "Tell me the new target in one line (weight, date, or lift) and I'll rewrite the vow. Just make sure it's a raise, not a retreat.";
+    if (/left|what.*today|status/.test(s)) return "Push session at 18:30. 78 g protein. 5,800 steps. Bed by 23:30. Four things. None of them optional.";
+    return tough ? "Noted. Now stop talking to me and go do the thing you already know you need to do." : "Got it. Keep it simple: the next action is the session at 18:30.";
+  }
+
+  async complete(history) {
+    const msgs = [];
+    for (const m of history) {
+      if (m.role === 'sys') continue;
+      const role = m.role === 'rei' ? 'assistant' : 'user';
+      const last = msgs[msgs.length - 1];
+      if (last && last.role === role) last.content += '\n' + m.text; else msgs.push({ role, content: m.text });
+    }
+    if (msgs[0] && msgs[0].role === 'assistant') msgs.unshift({ role: 'user', content: '(opened the app)' });
+    const lastUser = history[history.length - 1]?.text || '';
+    let reply, fb = false;
+    try { reply = await window.claude.complete({ system: this.sysPrompt(), messages: msgs, max_tokens: 300 }); }
+    catch (e) { reply = this.fallback(lastUser); fb = true; }
+    if (!reply || typeof reply !== 'string') { reply = this.fallback(lastUser); fb = true; }
+    reply = reply.replace(/\*\*|__|`/g, '').replace(/^\s*(REI|Assistant)\s*:\s*/i, '').replace(/^\s*[-*•]\s+/gm, '')
+      .replace(/\s*[\u2014\u2013]\s*/g, '. ').replace(/\.\s*\./g, '.')
+      .replace(/([.!?])\s+([a-z])/g, (_, p, c) => p + ' ' + c.toUpperCase());
+    let upd = null, meal = null;
+    reply = reply.replace(/(UPDATE|MEAL)\s*:?\s*(\{[^{}]*\})/g, (_, k, j) => { try { const o = JSON.parse(j); if (k === 'UPDATE') upd = o; else meal = o; } catch (e) {} return ''; })
+      .replace(/\n{2,}/g, '\n').replace(/[ \t]+\n/g, '\n').trim();
+    return { text: reply, upd, meal, fb };
+  }
+  applyUpdate(upd) {
+    if (!upd) return null;
+    const allowed = ['goal', 'deadline', 'weight', 'targetWeight', 'bf', 'targetBf', 'kcal', 'protein', 'carbs', 'fat', 'steps', 'sleep', 'sessions'];
+    const p = { ...this.state.profile }; const keys = [];
+    for (const k of allowed) if (upd[k] !== undefined && upd[k] !== null) { p[k] = String(upd[k]); keys.push(k); }
+    if (!keys.length) return null;
+    this.setState({ profile: p });
+    const names = { goal: 'GOAL', deadline: 'DEADLINE', weight: 'WEIGHT', targetWeight: 'TARGET', bf: 'BODY FAT', targetBf: 'TARGET BF', kcal: 'CALORIES', protein: 'PROTEIN', carbs: 'CARBS', fat: 'FAT', steps: 'STEPS', sleep: 'SLEEP', sessions: 'SESSIONS' };
+    return { role: 'sys', text: 'VOW UPDATED · ' + keys.map(k => names[k]).join(' · ') };
+  }
+  async send(text) {
+    text = (text || '').trim(); if (!text || this.state.thinking) return;
+    const userMsg = { role: 'user', text, time: this.now() };
+    const history = [...this.state.messages, userMsg];
+    this.setState({ messages: history, draft: '', thinking: true, tab: 'talk' });
+    const { text: reply, upd, meal, fb } = await this.complete(history);
+    const sys0 = this.applyUpdate(upd);
+    const mealSys = (meal || (fb && /^just ate/i.test(text))) ? this.addMeal(meal, text.replace(/^just ate:?\s*/i, '')) : null;
+    const sys = sys0 || mealSys;
+    if (sys0 && mealSys) setTimeout(() => this.setState(s => ({ messages: [...s.messages, mealSys] })), 0);
+    const rei = { role: 'rei', text: reply, time: this.now(), alert: !this.strong() && /miss|excuse|negotiat|skip|again|stop/i.test(reply) };
+    this.setState(s => ({ thinking: false, messages: [...s.messages, rei, ...(sys ? [sys] : [])] }));
+  }
+
+  setVoice(patch) { this.setState(s => s.voice ? { voice: { ...s.voice, ...patch } } : null); }
+  openVoiceMode() {
+    this.setState({ voice: { phase: 'idle', interim: '', turns: [], draft: '' } }, () => this.listen());
+  }
+  stopListening() {
+    clearInterval(this.simT); clearTimeout(this.vt);
+    if (this.rec) { try { this.rec.onend = null; this.rec.abort(); } catch (e) {} this.rec = null; }
+  }
+  listen() {
+    const v = this.state.voice; if (!v || v.phase === 'thinking') return;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (v.phase === 'listening') { const t = (v.interim || '').trim(); this.stopListening(); if (t) this.voiceSend(t); else this.setVoice({ phase: 'idle', interim: '' }); return; }
+    this.setVoice({ phase: 'listening', interim: '' });
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const simulate = () => {
+      this.stopListening();
+      const said = this.UTTER[(this.vi = (this.vi || 0) + 1) % this.UTTER.length].split(' ');
+      let k = 0;
+      this.simT = setInterval(() => {
+        k++; this.setVoice({ interim: said.slice(0, k).join(' ') });
+        if (k >= said.length) { clearInterval(this.simT); this.vt = setTimeout(() => this.voiceSend(said.join(' ')), 500); }
+      }, 170);
+    };
+    if (!SR) return simulate();
+    try {
+      const rec = new SR(); this.rec = rec; let finalT = '', got = false;
+      rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = false;
+      rec.onresult = e => { got = true; let interim = ''; finalT = ''; for (const r of e.results) (r.isFinal ? (finalT += r[0].transcript) : (interim += r[0].transcript)); this.setVoice({ interim: (finalT + ' ' + interim).trim() }); };
+      rec.onerror = () => { if (!got) { rec.onend = null; simulate(); } };
+      rec.onend = () => { this.rec = null; const t = (finalT || this.state.voice?.interim || '').trim(); if (t) this.voiceSend(t); else this.setVoice({ phase: 'idle', interim: '' }); };
+      rec.start();
+    } catch (e) { simulate(); }
+  }
+  async voiceSend(text) {
+    text = (text || '').trim(); const v = this.state.voice; if (!text || !v) return;
+    this.stopListening();
+    const turns = [...v.turns, { role: 'user', text, time: this.now() }];
+    this.setVoice({ phase: 'thinking', interim: '', draft: '', typing: false, turns });
+    const { text: reply, upd, meal } = await this.complete([...this.state.messages, ...turns]);
+    if (!this.state.voice) return;
+    const sys = this.applyUpdate(upd); if (meal) this.addMeal(meal, text);
+    this.setVoice({ phase: 'speaking', turns: [...turns, { role: 'rei', text: reply, time: this.now() }], sys });
+    const done = () => this.state.voice && this.state.voice.phase === 'speaking' && this.setVoice({ phase: 'idle' });
+    if (this.opt('speak', true) && window.speechSynthesis && window.SpeechSynthesisUtterance) {
+      try { const u = new SpeechSynthesisUtterance(reply); u.rate = 1.02; u.pitch = 1.05; u.onend = done; u.onerror = done; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); this.vt = setTimeout(done, 400 + reply.length * 75); return; } catch (e) {}
+    }
+    this.vt = setTimeout(done, 400 + reply.length * 55);
+  }
+  closeVoice() {
+    this.stopListening();
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    const v = this.state.voice, t = this.now();
+    const add = v ? v.turns.map(x => ({ ...x, time: t })) : [];
+    this.setState(s => ({ voice: null, tab: 'talk', messages: [...s.messages, ...add] }));
+  }
+
+  openSession() {
+    this.setState({ sessionOn: true, elapsed: 0, sets: this.EX.map(e => e.reps.map(() => false)) });
+    clearInterval(this.sessTimer);
+    this.sessTimer = setInterval(() => this.setState(s => ({ elapsed: s.elapsed + 1 })), 1000);
+  }
+  finishSession() {
+    clearInterval(this.sessTimer);
+    const sets = this.state.sets.flat(), done = sets.filter(Boolean).length, total = sets.length;
+    const min = Math.max(1, Math.round(this.state.elapsed / 60));
+    const left = Math.max(0, this.n('protein') - this.nutrition().protein);
+    const text = done / total >= 0.8
+      ? `Logged: Push, ${min} min, ${done}/${total} sets. That's one back. Now protein: ${left} g left. Don't waste the session at dinner.`
+      : `Partial session: ${done}/${total} sets. Better than zero. Not the standard you set. Finish the week properly.`;
+    this.setState(s => ({ sessionOn: false, sessionDone: true, loggedMin: min, tab: 'today', messages: [...s.messages, { role: 'rei', text, time: this.now(), alert: done / total < 0.8 }] }));
+  }
+
+  makeCore(size, mode, speaking) {
+    const h = React.createElement;
+    const a = mode === 'alert' ? 'var(--alert,#FF5A3C)' : 'var(--acc,#9BE7F2)';
+    const small = size < 60;
+    const kids = [
+      h('div', { key: 'g', style: { position: 'absolute', inset: -size * 0.3, borderRadius: '50%', background: `radial-gradient(circle, color-mix(in oklab, ${a} 24%, transparent) 0%, transparent 62%)`, animation: 'reiBreath 4.8s ease-in-out infinite' } }),
+      h('svg', { key: 's1', viewBox: '0 0 100 100', style: { position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'reiSpin 48s linear infinite' } },
+        h('circle', { cx: 50, cy: 50, r: 48.5, fill: 'none', stroke: a, strokeOpacity: 0.4, strokeWidth: small ? 1.2 : 0.5, strokeDasharray: small ? '2 4' : '0.6 2.2' }),
+        h('circle', { cx: 50, cy: 50, r: 43, fill: 'none', stroke: a, strokeOpacity: 0.75, strokeWidth: small ? 2 : 0.7, strokeDasharray: '22 7 3 7' })),
+      h('svg', { key: 's2', viewBox: '0 0 100 100', style: { position: 'absolute', inset: 0, width: '100%', height: '100%', animation: `reiSpinR ${speaking ? 5 : 16}s linear infinite` } },
+        h('circle', { cx: 50, cy: 50, r: 36, fill: 'none', stroke: a, strokeWidth: small ? 3 : 1.4, strokeLinecap: 'round', strokeDasharray: '56 170' }),
+        h('circle', { cx: 50, cy: 50, r: 36, fill: 'none', stroke: a, strokeOpacity: 0.5, strokeWidth: small ? 3 : 1.4, strokeLinecap: 'round', strokeDasharray: '6 220', strokeDashoffset: -110 })),
+      h('div', { key: 'c', style: { position: 'absolute', inset: size * 0.3, borderRadius: '50%', border: `1px solid color-mix(in oklab, ${a} 55%, transparent)`, background: `radial-gradient(circle at 50% 50%, #fff 0%, ${a} 9%, color-mix(in oklab, ${a} 30%, #05080A) 34%, #05080A 72%)`, boxShadow: `0 0 ${size * 0.22}px color-mix(in oklab, ${a} 50%, transparent), inset 0 0 ${size * 0.06}px color-mix(in oklab, ${a} 60%, transparent)`, animation: speaking ? 'reiPulseFast .8s ease-in-out infinite' : 'reiPulse 3.4s ease-in-out infinite' } }),
+    ];
+    if (!small) for (let i = 0; i < 7; i++) kids.push(h('div', { key: 'p' + i, style: { position: 'absolute', left: '50%', top: '50%', width: 2, height: 2, margin: -1, borderRadius: 2, background: a, opacity: 0.4 + (i % 3) * 0.2, boxShadow: `0 0 6px ${a}`, '--r': `${size * 0.5 + (i % 3) * 6}px`, animation: `reiOrbit ${7 + i * 2.1}s linear infinite`, animationDelay: `-${i * 1.9}s` } }));
+    return h('div', { style: { position: 'relative', width: size, height: size } }, kids);
+  }
+
+  tog(k, d) { const on = !!this.opt(k, d); return { toggle: () => this.setOpt(k, !on), bg: on ? 'var(--acc,#9BE7F2)' : 'rgba(255,255,255,.12)', justify: on ? 'flex-end' : 'flex-start', knob: on ? '#050608' : '#C3C8CF' }; }
+  segOpts(k, d, list) { const cur = this.opt(k, d); return list.map(([v, label]) => ({ label, pick: () => this.setOpt(k, v), bg: cur === v ? 'rgba(255,255,255,.12)' : 'transparent', fg: cur === v ? '#EDEFF2' : '#7A818B' })); }
+  renderVals() {
+    const st = this.state, p = st.profile, strong = this.strong(), tough = this.tough(), done = st.sessionDone;
+    const hud = this.opt('hud', true);
+    const ACC = 'var(--acc,#9BE7F2)', ALERT = '#FF5A3C', WARN = '#E8C27A', MUTED = '#8A9099';
+    const nu = this.nutrition();
+    const protT = this.n('protein'), kcalT = this.n('kcal'), stepsT = this.n('steps'), sleepT = this.n('sleep');
+    const protLeft = Math.max(0, protT - nu.protein);
+    const slipping = !strong && !done;
+    const pct = (a, b) => Math.max(0, Math.min(100, b ? (a / b) * 100 : 0)).toFixed(1) + '%';
+
+    let heroParts, heroTag, heroTagColor;
+    if (slipping) {
+      heroTag = 'CALL-OUT'; heroTagColor = ALERT;
+      heroParts = tough
+        ? [{ t: 'You said this mattered. ' }, { t: 'Two sessions missed', hl: ALERT }, { t: ' this week. Stop negotiating with yourself. Push day. Tonight, 18:30.' }]
+        : [{ t: 'Two sessions slipped this week. ' }, { t: 'Tonight decides the week.', hl: ALERT }, { t: ' Push day at 18:30. 52 minutes, that\u2019s all I\u2019m asking.' }];
+    } else if (!strong && done) {
+      heroTag = 'ACKNOWLEDGED'; heroTagColor = ACC;
+      heroParts = tough
+        ? [{ t: 'Good. That\u2019s one back. ' }, { t: `${protLeft} g of protein`, hl: ACC }, { t: ' still to hit, and the week is still two down. Don\u2019t celebrate yet.' }]
+        : [{ t: 'Strong session. ' }, { t: `${protLeft} g of protein`, hl: ACC }, { t: ' left. Make dinner count and the week is back on track.' }];
+    } else if (!done) {
+      heroTag = 'ON TRACK'; heroTagColor = ACC;
+      heroParts = [{ t: 'Good work. Yesterday was strong. ' }, { t: 'Now repeat it.', hl: ACC }, { t: ' Consistency is what changes your physique.' }];
+    } else {
+      heroTag = 'ON TRACK'; heroTagColor = ACC;
+      heroParts = [{ t: 'Five for five. ' }, { t: 'This is the version of you we agreed on.', hl: ACC }, { t: ' Protein, then bed by 23:30.' }];
+    }
+    heroParts = heroParts.map(x => ({ t: x.t, color: x.hl || '#EDEFF2' }));
+
+    const integrity = strong ? (done ? 98 : 94) : (done ? 71 : 58);
+    const integrityNote = strong ? (done ? '5 of 5 sessions kept' : '4 of 4 sessions kept') : (done ? '2 of 4 sessions kept' : '1 of 3 sessions kept');
+
+    const dir = done ? {
+      time: 'BY 20:30', title: 'Close protein', sub: `${protLeft} g left · one real meal`,
+      why: 'Recovery is decided at dinner. 200 g chicken and 250 g Greek yogurt and today is closed.',
+      primary: 'Log a meal', secondary: 'Ask REI',
+      onPrimary: () => this.setState({ tab: 'fuel' }, () => this.fuelRef.current && this.fuelRef.current.focus()),
+      onSecondary: () => this.send("What's left today?"),
+    } : {
+      time: '18:30 · IN 38 MIN', title: 'Push', sub: 'Chest · Shoulders · Triceps · 52 min, 6 lifts',
+      why: strong ? 'Bench moved 2.5 kg last week. Go for 85 × 5 on the top set.' : 'Bench is your slowest lift toward 100 kg. Skip push again and it stalls another week.',
+      primary: 'Begin session', secondary: 'Reschedule',
+      onPrimary: () => this.openSession(),
+      onSecondary: () => this.send("Can I move tonight's workout to tomorrow?"),
+    };
+
+    const jp = (s) => (hud ? s : '');
+    const kp = nu.kcal / kcalT;
+    const protocol = [
+      { label: 'Training', jp: jp('鍛錬'), value: done ? `Push · ${st.loggedMin} min` : 'Push · 18:30', status: done ? 'DONE' : 'PENDING', color: done ? ACC : (strong ? WARN : ALERT), pct: done ? '100%' : '0%' },
+      { label: 'Protein', jp: jp('蛋白'), value: `${nu.protein} / ${protT} g`, status: nu.protein / protT < 0.7 ? 'BEHIND' : 'ON TRACK', color: nu.protein / protT < 0.7 ? ALERT : ACC, pct: pct(nu.protein, protT) },
+      { label: 'Calories', jp: jp('熱量'), value: `${nu.kcal.toLocaleString()} / ${kcalT.toLocaleString()}`, status: kp > 0.95 ? 'AT LIMIT' : kp > 0.78 ? 'WATCH' : 'OK', color: kp > 0.95 ? ALERT : kp > 0.78 ? WARN : ACC, pct: pct(nu.kcal, kcalT) },
+      { label: 'Steps', jp: jp('歩数'), value: `${nu.steps.toLocaleString()} / ${stepsT.toLocaleString()}`, status: nu.steps / stepsT < 0.5 ? 'BEHIND' : nu.steps >= stepsT ? 'DONE' : 'ON TRACK', color: nu.steps / stepsT < 0.5 ? ALERT : ACC, pct: pct(nu.steps, stepsT) },
+      { label: 'Sleep', jp: jp('睡眠'), value: nu.sleepL, status: nu.sleep < sleepT - 0.25 ? 'SHORT' : 'DONE', color: nu.sleep < sleepT - 0.25 ? WARN : ACC, pct: pct(nu.sleep, sleepT) },
+    ];
+    const goFuel = () => this.setState({ tab: 'fuel' });
+    protocol[1].go = goFuel; protocol[2].go = goFuel;
+    const cleared = protocol.filter(r => ['DONE', 'ON TRACK', 'OK'].includes(r.status)).length;
+
+    const plan = ['PUSH', 'RUN', 'PULL', 'REST', 'PUSH', 'LEGS', 'CALI'];
+    const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    const stat = strong ? ['done', 'done', 'done', 'rest', done ? 'done' : 'today', 'future', 'future'] : ['done', 'missed', 'missed', 'rest', done ? 'done' : 'today', 'future', 'future'];
+    const week = stat.map((s, i) => {
+      const base = { day: days[i], type: plan[i], labelColor: '#5C636C', glow: 'none' };
+      if (s === 'done') return { ...base, mark: '✓', bg: 'color-mix(in oklab, var(--acc,#9BE7F2) 18%, transparent)', border: 'color-mix(in oklab, var(--acc,#9BE7F2) 50%, transparent)', fg: ACC, labelColor: '#9AA1AA' };
+      if (s === 'missed') return { ...base, mark: '✕', bg: 'rgba(255,90,60,.1)', border: 'rgba(255,90,60,.55)', fg: ALERT, labelColor: ALERT };
+      if (s === 'rest') return { ...base, mark: '·', bg: 'transparent', border: 'rgba(255,255,255,.06)', fg: '#5C636C' };
+      if (s === 'today') return { ...base, mark: '', bg: 'transparent', border: ACC, fg: ACC, labelColor: ACC, glow: '0 0 14px color-mix(in oklab, var(--acc,#9BE7F2) 35%, transparent)' };
+      return { ...base, mark: '', bg: 'rgba(255,255,255,.02)', border: 'rgba(255,255,255,.08)', fg: MUTED };
+    });
+    const nDone = stat.filter(s => s === 'done').length, nMiss = stat.filter(s => s === 'missed').length;
+    const weekSummary = `${nDone} DONE · ${nMiss} MISSED`;
+    const weekNote = strong ? 'Every planned session kept. Saturday is legs, the one you used to skip.'
+      : done ? 'Back to two misses with two sessions left. Hit both and the week still counts.'
+      : 'Two misses. Tonight plus the weekend. Hit all three and the week still counts. Miss tonight and it doesn\u2019t.';
+
+    const w = this.n('weight'), tw = this.n('targetWeight');
+    const hist = [...this.HISTORY, w];
+    const lo = Math.min(tw, ...hist) - 0.6, hi = Math.max(...hist) + 0.4;
+    const y = v => (64 - ((v - lo) / (hi - lo)) * 60).toFixed(1);
+    const xs = i => (i * (230 / (hist.length - 1))).toFixed(1);
+    const path = hist.map((v, i) => (i ? 'L' : 'M') + xs(i) + ' ' + y(v)).join(' ');
+    const daysLeft = Math.max(0, Math.ceil((new Date(p.deadline + 'T00:00:00') - this.TODAY) / 86400000)) || 0;
+    const reqPace = daysLeft ? (w - tw) / (daysLeft / 7) : 0;
+    const curPace = (hist[hist.length - 5] - w) / 4;
+    const behind = curPace < reqPace;
+    const traj = {
+      weight: w.toFixed(1), target: tw.toFixed(1), ty: y(tw), path, lx: xs(hist.length - 1), ly: y(w),
+      proj: `M${xs(hist.length - 1)} ${y(w)} L320 ${y(tw)}`,
+      eta: strong ? 'ETA FEB 24 · AHEAD' : behind ? 'ETA MAR 22 · +3 WK' : 'ON PACE',
+      etaColor: strong || !behind ? ACC : ALERT,
+      note: strong ? 'Losing 0.4 kg a week. Hold this and you arrive five days early.' : `You need ${reqPace.toFixed(2)} kg a week. Last month averaged ${curPace.toFixed(2)}. Missed sessions are why.`,
+    };
+
+    const field = (key) => (e) => { const v = e.target.value; this.setState(s => ({ profile: { ...s.profile, [key]: v } })); };
+    const bodyCells = [['WEIGHT', 'weight', 'kg'], ['TARGET', 'targetWeight', 'kg'], ['BODY FAT', 'bf', '%'], ['TARGET BF', 'targetBf', '%'], ['HEIGHT', 'height', 'cm'], ['AGE', 'age', 'yrs']]
+      .map(([label, k, unit]) => ({ label, unit, value: p[k], onChange: field(k) }));
+    const targetRows = [['Calories', 'kcal', 'kcal'], ['Protein', 'protein', 'g'], ['Carbs', 'carbs', 'g'], ['Fat', 'fat', 'g'], ['Steps', 'steps', 'steps'], ['Sleep', 'sleep', 'h'], ['Sessions', 'sessions', '/ wk']]
+      .map(([label, k, unit]) => ({ label, unit, value: p[k], onChange: field(k) }));
+    const disciplines = Object.keys(st.disc).map(k => {
+      const on = st.disc[k];
+      return { label: k, toggle: () => this.setState(s => ({ disc: { ...s.disc, [k]: !s.disc[k] } })), bg: on ? 'color-mix(in oklab, var(--acc,#9BE7F2) 14%, transparent)' : 'transparent', fg: on ? '#EDEFF2' : '#6E757F', border: on ? 'color-mix(in oklab, var(--acc,#9BE7F2) 45%, transparent)' : 'rgba(255,255,255,.1)' };
+    });
+    const benchmarks = [['Bench press', '82.5', '100 kg', 82.5 / 100], ['Back squat', '120', '140 kg', 120 / 140], ['Deadlift', '150', '180 kg', 150 / 180], ['Pull-ups', '9', '15 reps', 9 / 15], ['5K run', '27:40', '24:00', 0.62]]
+      .map(([name, now, goal, f]) => ({ name, now, goal, pct: (f * 100).toFixed(0) + '%' }));
+
+    const messages = st.messages.map(m => ({
+      ...m, isRei: m.role === 'rei', isUser: m.role === 'user', isSys: m.role === 'sys',
+      label: m.role === 'rei' ? (m.alert ? `REI · CALL-OUT · ${m.time}` : `REI · ${m.time}`) : '',
+      labelColor: m.alert ? ALERT : '#7A818B',
+      border: m.alert ? 'rgba(255,90,60,.4)' : 'rgba(255,255,255,.07)',
+    }));
+    const quick = ["I'm too tired today", 'Log a meal', "What's left today?", 'Change my goal'].map(t => ({
+      t, onClick: t === 'Log a meal' ? () => this.setState({ draft: 'Just ate: ' }, () => this.inputRef.current && this.inputRef.current.focus())
+        : t === 'Change my goal' ? () => this.setState({ draft: 'Change my goal: ' }, () => this.inputRef.current && this.inputRef.current.focus())
+        : () => this.send(t),
+    }));
+    const contextChips = [
+      { t: `INTEGRITY ${integrity}%`, color: slipping ? ALERT : ACC },
+      { t: strong ? 'STREAK 6' : `${nMiss} MISSED`, color: strong ? ACC : ALERT },
+      { t: `PROTEIN ${nu.protein}/${protT}`, color: '#C3C8CF' },
+      { t: `KCAL ${nu.kcal}/${kcalT}`, color: '#C3C8CF' },
+      { t: `${daysLeft} DAYS LEFT`, color: '#C3C8CF' },
+    ];
+
+    const sets = st.sets || this.EX.map(e => e.reps.map(() => false));
+    const flat = sets.flat(), sDone = flat.filter(Boolean).length, sTot = flat.length, f = sDone / sTot;
+    const exercises = this.EX.map((e, i) => ({
+      ...e, sets: e.reps.map((r, j) => {
+        const on = sets[i][j];
+        return { reps: on ? '✓' : String(r), bg: on ? ACC : 'rgba(255,255,255,.03)', fg: on ? '#050608' : '#C3C8CF', border: on ? ACC : 'rgba(255,255,255,.12)',
+          toggle: () => this.setState(s => { const n = s.sets.map(a => a.slice()); n[i][j] = !n[i][j]; return { sets: n }; }) };
+      }),
+    }));
+    const sessionLine = f === 0 ? 'No skipping warm-ups. Two ramp sets on bench, then 82.5 for real.'
+      : f < 0.5 ? 'Good start. Rest under two minutes. I\u2019m counting.'
+      : f < 1 ? 'This is the part where you used to quit. Not today.'
+      : 'Every set. That\u2019s the version of you I\u2019m here for. Log it.';
+    const el = st.elapsed;
+    const v = st.voice;
+
+    const tabOn = { bg: 'rgba(255,255,255,.08)', fg: '#EDEFF2' }, tabOff = { bg: 'transparent', fg: '#7A818B' };
+    const carbT = this.n('carbs'), fatT = this.n('fat');
+    const MCOL = { p: ACC, c: '#E8C27A', f: '#B8A6FF' };
+    const ring = (a, t) => (Math.min(1, t ? a / t : 0) * 201.06).toFixed(1) + ' 999';
+    const macros = [['Protein', '蛋白', 'p', nu.protein, protT], ['Carbs', '炭水', 'c', nu.carbs, carbT], ['Fat', '脂質', 'f', nu.fat, fatT]].map(([label, j, k, a, t]) => {
+      const left = t - a; let status, statusColor, color = MCOL[k];
+      if (k === 'p') { status = left > 0 ? `${left} G LEFT` : 'HIT'; statusColor = left > 0 && a / t < 0.7 ? ALERT : ACC; }
+      else { status = left < 0 ? `${-left} G OVER` : `${left} G LEFT`; statusColor = left < 0 ? ALERT : MUTED; if (left < 0) color = ALERT; }
+      return { label, jp: jp(j), eaten: a, target: t, color, dash: ring(a, t), status, statusColor };
+    });
+    const kL = kcalT - nu.kcal, pL = protT - nu.protein;
+    const kDen = Math.max(kcalT, nu.kcal) || 1;
+    const kcalSegs = [[nu.protein * 4, MCOL.p], [nu.carbs * 4, MCOL.c], [nu.fat * 9, MCOL.f]].map(([v, color]) => ({ w: (v / kDen * 100).toFixed(1) + '%', color }));
+    const kcalLegend = [['PROTEIN', nu.protein * 4, MCOL.p], ['CARBS', nu.carbs * 4, MCOL.c], ['FAT', nu.fat * 9, MCOL.f]].map(([t, v, color]) => ({ t: `${t} ${v}`, color }));
+    const fuelTag = kL < 0 ? 'OVER' : (pL > 0 && pL * 4 > kL * 0.6) ? 'TIGHT' : 'ON TRACK';
+    const fuelTagColor = kL < 0 ? ALERT : fuelTag === 'TIGHT' ? WARN : ACC;
+    const fuelMeals = (st.meals || []).map((m, i) => ({ ...m, kcalL: m.kcal.toLocaleString() + ' kcal', remove: () => this.setState(s => ({ meals: s.meals.filter((_, k) => k !== i), fuelVerdict: '' })) }));
+    const fuelHas = !!st.fuelDraft.trim() && !st.fuelBusy;
+    const toneLabel = tough ? '10 / 10' : '6 / 10';
+
+    return {
+      rootRef: this.rootRef, chatRef: this.chatRef, inputRef: this.inputRef, hud,
+      isSettings: st.tab === 'settings', goSettings: () => this.setState({ tab: 'settings' }), hudFx: this.opt('fx', true),
+      profileLine: `Week 14 · ${daysLeft} days to the vow`,
+      motto: this.theme().motto,
+      themeOpts: this.THEMES.map(t => { const on = this.theme().id === t.id; return { ...t, check: on ? '● ON' : '', border: on ? t.acc : 'rgba(255,255,255,.08)', bg: on ? 'rgba(255,255,255,.05)' : 'rgba(255,255,255,.02)', glow: on ? '0 0 22px ' + t.acc + '40' : 'none',
+        pick: () => this.setState(s => { const settings = { ...s.settings, theme: t.id }; delete settings.accent; try { localStorage.setItem('rei-settings', JSON.stringify(settings)); } catch (e) {} return { settings }; }) }; }),
+      accentOpts: [this.theme().acc, '#FF6A4D', '#B8A6FF', '#9EF2B5', '#E9E3D3'].filter((c, i, a) => a.indexOf(c) === i).map(c => { const on = this.accent().toLowerCase() === c.toLowerCase(); return { color: c, ring: on ? c : 'transparent', glow: on ? c + '88' : 'transparent', pick: () => this.setOpt('accent', c) }; }),
+      fontOpts: Object.keys(this.FONTS).map(k => { const on = this.opt('font', 'Geist') === k; return { label: k, family: this.FONTS[k], pick: () => this.setOpt('font', k), bg: on ? 'color-mix(in oklab, var(--acc,#9BE7F2) 12%, transparent)' : 'rgba(255,255,255,.02)', border: on ? 'color-mix(in oklab, var(--acc,#9BE7F2) 50%, transparent)' : 'rgba(255,255,255,.08)', fg: on ? '#EDEFF2' : '#8A9099' }; }),
+      tJp: this.tog('hud', true), tFx: this.tog('fx', true), tSpeak: this.tog('speak', true), tNudge: this.tog('nudge', true),
+      toneOpts: this.segOpts('tone', 'Tough love', [['Tough love', 'Tough'], ['Coach', 'Coach']]),
+      avatarOpts: this.segOpts('avatar', 'Character in chat', [['Character in chat', 'Portrait'], ['Core only', 'Core']]),
+      scenarioOpts: this.segOpts('scenario', 'Slipping week', [['Slipping week', 'Slipping'], ['Strong week', 'Strong']]),
+      intensitySub: tough ? '10 / 10 · no excuses accepted' : '6 / 10 · firm, warmer',
+      clearChat: () => this.setState({ messages: [{ role: 'rei', text: 'Fresh page. Same goal. What do you need?', time: this.now() }] }),
+      resetDay: () => { this.setState({ sessionDone: false, fuelVerdict: '' }); this.seed(); },
+      isAppearance: st.tab === 'appearance', goAppearance: () => this.setState({ tab: 'appearance' }),
+      curTheme: this.theme(), appearanceSub: `${this.theme().name} · ${this.opt('font', 'Geist')}`,
+      textSizeLabel: ({ 0.82: 'SMALLEST', 0.9: 'SMALL', 1: 'DEFAULT', 1.08: 'LARGE' })[this.opt('textSize', 1)] || 'DEFAULT',
+      textSizeOpts: [[0.82, '11px'], [0.9, '13px'], [1, '15px'], [1.08, '17px']].map(([v, px]) => { const on = this.opt('textSize', 1) === v; return { px, pick: () => this.setOpt('textSize', v), bg: on ? 'rgba(255,255,255,.14)' : 'transparent', fg: on ? '#EDEFF2' : '#7A818B' }; }),
+      hasBg: !!this.bgSel(), bgId: this.bgSel() || 'rei-bg-zero-1', bgThemeName: this.theme().name,
+      portraitChatId: 'rei-portrait-chat-' + this.theme().id, portraitVoiceId: 'rei-portrait-voice-' + this.theme().id,
+      bgOpacity: String(({ Subtle: 0.22, Medium: 0.38, Bold: 0.6 })[this.opt('bgStrength', 'Medium')] || 0.38),
+      emblemAlign: ({ Top: 'flex-start', Center: 'center', Bottom: 'flex-end' })[this.opt('emblemPos', 'Center')] || 'center',
+      emblemPosOpts: this.segOpts('emblemPos', 'Center', [['Top', 'Top'], ['Center', 'Center'], ['Bottom', 'Bottom']]),
+      emblemBg: this.emblemUrl() ? 'url("' + this.emblemUrl() + '")' : 'none', hasEmblem: !!this.emblemUrl(),
+      emblemSize: (({ S: 190, M: 270, L: 350 })[this.opt('emblemSize', 'M')] || 270) + 'px',
+      emblemSizeOpts: this.segOpts('emblemSize', 'M', [['S', 'S'], ['M', 'M'], ['L', 'L']]),
+      bgStrengthOpts: this.segOpts('bgStrength', 'Medium', [['Subtle', 'Subtle'], ['Medium', 'Medium'], ['Bold', 'Bold']]),
+      bgNone: (() => { const on = !this.bgSel(); return { pick: () => this.setBg(null), ring: on ? 'var(--acc,#9BE7F2)' : 'rgba(255,255,255,.1)', fg: on ? 'var(--acc,#9BE7F2)' : '#7A818B', label: on ? 'IN USE' : 'NONE' }; })(),
+      noEmblems: !this.emblemItems().length,
+      emblemItems: this.emblemItems().map((x, i) => { const on = this.bgSel() === x.id; return { bgImg: 'url("' + x.url + '")', label: on ? 'IN USE' : this.theme().kanji + ' ' + String(i + 1).padStart(2, '0'), fg: on ? 'var(--acc,#9BE7F2)' : '#7A818B', ring: on ? 'var(--acc,#9BE7F2)' : 'rgba(255,255,255,.08)', glow: on ? '0 0 18px color-mix(in oklab, var(--acc,#9BE7F2) 35%, transparent)' : 'none', pick: () => this.setBg(x.id) }; }),
+      isToday: st.tab === 'today', isVow: st.tab === 'vow', isTalk: st.tab === 'talk', isFuel: st.tab === 'fuel',
+      fuelRef: this.fuelRef, goFuel, tabFuel: st.tab === 'fuel' ? tabOn : tabOff,
+      macros, kcalSegs, kcalLegend, kcalLeft: Math.abs(kL).toLocaleString(), kcalLeftLabel: kL < 0 ? 'KCAL OVER' : 'KCAL LEFT', kcalLeftColor: kL < 0 ? ALERT : '#EDEFF2',
+      kcalEaten: nu.kcal.toLocaleString(), kcalTarget: kcalT.toLocaleString(), mealCount: `${(st.meals || []).length} MEALS`,
+      fuelTag, fuelTagColor, fuelBorder: kL < 0 ? 'rgba(255,90,60,.4)' : 'rgba(255,255,255,.08)',
+      fuelVerdict: st.fuelBusy ? 'Reading the plate…' : (st.fuelVerdict || this.fuelLine(nu)),
+      coreFuel: this.makeCore(28, kL < 0 ? 'alert' : 'calm', st.fuelBusy),
+      fuelMeals, fuelDraft: st.fuelDraft, onFuelDraft: e => this.setState({ fuelDraft: e.target.value }),
+      onFuelKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.logMeal(this.state.fuelDraft); } },
+      logFuel: () => this.logMeal(st.fuelDraft), logBg: fuelHas ? ACC : 'rgba(255,255,255,.06)', logFg: fuelHas ? '#050608' : '#6E757F', logIcon: st.fuelBusy ? '…' : '+',
+      fuelQuick: ['200 g chicken + rice', 'Protein shake', '3 eggs on toast', 'Burger & fries'].map(t => ({ t, onClick: () => this.logMeal(t) })),
+      showTabs: st.tab !== 'talk' && !st.sessionOn && !v,
+      tabToday: st.tab === 'today' ? tabOn : tabOff, tabVow: st.tab === 'vow' ? tabOn : tabOff,
+      goToday: () => this.setState({ tab: 'today' }), goVow: () => this.setState({ tab: 'vow' }), openTalk: () => this.setState({ tab: 'talk' }),
+      clock: this.now(),
+      coreHero: this.makeCore(104, slipping ? 'alert' : 'calm', false),
+      coreTab: this.makeCore(30, slipping ? 'alert' : 'calm', false),
+      coreSmall: this.makeCore(40, 'calm', false),
+      coreChat: this.makeCore(44, 'calm', st.thinking),
+      coreSession: this.makeCore(28, 'calm', false),
+      coreVoice: this.makeCore(v && v.phase === 'listening' ? 68 : 58, 'calm', !!(v && (v.phase === 'speaking' || v.phase === 'listening'))),
+      integrity, integrityNote, heroParts, heroTag, heroTagColor, dir,
+      protocol, protocolCount: `${cleared} / 5 CLEARED`,
+      week, weekSummary, weekSummaryColor: nMiss ? ALERT : ACC, weekNote, traj,
+      goal: p.goal, onGoal: field('goal'), deadline: p.deadline, onDeadline: field('deadline'), daysLeft,
+      paceLabel: `NEED ${reqPace.toFixed(2)} KG / WK`, paceColor: behind && !strong ? ALERT : ACC,
+      bodyCells, targetRows, disciplines, benchmarks,
+      editWithRei: () => this.setState({ tab: 'talk', draft: 'Change my goal: ' }, () => this.inputRef.current && this.inputRef.current.focus()),
+      toneLabel: tough ? 'Tough love, 10 / 10' : 'Coach, 6 / 10',
+      toneNote: tough ? 'Calls out every excuse. Never cruel. Change it any time in Settings.' : 'Firm, warmer framing. Still won\u2019t let you skip.',
+      showCharacter: this.opt('avatar', 'Character in chat') === 'Character in chat',
+      showCoreAvatar: this.opt('avatar', 'Character in chat') !== 'Character in chat',
+      talkStatus: st.thinking ? 'READING YOU…' : (tough ? 'TOUGH LOVE · 10/10' : 'COACH · 6/10'),
+      contextChips, messages, thinking: st.thinking, quick,
+      dots: React.createElement('div', { style: { display: 'flex', gap: 4 } }, [0, 1, 2].map(i => React.createElement('div', { key: i, style: { width: 5, height: 5, borderRadius: 5, background: ACC, animation: 'reiDot 1.2s infinite', animationDelay: `${i * 0.18}s` } }))),
+      draft: st.draft, hasDraft: !!st.draft.trim(), noDraft: !st.draft.trim(),
+      onDraft: e => this.setState({ draft: e.target.value }),
+      onKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.send(this.state.draft); } },
+      sendDraft: () => this.send(st.draft),
+      sessionOn: st.sessionOn, closeSession: () => { clearInterval(this.sessTimer); this.setState({ sessionOn: false }); },
+      timer: String(Math.floor(el / 60)).padStart(2, '0') + ':' + String(el % 60).padStart(2, '0'),
+      setsDone: sDone, setsTotal: sTot, setsPct: (f * 100).toFixed(1) + '%', exercises, sessionLine,
+      completeSession: () => this.finishSession(),
+      completeLabel: f === 0 ? 'Log at least one set' : f < 1 ? `Complete session · ${sDone}/${sTot}` : 'Complete session',
+      completeBg: f === 0 ? 'rgba(255,255,255,.06)' : ACC, completeFg: f === 0 ? '#6E757F' : '#050608',
+      voiceOn: !!v,
+      voicePhase: !v ? '' : v.phase === 'listening' ? 'LISTENING' : v.phase === 'thinking' ? 'THINKING' : v.phase === 'speaking' ? 'SPEAKING' : 'READY',
+      voiceRef: this.voiceRef,
+      voiceTurns: v ? v.turns.map(t => { const m = t.text.match(/^([\s\S]+?[.!?])(\s+)([\s\S]+)$/); return { ...t, isRei: t.role === 'rei', isUser: t.role === 'user', lead: m ? m[1] : t.text, rest: m ? m[3].trim() : '', hasRest: !!(m && m[3].trim()) }; }) : [],
+      voiceEmpty: !!v && !v.turns.length && !v.interim && v.phase !== 'thinking',
+      voiceInterim: v ? v.interim : '', voiceInterimOn: !!(v && v.interim), voiceThinking: !!(v && v.phase === 'thinking'),
+      voiceTyping: !!(v && v.typing), toggleTyping: () => this.setVoice({ typing: !(this.state.voice && this.state.voice.typing) }),
+      typeBg: v && v.typing ? 'rgba(255,255,255,.1)' : 'transparent', typeBorder: v && v.typing ? 'rgba(255,255,255,.3)' : 'rgba(255,255,255,.12)',
+      voiceDraft: v ? v.draft : '', onVoiceDraft: e => this.setVoice({ draft: e.target.value }),
+      onVoiceKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.voiceSend(this.state.voice && this.state.voice.draft); } },
+      voiceSendDraft: () => this.voiceSend(this.state.voice && this.state.voice.draft),
+      micTap: () => this.listen(),
+      coreHint: !v ? '' : v.phase === 'listening' ? 'LISTENING · TAP TO SEND' : v.phase === 'thinking' ? 'THINKING' : v.phase === 'speaking' ? 'TAP TO INTERRUPT' : 'TAP TO TALK',
+      coreHintColor: v && v.phase === 'listening' ? ACC : '#7A818B',
+      openVoice: () => this.openVoiceMode(),
+      closeVoice: () => this.closeVoice(),
+    };
+  }
+}
+</script>
+</body>
+</html>
