@@ -110,3 +110,22 @@ export interface WeighIn {
  * keyed by date (true when that day's session was completed).
  */
 export type History = { kind: 'demo'; scenario: Scenario } | { kind: 'real'; startedOn: string; sessions: Record<string, boolean> };
+
+/** What was actually lifted for one exercise in a session. */
+export interface SetLog {
+  exercise: string;
+  done: boolean[];
+  reps: number[];
+  /** null for bodyweight or untracked. */
+  kg: (number | null)[];
+}
+
+/** One completed session, stored at users/{uid}/sessions/{id}. */
+export interface SessionLog {
+  date: string;
+  plan: string;
+  done: number;
+  total: number;
+  seconds: number;
+  sets?: SetLog[];
+}

@@ -59,6 +59,20 @@ export const updateVowTool: Tool = {
   },
 };
 
+/** Deep tier only: queues a rewrite of this week's training, which runs off the request path. */
+export const rebuildProgramTool: Tool = {
+  name: 'rebuild_program',
+  description: 'Rewrite this week\u2019s training plan when the user asks for a new or changed plan. Say in your reply that the new week is coming.',
+  strict: true,
+  eager_input_streaming: true,
+  input_schema: {
+    type: 'object',
+    properties: { focus: { type: 'string', description: 'What the user wants changed, in a few words' } },
+    required: ['focus'],
+    additionalProperties: false,
+  },
+};
+
 const int = (v: unknown, max: number) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max ? Math.round(v) : null);
 
 /**

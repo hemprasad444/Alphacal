@@ -1,4 +1,4 @@
-import { activityFromDay, type ContextInput, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type DayDoc, isoDate, type Message, type Profile, type Settings, weekdayIndex, zonedNow } from '@rei/shared';
+import { activityFromDay, type ContextInput, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type DayDoc, isoDate, isoWeek, type Message, type Profile, type Settings, type WeekProgram, weekdayIndex, zonedNow } from '@rei/shared';
 import { FieldPath } from 'firebase-admin/firestore';
 import { db } from '../admin';
 
@@ -27,11 +27,14 @@ export interface Loaded {
 export async function loadUser(uid: string): Promise<Loaded> {
   const user = db.doc(`users/${uid}`);
   const since = new Date(Date.now() - 8 * 86400000);
-  const [userSnap, daySnaps, msgSnaps, usage] = await Promise.all([
+  // The user's ISO week depends on their zone; fetch the candidates around now in the same round.
+  const weeks = [...new Set([-1, 0, 1].map(d => isoWeek(new Date(Date.now() + d * 86400000))))];
+  const [userSnap, daySnaps, msgSnaps, usage, programSnaps] = await Promise.all([
     user.get(),
     user.collection('days').where(FieldPath.documentId(), '>=', isoDate(since)).get(),
     user.collection('messages').orderBy('createdAt', 'desc').limit(HISTORY + 10).get(),
     user.collection('usage').doc(usageDay()).get(),
+    db.getAll(...weeks.map(w => user.collection('programs').doc(w))),
   ]);
   const u = userSnap.data() ?? {};
   const timeZone: string = typeof u.timezone === 'string' ? u.timezone : 'Asia/Kolkata';
@@ -61,6 +64,7 @@ export async function loadUser(uid: string): Promise<Loaded> {
       tough: settings.tone === 'Tough love',
       nudge: settings.nudge,
       now,
+      program: (programSnaps.find(p => p.id === isoWeek(now) && p.exists)?.data() as WeekProgram | undefined) ?? null,
     },
     settings,
     messages: messages.slice(-HISTORY),

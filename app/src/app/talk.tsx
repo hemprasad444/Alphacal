@@ -22,9 +22,9 @@ export default function Talk() {
 
   const tough = settings.tone === 'Tough love';
   const strong = settings.scenario === 'Strong week';
-  const wk = week(s.history, s.sessionDone);
+  const wk = week(s.history, s.sessionDone, new Date(), s.program);
   const nu = nutrition(s.meals, s.activity);
-  const slipping = !!todaysPlan() && !s.sessionDone && wk.missed > 0;
+  const slipping = !!todaysPlan(new Date(), s.program) && !s.sessionDone && wk.missed > 0;
   const chips = [
     { t: `INTEGRITY ${integrity(wk)}%`, color: slipping ? C.alert : accent },
     { t: wk.missed ? `${wk.missed} MISSED` : `STREAK ${wk.done}`, color: wk.missed ? C.alert : accent },

@@ -85,6 +85,16 @@ export const SESSIONS: Record<Exclude<SessionKey, 'REST'>, SessionPlan> = {
   },
 };
 
+/** A week written by REI: one plan per day, Monday first; null is a rest day. */
+export interface WeekProgram {
+  /** ISO week, e.g. 2026-W40. */
+  week: string;
+  /** REI's one-line intent for the week. */
+  note: string;
+  days: (SessionPlan | null)[];
+  generatedAt: number;
+}
+
 /** Weekly split, Monday first. */
 export const WEEK_PLAN: SessionKey[] = ['PUSH', 'RUN', 'PULL', 'REST', 'PUSH', 'LEGS', 'CALI'];
 export const SESSION_TIME = '18:30';

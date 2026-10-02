@@ -1,6 +1,6 @@
 // Numbers and copy the screens show, computed from app state.
 // Ported from renderVals() in design/REI.dc.html.
-import { demoWeighIns, SESSION_TIME, SESSIONS, WEEK_PLAN, type SessionKey, type SessionPlan } from './data';
+import { demoWeighIns, SESSION_TIME, SESSIONS, WEEK_PLAN, type SessionKey, type SessionPlan, type WeekProgram } from './data';
 import { daysBetween, isoDate, minutesUntil, monthDay, parseIsoDate, weekdayIndex } from './time';
 import type { Activity, History, Meal, Nutrition, Profile, WeighIn } from './types';
 
@@ -31,9 +31,20 @@ export function nutrition(meals: Meal[], activity: Activity): Nutrition {
   return { ...activity, kcal: sum('kcal'), protein: sum('p'), carbs: sum('c'), fat: sum('f') };
 }
 
-export function todaysPlan(now: Date = new Date()): SessionPlan | null {
-  const key = WEEK_PLAN[weekdayIndex(now)];
+/** A program written for this week, if it has all seven days. */
+const usable = (p: WeekProgram | null | undefined): p is WeekProgram => !!p && p.days.length === 7;
+
+/** The day's plan: REI's program when there is one, otherwise the default split. */
+export function todaysPlan(now: Date = new Date(), program?: WeekProgram | null): SessionPlan | null {
+  const i = weekdayIndex(now);
+  if (usable(program)) return program.days[i];
+  const key = WEEK_PLAN[i];
   return key === 'REST' ? null : SESSIONS[key];
+}
+
+/** Session type per weekday, Monday first. */
+export function weekTypes(program?: WeekProgram | null): SessionKey[] {
+  return usable(program) ? program.days.map(d => d?.key ?? 'REST') : WEEK_PLAN;
 }
 
 /**
@@ -41,7 +52,7 @@ export function todaysPlan(now: Date = new Date()): SessionPlan | null {
  * logged and missed otherwise. The demo story keeps every session in a strong week and
  * misses Tuesday and Wednesday in a slipping one.
  */
-export function week(history: History, sessionDone: boolean, now: Date = new Date()): Week {
+export function week(history: History, sessionDone: boolean, now: Date = new Date(), program?: WeekProgram | null): Week {
   const t = weekdayIndex(now);
   const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   const pastStatus = (i: number): DayStatus => {
@@ -52,7 +63,7 @@ export function week(history: History, sessionDone: boolean, now: Date = new Dat
     if (iso < history.startedOn) return 'none';
     return history.sessions[iso] ? 'done' : 'missed';
   };
-  const days = WEEK_PLAN.map((type, i): WeekDay => {
+  const days = weekTypes(program).map((type, i): WeekDay => {
     let status: DayStatus;
     if (type === 'REST') status = 'rest';
     else if (i < t) status = pastStatus(i);

@@ -15,9 +15,9 @@ export default function Today() {
   const { settings, profile, sessionDone, accent } = s;
   const strong = settings.scenario === 'Strong week';
   const tough = settings.tone === 'Tough love';
-  const plan = todaysPlan(now);
+  const plan = todaysPlan(now, s.program);
   const nu = nutrition(s.meals, s.activity);
-  const wk = calcWeek(s.history, sessionDone, now);
+  const wk = calcWeek(s.history, sessionDone, now, s.program);
   const protT = parseFloat(profile.protein) || 0;
   const protLeft = Math.max(0, protT - nu.protein);
   const slipping = !!plan && !sessionDone && wk.missed > 0;

@@ -1,7 +1,7 @@
 // Firestore reads and writes for one signed-in user. Writes are fire-and-forget: the
 // store has already updated the screen, and Firestore queues writes while offline.
 import { collection, doc, documentId, limit, onSnapshot, orderBy, query, setDoc, where, type Unsubscribe } from 'firebase/firestore';
-import type { DayDoc, Message, Profile, Settings, WeighIn } from '@rei/shared';
+import type { DayDoc, Message, Profile, SessionLog, Settings, WeekProgram, WeighIn } from '@rei/shared';
 import { fb } from './firebase';
 
 export interface UserDoc {
@@ -47,6 +47,10 @@ export function onWeighIns(uid: string, fromIso: string, cb: (entries: WeighIn[]
   return onSnapshot(q, s => cb(s.docs.map(d => ({ date: d.id, kg: Number(d.data().kg) })).filter(x => x.kg > 0)), warn('weigh-ins listener'));
 }
 
+export function onProgram(uid: string, week: string, cb: (program: WeekProgram | null) => void): Unsubscribe {
+  return onSnapshot(doc(fb().db, 'users', uid, 'programs', week), s => cb(s.exists() ? (s.data() as WeekProgram) : null), warn('program listener'));
+}
+
 export const write = {
   user: (uid: string, data: Partial<UserDoc>) => setDoc(userRef(uid), clean(data), { merge: true }).catch(warn('user write')),
   day: (uid: string, date: string, data: Partial<DayDoc>) => setDoc(doc(sub(uid, 'days'), date), clean(data), { merge: true }).catch(warn('day write')),
@@ -54,7 +58,7 @@ export const write = {
     const { id, ...rest } = m;
     return setDoc(doc(sub(uid, 'messages'), id ?? newId()), clean({ ...rest, createdAt: m.createdAt ?? Date.now() })).catch(warn('message write'));
   },
-  session: (uid: string, data: { date: string; plan: string; done: number; total: number; seconds: number }) =>
+  session: (uid: string, data: SessionLog) =>
     setDoc(doc(sub(uid, 'sessions'), newId()), { ...data, createdAt: Date.now() }).catch(warn('session write')),
   weighIn: (uid: string, date: string, kg: number) => setDoc(doc(sub(uid, 'weighIns'), date), { kg }).catch(warn('weigh-in write')),
 };

@@ -20,7 +20,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const s = useStore();
   const { sessionDone } = s;
-  const slipping = !!todaysPlan() && !sessionDone && week(s.history, sessionDone).missed > 0;
+  const slipping = !!todaysPlan(new Date(), s.program) && !sessionDone && week(s.history, sessionDone, new Date(), s.program).missed > 0;
 
   const tab = (name: string) => {
     const i = state.routes.findIndex(r => r.name === name);

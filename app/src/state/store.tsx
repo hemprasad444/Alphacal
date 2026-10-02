@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  type Activity, activityFor, activityFromDay, applyUpdate, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, fuelLine, type History, hhmm, isoDate, type Meal, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type Settings, todaysPlan, toMeal, type WeighIn, week as calcWeek, weekdayIndex,
+  type Activity, activityFor, activityFromDay, applyUpdate, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, fuelLine, hhmm, type History, isoDate, isoWeek, type Meal, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
-import { firebaseEnabled } from '../lib/firebase';
-import { newId, onDays, onMessages, onUser, onWeighIns, write } from '../lib/sync';
+import { fb, firebaseEnabled } from '../lib/firebase';
+import { newId, onDays, onMessages, onProgram, onUser, onWeighIns, write } from '../lib/sync';
+import { httpsCallable } from 'firebase/functions';
 import { DEFAULT_EMBLEM, EMBLEMS, THEMES, type Emblem, type Theme } from '../lib/theme';
 import { type Account, useAccount } from './account';
 
@@ -29,6 +30,8 @@ interface Persisted {
   weekSessions: Record<string, boolean>;
   weighIns: WeighIn[];
   chatClearedAt: number;
+  /** REI's plan for the current week, when one has been written. */
+  program: WeekProgram | null;
 }
 
 function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
@@ -47,6 +50,7 @@ function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
     weekSessions: {},
     weighIns: [],
     chatClearedAt: 0,
+    program: null,
   };
 }
 
@@ -101,7 +105,9 @@ interface Store extends Persisted {
   appendMessages: (ms: Message[]) => void;
   logMeal: (text: string) => Promise<void>;
   removeMeal: (i: number) => void;
-  finishSession: (done: number, total: number, seconds: number) => void;
+  finishSession: (done: number, total: number, seconds: number, sets?: SetLog[]) => void;
+  /** Ask REI to rewrite this week's training. Resolves with REI's note for the week. */
+  rebuildProgram: (focus?: string) => Promise<string>;
   clearChat: () => void;
   resetDay: () => void;
 }
@@ -245,6 +251,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }),
       onMessages(uid, messages => patch({ messages })),
       onWeighIns(uid, daysAgoIso(120), weighIns => patch({ weighIns })),
+      onProgram(uid, isoWeek(), program => patch({ program })),
     ];
     return () => unsubs.forEach(u => u());
   }, [uid, loadedKey, today, patch, pushMessages, msg]);
@@ -256,7 +263,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const offline = useCallback((text: string, s: Persisted) => {
     const x = reiContext({
       profile: s.profile, disc: s.disc, meals: s.meals, sessionDone: s.sessionDone, history: history(s), activity: activityOf(s),
-      tough: s.settings.tone === 'Tough love', nudge: s.settings.nudge, now: new Date(),
+      tough: s.settings.tone === 'Tough love', nudge: s.settings.nudge, now: new Date(), program: s.program,
     });
     return parseReply(offlineReply(text, x));
   }, [history, activityOf]);
@@ -376,20 +383,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [fuelBusy, msg, remote, activityOf, saveMeals, pushMessages]);
 
-  const finishSession = useCallback((done: number, total: number, seconds: number) => {
+  const finishSession = useCallback((done: number, total: number, seconds: number, sets?: SetLog[]) => {
     const s = ref.current;
     const min = Math.max(1, Math.round(seconds / 60));
     const nu = calcNutrition(s.meals, activityOf(s, true));
     const left = Math.max(0, (parseFloat(s.profile.protein) || 0) - nu.protein);
-    const missed = calcWeek(history(s), false).missed;
-    const plan = todaysPlan();
+    const missed = calcWeek(history(s), false, new Date(), s.program).missed;
+    const plan = todaysPlan(new Date(), s.program);
     const sum = sessionSummary(done, total, min, left, plan?.title ?? 'Session', missed);
     patch({ sessionDone: true, loggedMin: min });
     pushMessages([msg('rei', sum.text, { alert: sum.alert })]);
     const u = uidRef.current;
     if (u) {
       write.day(u, s.day, { sessionDone: true, loggedMin: min });
-      write.session(u, { date: s.day, plan: plan?.key ?? 'PUSH', done, total, seconds });
+      write.session(u, { date: s.day, plan: plan?.key ?? 'PUSH', done, total, seconds, ...(sets ? { sets } : {}) });
     }
   }, [patch, msg, pushMessages, activityOf, history]);
 
@@ -457,6 +464,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         saveMeals(ref.current.meals.filter((_, k) => k !== i));
       },
       finishSession,
+      rebuildProgram: async focus => {
+        const res = await httpsCallable<{ focus?: string }, { week: string; note: string }>(fb().functions, 'rebuildProgram', { timeout: 300000 })({ focus });
+        return res.data.note;
+      },
       clearChat: () => {
         const at = Date.now();
         if (uidRef.current) {

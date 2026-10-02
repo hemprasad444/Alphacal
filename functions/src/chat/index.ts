@@ -3,11 +3,12 @@ import { applyUpdate, fuelLine, hhmm, MODELS, nutrition, parseReply, reiContext,
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineInt } from 'firebase-functions/params';
-import { onRequest, type Request } from 'firebase-functions/v2/https';
-import { auth, db } from '../admin';
+import { onRequest } from 'firebase-functions/v2/https';
+import { db } from '../admin';
 import { ANTHROPIC_API_KEY, claude } from '../claude';
+import { verify } from '../http';
 import { DAILY_LIMIT, loadUser, usageDay } from './load';
-import { logMealTool, logMealWithVerdictTool, parseMeal, parseVow, updateVowTool } from './tools';
+import { logMealTool, logMealWithVerdictTool, parseMeal, parseVow, rebuildProgramTool, updateVowTool } from './tools';
 
 /** Warm instances kept running so the first reply never waits on a cold start. */
 const MIN_INSTANCES = defineInt('CHAT_MIN_INSTANCES', { default: 1 });
@@ -33,18 +34,6 @@ function parseBody(raw: unknown): Body | null {
   const mode: Mode = b.mode === 'meal' ? 'meal' : 'chat';
   const userMessageId = typeof b.userMessageId === 'string' && ID.test(b.userMessageId) ? b.userMessageId : undefined;
   return { text, mode, replyId: b.replyId, userMessageId };
-}
-
-async function verify(req: Request): Promise<{ uid: string } | { error: number; message: string }> {
-  const m = /^Bearer (.+)$/.exec(req.get('authorization') ?? '');
-  if (!m) return { error: 401, message: 'Missing token.' };
-  try {
-    const t = await auth.verifyIdToken(m[1]);
-    if (t.tester !== true) return { error: 403, message: 'Not on the tester list.' };
-    return { uid: t.uid };
-  } catch {
-    return { error: 401, message: 'Invalid token.' };
-  }
 }
 
 /**
@@ -99,6 +88,7 @@ export const chat = onRequest(
     let text = '';
     let meal: Meal | null = null;
     let vow: ReturnType<typeof parseVow> = null;
+    let rebuild: string | null = null;
     try {
       const final = await (body.mode === 'meal' ? mealCall(system, turns) : chatCall(tier, system, turns, d => {
         if (!ttft) ttft = Date.now() - t0;
@@ -122,6 +112,9 @@ export const chat = onRequest(
             }
           } else if (b.name === 'update_vow') {
             vow = parseVow(b.input);
+          } else if (b.name === 'rebuild_program' && tier === 'deep') {
+            const f = (b.input as { focus?: unknown } | null)?.focus;
+            rebuild = typeof f === 'string' ? f.slice(0, 200) : '';
           }
         }
       }
@@ -129,7 +122,7 @@ export const chat = onRequest(
       if (!text && meal) text = fuelLine(data.input.profile, nutrition([...data.input.meals, meal], data.input.activity));
       if (!text) text = 'Noted.';
 
-      const notes = await save(uid, data, body.replyId, text, meal, vow);
+      const notes = await save(uid, data, body.replyId, text, meal, vow, rebuild);
       const total = Date.now() - t0;
       send({ type: 'done', id: body.replyId, text, notes, model: final.model, tier, ttftMs: ttft, totalMs: total });
       logger.info('chat', {
@@ -160,7 +153,7 @@ async function chatCall(tier: Tier, system: Anthropic.Beta.Messages.BetaTextBloc
           fallbacks: 'default',
           system,
           messages: turns,
-          tools: [logMealTool, updateVowTool],
+          tools: [logMealTool, updateVowTool, rebuildProgramTool],
         })
       : c.beta.messages.stream({
           model: MODELS.fast,
@@ -195,7 +188,7 @@ function mealCall(system: Anthropic.Beta.Messages.BetaTextBlockParam[], turns: A
 }
 
 /** Store REI's reply and any meal or vow change in one batch. Returns the system notes shown in chat. */
-async function save(uid: string, data: Awaited<ReturnType<typeof loadUser>>, replyId: string, text: string, meal: Meal | null, vow: ReturnType<typeof parseVow>) {
+async function save(uid: string, data: Awaited<ReturnType<typeof loadUser>>, replyId: string, text: string, meal: Meal | null, vow: ReturnType<typeof parseVow>, rebuild: string | null) {
   const user = db.doc(`users/${uid}`);
   const batch = db.batch();
   const now = Date.now();
@@ -214,6 +207,11 @@ async function save(uid: string, data: Awaited<ReturnType<typeof loadUser>>, rep
     batch.set(user, { profile: Object.fromEntries(Object.entries(vow)) }, { mergeFields: Object.keys(vow).map(k => `profile.${k}`) });
     if (vow.weight) batch.set(user.collection('weighIns').doc(data.today), { kg: parseFloat(vow.weight) });
     notes.push(upd.note);
+  }
+  if (rebuild !== null) {
+    // runJob (program.ts) picks this up and writes the new week.
+    batch.set(user.collection('jobs').doc(), { type: 'program', focus: rebuild, createdAt: now });
+    notes.push('REBUILDING YOUR WEEK');
   }
   notes.forEach((n, i) => batch.set(user.collection('messages').doc(`${replyId}n${i}`), { role: 'sys', text: n, time, createdAt: now + 1 + i }));
   await batch.commit();

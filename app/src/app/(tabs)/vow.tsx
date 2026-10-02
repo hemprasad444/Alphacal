@@ -1,10 +1,11 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import { Platform, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Platform, TextInput, View } from 'react-native';
 import { Core } from '../../components/Core';
 import { Screen } from '../../components/Screen';
 import { Bar, Card, Label, Tap, Txt } from '../../components/ui';
-import { BENCHMARKS, isoDate, parseIsoDate, type ProfileKey, trajectory, week } from '@rei/shared';
+import { BENCHMARKS, isoDate, parseIsoDate, type ProfileKey, SESSIONS, trajectory, week, WEEK_PLAN, weekdayIndex } from '@rei/shared';
 import { alpha, C, fontFamily } from '../../lib/theme';
 import { useStore } from '../../state/store';
 
@@ -15,7 +16,7 @@ export default function Vow() {
   const s = useStore();
   const { profile, settings, accent } = s;
   const tough = settings.tone === 'Tough love';
-  const traj = trajectory(profile, week(s.history, s.sessionDone).missed, new Date(), s.weighInsOrDemo);
+  const traj = trajectory(profile, week(s.history, s.sessionDone, new Date(), s.program).missed, new Date(), s.weighInsOrDemo);
   const strong = settings.scenario === 'Strong week';
   const deadline = parseIsoDate(profile.deadline) ?? new Date();
 
@@ -112,6 +113,8 @@ export default function Vow() {
         })}
       </View>
 
+      <WeekPlan />
+
       <Label style={{ marginTop: 30 }}>BENCHMARKS</Label>
       <View style={{ marginTop: 8 }}>
         {BENCHMARKS.map(([name, now, goal, f]) => (
@@ -137,5 +140,51 @@ export default function Vow() {
         </View>
       </Tap>
     </Screen>
+  );
+}
+
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/** This week's sessions (REI's program, or the default split) and the rebuild button. */
+function WeekPlan() {
+  const s = useStore();
+  const { accent } = s;
+  const [busy, setBusy] = useState(false);
+  const today = weekdayIndex(new Date());
+  const days = s.program?.days.length === 7 ? s.program.days : WEEK_PLAN.map(k => (k === 'REST' ? null : SESSIONS[k]));
+
+  const rebuild = async () => {
+    setBusy(true);
+    try {
+      await s.rebuildProgram();
+    } catch {
+      Alert.alert('REI couldn\u2019t rebuild the week', 'Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 30 }}>
+        <Label>THIS WEEK</Label>
+        <Label ls={0.12} color={s.program ? accent : C.dim}>{s.program ? 'WRITTEN BY REI' : 'DEFAULT SPLIT'}</Label>
+      </View>
+      {s.program?.note ? <Txt size={14} lh={1.45} color={C.sub} style={{ marginTop: 10 }}>{s.program.note}</Txt> : null}
+      <View style={{ marginTop: 8 }}>
+        {days.map((d, i) => (
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 14, paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line }}>
+            <Txt face="mono" size={12} color={i === today ? accent : C.dim} style={{ width: 34 }}>{DAY_NAMES[i].toUpperCase()}</Txt>
+            <Txt size={16} w={i === today ? 500 : 400} color={d ? C.text : C.dim} style={{ flex: 1 }} numberOfLines={1}>{d ? d.title : 'Rest'}</Txt>
+            {d ? <Txt face="mono" size={12} color={C.value}>{`${d.minutes} MIN · ${d.key}`}</Txt> : null}
+          </View>
+        ))}
+      </View>
+      {s.cloud ? (
+        <Tap onPress={rebuild} disabled={busy} style={{ marginTop: 12, height: 48, borderRadius: 24, borderWidth: 1, borderColor: alpha(accent, 0.45), backgroundColor: alpha(accent, 0.08), alignItems: 'center', justifyContent: 'center' }}>
+          <Txt size={15} color={accent}>{busy ? 'REI is writing your week\u2026' : 'Rebuild my week with REI'}</Txt>
+        </Tap>
+      ) : null}
+    </>
   );
 }

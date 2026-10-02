@@ -73,3 +73,13 @@ export function zonedNow(timeZone: string, now: Date = new Date()): Date {
     return now;
   }
 }
+
+/** ISO 8601 week of a date, e.g. "2026-W40". Weeks start Monday; week 1 holds the year's first Thursday. */
+export function isoWeek(d: Date = new Date()): string {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const n = Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${t.getUTCFullYear()}-W${String(n).padStart(2, '0')}`;
+}

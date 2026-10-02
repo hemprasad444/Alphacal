@@ -13,7 +13,7 @@ export default function Settings() {
   const s = useStore();
   const { settings, accent, theme } = s;
   const tough = settings.tone === 'Tough love';
-  const daysLeft = trajectory(s.profile, week(s.history, s.sessionDone).missed, new Date(), s.weighInsOrDemo).daysLeft;
+  const daysLeft = trajectory(s.profile, week(s.history, s.sessionDone, new Date(), s.program).missed, new Date(), s.weighInsOrDemo).daysLeft;
 
   return (
     <Screen tabs={false}>
