@@ -47,6 +47,13 @@
         }
       ],
       [
+        "expo-camera",
+        {
+          "cameraPermission": "REI scans barcodes and reads your plate to log meals.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-audio",
         {
           "microphonePermission": "REI listens when you tap the core and talk."

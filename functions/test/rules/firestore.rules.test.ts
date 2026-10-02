@@ -1,5 +1,5 @@
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -61,6 +61,16 @@ describe('users', () => {
   it('validates weigh-ins', async () => {
     await assertSucceeds(setDoc(doc(tester(), 'users/alice/weighIns/2026-10-02'), { kg: 81.6 }));
     await assertFails(setDoc(doc(tester(), 'users/alice/weighIns/2026-10-02'), { kg: '81.6' }));
+  });
+  it('validates own foods', async () => {
+    const food = { name: 'Usual breakfast', per: 1, kcal: 420, p: 30, c: 40, f: 14, units: [{ n: 'serving', g: 1 }], src: 'mine', serving: true };
+    await assertSucceeds(setDoc(doc(tester(), 'users/alice/foods/m:abc123'), food));
+    await assertSucceeds(getDoc(doc(tester(), 'users/alice/foods/m:abc123')));
+    await assertSucceeds(deleteDoc(doc(tester(), 'users/alice/foods/m:abc123')));
+    await assertFails(setDoc(doc(tester(), 'users/alice/foods/m:x'), { ...food, kcal: -1 }));
+    await assertFails(setDoc(doc(tester(), 'users/alice/foods/m:x'), { ...food, units: [] }));
+    await assertFails(setDoc(doc(tester(), 'users/alice/foods/m:x'), { ...food, name: '' }));
+    await assertFails(setDoc(doc(tester(), 'users/bob/foods/m:x'), food));
   });
   it('leaves programs and usage to the server', async () => {
     await assertFails(setDoc(doc(tester(), 'users/alice/programs/2026-W40'), { days: [] }));

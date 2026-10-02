@@ -75,7 +75,7 @@ export const mealFromPhoto = onCall({ secrets: [ANTHROPIC_API_KEY], timeoutSecon
   const confidence = Number((out as { confidence?: unknown }).confidence ?? 0);
   const verdict = est?.verdict || 'Couldn’t read that plate. Tell me what it is and roughly how much.';
   const logged = !!est && confidence >= 0.5;
-  const meal: Meal | null = logged && est ? { time: hhmm(data.input.now), name: est.name.charAt(0).toUpperCase() + est.name.slice(1), kcal: est.kcal, p: est.p, c: est.c, f: est.f } : null;
+  const meal: Meal | null = logged && est ? { time: hhmm(data.input.now), name: est.name.charAt(0).toUpperCase() + est.name.slice(1), kcal: est.kcal, p: est.p, c: est.c, f: est.f, src: 'photo' } : null;
 
   const replyId = `ph${Date.now().toString(36)}`;
   await db.doc(`users/${uid}/messages/${replyId}u`).set({ role: 'user', text: note ? `Photo: ${note}` : 'Photo of my meal', time: hhmm(data.input.now), createdAt: Date.now() - 1 });

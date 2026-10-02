@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import { PROFILE_KEYS, type MealEstimate, type ProfileKey } from '@rei/shared';
+import { type AiItem, PROFILE_KEYS, type MealEstimate, type ProfileKey } from '@rei/shared';
 
 type Tool = Anthropic.Beta.Messages.BetaTool;
 
@@ -11,24 +11,45 @@ const mealProps = {
   f: { type: 'integer', description: 'Fat, grams' },
 } as const;
 
+/** Each food in the meal: a Food list id when one fits (the server then uses the list's numbers), else REI's estimate. */
+const itemsProp = {
+  type: 'array',
+  description: 'Each food in the meal, in the amount eaten',
+  items: {
+    type: 'object',
+    properties: {
+      food_id: { type: 'string', description: 'The id from the Food list, or "none" when it is not on the list' },
+      name: { type: 'string', description: 'Short name of this food' },
+      qty: { type: 'number', description: 'How many of `unit`, e.g. 2 (rotis) or 150 (g)' },
+      unit: { type: 'string', description: 'One of the food’s listed portions, or "g". For foods not on the list: "serving", "katori", "piece" or "g"' },
+      kcal: { type: 'integer', description: 'Your estimate for this amount' },
+      p: { type: 'integer' },
+      c: { type: 'integer' },
+      f: { type: 'integer' },
+    },
+    required: ['food_id', 'name', 'qty', 'unit', 'kcal', 'p', 'c', 'f'],
+    additionalProperties: false,
+  },
+} as const;
+
 /** Chat: REI writes its reply as text, then logs the meal. */
 export const logMealTool: Tool = {
   name: 'log_meal',
-  description: 'Log a meal the user says they ate, with realistic macro estimates. Call it after writing your reply.',
+  description: 'Log a meal the user says they ate, one entry per food. Call it after writing your reply.',
   strict: true,
   eager_input_streaming: true,
-  input_schema: { type: 'object', properties: mealProps, required: ['name', 'kcal', 'p', 'c', 'f'], additionalProperties: false },
+  input_schema: { type: 'object', properties: { name: mealProps.name, items: itemsProp }, required: ['name', 'items'], additionalProperties: false },
 };
 
-/** Fuel screen: the estimate and REI's verdict come back together in one forced call. */
+/** Fuel screen: the items and REI's verdict come back together in one forced call. */
 export const logMealWithVerdictTool: Tool = {
   name: 'log_meal',
-  description: 'Log the meal with realistic macro estimates and REI’s one or two sentence verdict on how it fits the rest of today’s budget.',
+  description: 'Log the meal, one entry per food, with REI’s one or two sentence verdict on how it fits the rest of today’s budget.',
   strict: true,
   input_schema: {
     type: 'object',
-    properties: { ...mealProps, verdict: { type: 'string', description: 'REI’s reaction, in REI’s voice, using the numbers left after this meal' } },
-    required: ['name', 'kcal', 'p', 'c', 'f', 'verdict'],
+    properties: { name: mealProps.name, items: itemsProp, verdict: { type: 'string', description: 'REI’s reaction, in REI’s voice, using the numbers left after this meal' } },
+    required: ['name', 'items', 'verdict'],
     additionalProperties: false,
   },
 };
@@ -85,6 +106,29 @@ export function parseMeal(input: unknown): (MealEstimate & { name: string; verdi
   const kcal = int(o.kcal, 6000), p = int(o.p, 600), c = int(o.c, 1000), f = int(o.f, 400);
   if (typeof o.name !== 'string' || !o.name.trim() || kcal === null || p === null || c === null || f === null) return null;
   return { name: o.name.trim().slice(0, 60), kcal, p, c, f, ...(typeof o.verdict === 'string' ? { verdict: o.verdict.trim().slice(0, 600) } : {}) };
+}
+
+/** log_meal input → meal name, items and optional verdict; null when unusable. */
+export function parseMealItems(input: unknown): { name: string; items: AiItem[]; verdict?: string } | null {
+  if (!input || typeof input !== 'object') return null;
+  const o = input as Record<string, unknown>;
+  if (typeof o.name !== 'string' || !o.name.trim() || !Array.isArray(o.items) || !o.items.length) return null;
+  const items: AiItem[] = [];
+  for (const raw of o.items.slice(0, 20)) {
+    const i = (raw ?? {}) as Record<string, unknown>;
+    const kcal = int(i.kcal, 6000), p = int(i.p, 600), c = int(i.c, 1000), f = int(i.f, 400);
+    const qty = typeof i.qty === 'number' && Number.isFinite(i.qty) && i.qty > 0 && i.qty <= 5000 ? i.qty : null;
+    if (typeof i.name !== 'string' || !i.name.trim() || qty === null || kcal === null || p === null || c === null || f === null) continue;
+    items.push({
+      food_id: typeof i.food_id === 'string' ? i.food_id.slice(0, 60) : 'none',
+      name: i.name.trim().slice(0, 60),
+      qty,
+      unit: typeof i.unit === 'string' ? i.unit.trim().slice(0, 24) : '',
+      kcal, p, c, f,
+    });
+  }
+  if (!items.length) return null;
+  return { name: o.name.trim().slice(0, 60), items, ...(typeof o.verdict === 'string' ? { verdict: o.verdict.trim().slice(0, 600) } : {}) };
 }
 
 const NUMERIC: ProfileKey[] = ['weight', 'targetWeight', 'bf', 'targetBf', 'kcal', 'protein', 'carbs', 'fat', 'steps', 'sleep', 'sessions'];

@@ -42,7 +42,7 @@ const num = (s: string) => parseFloat(s) || 0;
 /** REI's persona and rules. Stable per user, so it is the cacheable prefix of the prompt. */
 export function systemRules(o: { tough: boolean; nudge: boolean; tools: boolean }): string {
   const actions = o.tools
-    ? `If the user reports eating something, estimate its macros realistically, react to how it fits the remaining budget (numbers after this meal), then call log_meal.
+    ? `If the user reports eating something, react to how it fits the remaining budget (numbers after this meal), then call log_meal with one item per food. For a food on the Food list, use its id and one of its portions or grams, and take its numbers from the list. For anything else use food_id "none" and estimate realistically for Indian home portions unless they say otherwise.
 If the user explicitly asks to change their goal, deadline, or a stat or target, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it), then call update_vow with only the fields that change.
 Always write your complete reply first; a tool call ends your turn. Never mention the tools.`
     : `If the user reports eating something, estimate its macros realistically, react to how it fits the remaining budget (numbers after this meal), and append a final line exactly: MEAL {"name":"short name","kcal":n,"p":n,"c":n,"f":n}.

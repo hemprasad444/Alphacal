@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { applyUpdate, fuelLine, hhmm, MODELS, nutrition, parseReply, reiContext, route, systemContext, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
+import { applyUpdate, catalog, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, MODELS, nutrition, parseReply, reiContext, resolveAiItems, route, systemContext, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineInt } from 'firebase-functions/params';
@@ -8,7 +8,7 @@ import { db } from '../admin';
 import { ANTHROPIC_API_KEY, claude } from '../claude';
 import { verify } from '../http';
 import { DAILY_LIMIT, loadUser, usageDay } from './load';
-import { logMealTool, logMealWithVerdictTool, parseMeal, parseVow, rebuildProgramTool, updateVowTool } from './tools';
+import { logMealTool, logMealWithVerdictTool, parseMealItems, parseVow, rebuildProgramTool, updateVowTool } from './tools';
 
 /** Warm instances kept running so the first reply never waits on a cold start. */
 const MIN_INSTANCES = defineInt('CHAT_MIN_INSTANCES', { default: 1 });
@@ -74,9 +74,13 @@ export const chat = onRequest(
     const send = (event: object) => res.write(`data: ${JSON.stringify(event)}\n\n`);
 
     const ctx = reiContext(data.input);
+    // The foods this message might mean, so REI logs the list's numbers instead of guessing.
+    const foods = [...data.foods, ...catalog()];
+    const candidates = foodCandidates(body.text, foods);
     const system: Anthropic.Beta.Messages.BetaTextBlockParam[] = [
       { type: 'text', text: systemRules({ tough: ctx.tough, nudge: ctx.nudge, tools: true }), cache_control: { type: 'ephemeral' } },
       { type: 'text', text: systemContext(ctx) },
+      ...(candidates.length ? [{ type: 'text' as const, text: foodListPrompt(candidates) }] : []),
     ];
     const userText = body.mode === 'meal' ? `Just ate: ${body.text}` : body.text;
     const history = data.messages.filter(m => m.id !== body.userMessageId);
@@ -105,9 +109,9 @@ export const chat = onRequest(
         for (const b of final.content) {
           if (b.type !== 'tool_use' || !toolsUsable) continue;
           if (b.name === 'log_meal') {
-            const m = parseMeal(b.input);
+            const m = parseMealItems(b.input);
             if (m) {
-              meal = { time: hhmm(data.input.now), name: m.name.charAt(0).toUpperCase() + m.name.slice(1), kcal: m.kcal, p: m.p, c: m.c, f: m.f };
+              meal = mealFromItems(resolveAiItems(m.items, foods), hhmm(data.input.now), 'ai', m.name);
               if (m.verdict) text = m.verdict;
             }
           } else if (b.name === 'update_vow') {
@@ -128,7 +132,7 @@ export const chat = onRequest(
       logger.info('chat', {
         uid, tier, model: final.model, mode: body.mode, ttftMs: ttft, totalMs: total, stop: final.stop_reason,
         inTokens: final.usage.input_tokens, outTokens: final.usage.output_tokens, cacheRead: final.usage.cache_read_input_tokens ?? 0,
-        meal: !!meal, vow: !!vow,
+        meal: !!meal, vow: !!vow, foods: candidates.length, matched: meal?.items?.filter(i => i.food).length ?? 0,
       });
     } catch (e) {
       const status = e instanceof Anthropic.APIError ? e.status : undefined;

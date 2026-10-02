@@ -1,4 +1,4 @@
-import { activityFromDay, type ContextInput, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type DayDoc, isoDate, isoWeek, type Message, type Profile, type Settings, type WeekProgram, weekdayIndex, zonedNow } from '@rei/shared';
+import { activityFromDay, type ContextInput, type Food, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type DayDoc, isoDate, isoWeek, type Message, type Profile, type Settings, type WeekProgram, weekdayIndex, zonedNow } from '@rei/shared';
 import { FieldPath } from 'firebase-admin/firestore';
 import { db } from '../admin';
 
@@ -6,6 +6,8 @@ import { db } from '../admin';
 const HISTORY = 30;
 /** Messages a user may send per day. */
 export const DAILY_LIMIT = 300;
+/** Own foods read per request; plenty for a few testers. */
+const MAX_FOODS = 400;
 
 /** Usage counters are per UTC day, so they can be read before the user's zone is known. */
 export const usageDay = () => new Date().toISOString().slice(0, 10);
@@ -20,6 +22,8 @@ export interface Loaded {
   usedToday: number;
   /** Proactive nudges already sent today (see coach.ts). */
   nudgesSent: string[];
+  /** The user's own foods: saved meals, barcode products, corrected numbers. */
+  foods: Food[];
 }
 
 /**
@@ -31,12 +35,13 @@ export async function loadUser(uid: string): Promise<Loaded> {
   const since = new Date(Date.now() - 8 * 86400000);
   // The user's ISO week depends on their zone; fetch the candidates around now in the same round.
   const weeks = [...new Set([-1, 0, 1].map(d => isoWeek(new Date(Date.now() + d * 86400000))))];
-  const [userSnap, daySnaps, msgSnaps, usage, programSnaps] = await Promise.all([
+  const [userSnap, daySnaps, msgSnaps, usage, programSnaps, foodSnaps] = await Promise.all([
     user.get(),
     user.collection('days').where(FieldPath.documentId(), '>=', isoDate(since)).get(),
     user.collection('messages').orderBy('createdAt', 'desc').limit(HISTORY + 10).get(),
     user.collection('usage').doc(usageDay()).get(),
     db.getAll(...weeks.map(w => user.collection('programs').doc(w))),
+    user.collection('foods').limit(MAX_FOODS).get(),
   ]);
   const u = userSnap.data() ?? {};
   const timeZone: string = typeof u.timezone === 'string' ? u.timezone : 'Asia/Kolkata';
@@ -73,6 +78,10 @@ export async function loadUser(uid: string): Promise<Loaded> {
     today,
     timeZone,
     usedToday: Number(usage.data()?.chat ?? 0),
+    foods: foodSnaps.docs.map(d => {
+      const f = d.data() as Food;
+      return { ...f, id: d.id, src: f.src === 'barcode' ? 'barcode' : 'mine' } satisfies Food;
+    }),
     nudgesSent: Array.isArray((t as { nudges?: unknown }).nudges) ? ((t as { nudges: string[] }).nudges) : [],
   };
 }

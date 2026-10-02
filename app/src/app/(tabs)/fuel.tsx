@@ -1,12 +1,14 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Platform, TextInput, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Core } from '../../components/Core';
+import { FoodSheet, MealSheet } from '../../components/FoodSheet';
 import { Screen } from '../../components/Screen';
 import { Card, Jp, Label, Tap, Txt } from '../../components/ui';
-import { dayStamp, fuelLine, nutrition } from '@rei/shared';
+import { amountLabel, dayStamp, type Food, fuelLine, itemFor, nutrition, searchFoods, splitMealText } from '@rei/shared';
 import { C, fontFamily } from '../../lib/theme';
 import { useStore } from '../../state/store';
 
@@ -16,7 +18,15 @@ const RING = 2 * Math.PI * 32;
 export default function Fuel() {
   const s = useStore();
   const { settings, profile, accent, meals } = s;
+  const router = useRouter();
   const [draft, setDraft] = useState('');
+  const [pick, setPick] = useState<{ food: Food; qty: number; unit?: string } | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
+  // Live matches for what's being typed (the last piece, so "2 roti, da" suggests dal).
+  const piece = draft.includes(',') || / and | with |\+/.test(draft) ? null : splitMealText(draft).pop();
+  const suggestions = piece && !s.fuelBusy ? searchFoods(piece.query, s.allFoods, 5) : [];
+  const favs = s.foods.filter(f => f.fav);
+  const recent = s.recent.filter(m => !favs.some(f => f.name.toLowerCase() === m.name.toLowerCase()));
   const nu = nutrition(meals, s.activity);
   const n = (k: keyof typeof profile) => parseFloat(profile[k]) || 0;
   const kcalT = n('kcal'), protT = n('protein');
@@ -140,13 +150,16 @@ export default function Fuel() {
             value={draft}
             onChangeText={setDraft}
             onSubmitEditing={() => log(draft)}
-            placeholder={s.cloud ? 'Describe it, or snap it' : 'Describe it. REI does the math'}
+            placeholder={s.cloud ? 'Search, describe, or snap it' : 'Search or describe it'}
             placeholderTextColor={C.dim}
             returnKeyType="done"
             keyboardAppearance="dark"
             style={{ fontFamily: fontFamily(settings.font, 400), fontSize: 16, color: C.text }}
           />
         </View>
+        <Tap onPress={() => router.push('/scan')} style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+          <BarcodeGlyph color={C.body} />
+        </Tap>
         {s.cloud ? (
           <Tap onPress={() => photo()} onLongPress={() => photo(true)} disabled={s.fuelBusy} style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
             <CameraGlyph color={C.body} />
@@ -156,12 +169,39 @@ export default function Fuel() {
           <Txt size={22} w={500} color={has ? C.ink : C.dim}>{s.fuelBusy ? '…' : '+'}</Txt>
         </Tap>
       </View>
+      {suggestions.length ? (
+        <Card style={{ marginTop: 10, paddingHorizontal: 14 }}>
+          {suggestions.map(({ food }, i) => {
+            const it = itemFor(food, piece!.qty, piece!.unit);
+            return (
+              <Tap key={food.id} onPress={() => setPick({ food, qty: piece!.qty, unit: piece!.unit })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: i ? 1 : 0, borderTopColor: C.line }}>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Txt size={15} numberOfLines={1}>{`${food.fav ? '★ ' : ''}${food.name}`}</Txt>
+                  <Txt face="mono" size={11} color={C.dim}>{`${amountLabel(it)}${food.brand ? ` · ${food.brand}` : ''}`}</Txt>
+                </View>
+                <Txt face="mono" size={13} color={C.value}>{`${it.kcal} kcal`}</Txt>
+                <Txt face="mono" size={11} color={accent}>{`P ${Math.round(it.p)}`}</Txt>
+              </Tap>
+            );
+          })}
+        </Card>
+      ) : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-        {QUICK.map(t => (
+        {favs.map(f => (
+          <Tap key={f.id} onPress={() => setPick({ food: f, qty: 1 })} style={{ height: 34, paddingHorizontal: 13, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', backgroundColor: C.card2 }}>
+            <Txt size={13} color={C.text}>{`★ ${f.name}`}</Txt>
+          </Tap>
+        ))}
+        {recent.map(m => (
+          <Tap key={`r-${m.name}`} onPress={() => s.repeatMeal(m)} style={{ height: 34, paddingHorizontal: 13, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', backgroundColor: C.card2 }}>
+            <Txt size={13} color={C.body}>{`↺ ${m.name}`}</Txt>
+          </Tap>
+        ))}
+        {!favs.length && !recent.length ? QUICK.map(t => (
           <Tap key={t} onPress={() => log(t)} style={{ height: 34, paddingHorizontal: 13, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', backgroundColor: C.card2 }}>
             <Txt size={13} color={C.body}>{t}</Txt>
           </Tap>
-        ))}
+        )) : null}
       </View>
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 30 }}>
@@ -173,26 +213,41 @@ export default function Fuel() {
           <Txt size={14} color={C.dim} style={{ paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.line }}>Nothing logged yet. REI is watching.</Txt>
         ) : null}
         {meals.map((m, i) => (
-          <View key={`${m.time}-${i}`} style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start', paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.line }}>
+          <Tap key={`${m.time}-${i}`} haptic={false} onPress={() => setEditing(i)} style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start', paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.line }}>
             <Txt face="mono" size={11} color={C.dim} style={{ width: 38, paddingTop: 4 }}>{m.time}</Txt>
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
                 <Txt size={16} w={500} ls={-0.01} style={{ flex: 1 }}>{m.name}</Txt>
                 <Txt face="mono" size={13} color={C.value}>{`${fmt(m.kcal)} kcal`}</Txt>
               </View>
+              {m.items && m.items.length > 1 ? (
+                <Txt size={12} color={C.dim} style={{ marginTop: 4 }} numberOfLines={2}>{m.items.map(it => `${amountLabel(it)} ${it.name.toLowerCase()}`).join(' · ')}</Txt>
+              ) : null}
               <View style={{ flexDirection: 'row', gap: 12, marginTop: 6 }}>
                 <Txt face="mono" size={11} color={accent}>{`P ${m.p}`}</Txt>
                 <Txt face="mono" size={11} color={C.carbs}>{`C ${m.c}`}</Txt>
                 <Txt face="mono" size={11} color={C.fat}>{`F ${m.f}`}</Txt>
+                {m.items?.some(it => !it.food) || m.src === 'photo' ? <Txt face="mono" size={11} color={C.faint}>≈ ESTIMATE</Txt> : null}
               </View>
             </View>
             <Tap onPress={() => s.removeMeal(i)} style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
               <Txt size={12} color={C.faint}>✕</Txt>
             </Tap>
-          </View>
+          </Tap>
         ))}
       </View>
+      <FoodSheet pick={pick} onClose={() => (setPick(null), setDraft(''))} />
+      <MealSheet index={editing} onClose={() => setEditing(null)} />
     </Screen>
+  );
+}
+
+/** Barcode stripes. */
+function BarcodeGlyph({ color }: { color: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'stretch', height: 16, gap: 1.5 }}>
+      {[2, 1, 1, 2, 1, 2, 1].map((w, i) => <View key={i} style={{ width: w, backgroundColor: color, borderRadius: 0.5 }} />)}
+    </View>
   );
 }
 

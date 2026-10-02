@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  type Activity, activityFor, activityFromDay, applyUpdate, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, fuelLine, hhmm, type History, isoDate, isoWeek, type Meal, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  type Activity, activityFor, activityFromDay, applyUpdate, catalog, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
-import { newId, onDays, onMessages, onProgram, onUser, onWeighIns, write } from '../lib/sync';
+import { lookupBarcode } from '../lib/foods';
+import { newId, onDays, onFoods, onMessages, onProgram, onUser, onWeighIns, write } from '../lib/sync';
 import { httpsCallable } from 'firebase/functions';
 import { DEFAULT_EMBLEM, EMBLEMS, THEMES, type Emblem, type Theme } from '../lib/theme';
 import { type Account, useAccount } from './account';
@@ -32,6 +33,10 @@ interface Persisted {
   chatClearedAt: number;
   /** REI's plan for the current week, when one has been written. */
   program: WeekProgram | null;
+  /** Your own foods: favourites, scanned products, saved meals. */
+  foods: Food[];
+  /** Meals from the last two weeks before today, newest first. */
+  recentMeals: Meal[];
 }
 
 function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
@@ -51,7 +56,33 @@ function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
     weighIns: [],
     chatClearedAt: 0,
     program: null,
+    foods: [],
+    recentMeals: [],
   };
+}
+
+/** Meals worth one-tap repeating: the most often eaten, then the most recent. */
+function repeatable(today: Meal[], past: Meal[], max = 8): Meal[] {
+  const seen = new Map<string, { meal: Meal; n: number; at: number }>();
+  [...[...today].reverse(), ...past].forEach((m, i) => {
+    const k = m.name.trim().toLowerCase();
+    const cur = seen.get(k);
+    if (cur) cur.n++;
+    else seen.set(k, { meal: m, n: 1, at: i });
+  });
+  return [...seen.values()].sort((a, b) => b.n - a.n || a.at - b.at).slice(0, max).map(x => x.meal);
+}
+
+/** Your foods first; they replace built-ins with the same id (a favourited dish, say). */
+function withCatalog(mine: Food[]): Food[] {
+  const ids = new Set(mine.map(f => f.id));
+  return [...mine, ...catalog().filter(f => !ids.has(f.id))];
+}
+
+/** An item for a piece REI couldn't be asked about: a rough on-device estimate. */
+function estimateItem(text: string): MealItem {
+  const e = toMeal(null, text, '');
+  return { food: '', name: e.name, qty: 1, unit: 'serving', g: 0, kcal: e.kcal, p: e.p, c: e.c, f: e.f };
 }
 
 const historyOf = (s: Persisted, cloud: boolean): History =>
@@ -89,6 +120,10 @@ interface Store extends Persisted {
   thinking: boolean;
   fuelBusy: boolean;
   fuelVerdict: string;
+  /** Your foods, then the built-in list (yours replace built-ins with the same id). */
+  allFoods: Food[];
+  /** Meals to repeat in one tap. */
+  recent: Meal[];
   signIn: (email: string, password: string) => Promise<unknown>;
   signUp: (email: string, password: string) => Promise<unknown>;
   resetPassword: (email: string) => Promise<void>;
@@ -107,6 +142,15 @@ interface Store extends Persisted {
   /** Signed in only: REI reads a meal photo (base64 JPEG) and logs it if sure. */
   logMealPhoto: (jpegBase64: string, note?: string) => Promise<void>;
   removeMeal: (i: number) => void;
+  /** Log foods picked from the list: instant, exact, and offline. */
+  logItems: (items: MealItem[], src?: Meal['src'], name?: string) => void;
+  repeatMeal: (m: Meal) => void;
+  updateMeal: (i: number, m: Meal) => void;
+  saveFood: (f: Food) => void;
+  removeFood: (id: string) => void;
+  toggleFav: (f: Food) => void;
+  /** Your saved product first, then Open Food Facts. */
+  findBarcode: (code: string) => Promise<Food | null>;
   finishSession: (done: number, total: number, seconds: number, sets?: SetLog[]) => void;
   /** Ask REI to rewrite this week's training. Resolves with REI's note for the week. */
   rebuildProgram: (focus?: string) => Promise<string>;
@@ -173,7 +217,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
         const saved = JSON.parse(raw) as Partial<Persisted>;
         const next: Persisted = { ...base, ...saved, settings: { ...DEFAULT_SETTINGS, ...saved.settings }, profile: { ...DEFAULT_PROFILE, ...saved.profile } };
-        if (next.day !== isoDate()) Object.assign(next, { day: isoDate(), meals: [], sessionDone: false, loggedMin: 0, activity: null });
+        if (next.day !== isoDate()) Object.assign(next, { day: isoDate(), meals: [], recentMeals: [...[...next.meals].reverse(), ...next.recentMeals].slice(0, 80), sessionDone: false, loggedMin: 0, activity: null });
         setP(next);
       })
       .catch(e => console.warn('REI: could not load saved state', e))
@@ -196,7 +240,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // A new day on-device: empty food log, no session.
   useEffect(() => {
     if (!ready || ref.current.day === today) return;
-    patch({ day: today, meals: [], sessionDone: false, loggedMin: 0, activity: null });
+    patch(cur => ({ day: today, meals: [], recentMeals: [...[...cur.meals].reverse(), ...cur.recentMeals].slice(0, 80), sessionDone: false, loggedMin: 0, activity: null }));
   }, [today, ready, patch]);
 
   const msg = useCallback((role: Message['role'], text: string, extra: Partial<Message> = {}): Message => {
@@ -239,11 +283,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           chatClearedAt: doc.chatClearedAt ?? 0,
         }));
       }),
-      onDays(uid, mondayIso(), days => {
+      // Two weeks back: this week's sessions, and recent meals to repeat.
+      onDays(uid, daysAgoIso(14), days => {
         const t = days[today];
-        const weekSessions = Object.fromEntries(Object.entries(days).filter(([d]) => d < today).map(([d, v]) => [d, !!v.sessionDone]));
+        const monday = mondayIso();
+        const weekSessions = Object.fromEntries(Object.entries(days).filter(([d]) => d >= monday && d < today).map(([d, v]) => [d, !!v.sessionDone]));
+        const recentMeals = Object.entries(days).filter(([d]) => d < today).sort(([a], [b]) => (a < b ? 1 : -1)).flatMap(([, v]) => [...(v.meals ?? [])].reverse());
         patch({
           weekSessions,
+          recentMeals,
           day: today,
           meals: t?.meals ?? [],
           sessionDone: !!t?.sessionDone,
@@ -254,6 +302,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       onMessages(uid, messages => patch({ messages })),
       onWeighIns(uid, daysAgoIso(120), weighIns => patch({ weighIns })),
       onProgram(uid, isoWeek(), program => patch({ program })),
+      onFoods(uid, foods => patch({ foods })),
     ];
     return () => unsubs.forEach(u => u());
   }, [uid, loadedKey, today, patch, pushMessages, msg]);
@@ -305,6 +354,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }, 600);
   }, [patch]);
 
+  /** A typed meal without REI: list matches, plus rough estimates for the rest. */
+  const offlineMeal = useCallback((text: string): Meal => {
+    const r = matchMealText(text, withCatalog(ref.current.foods));
+    const items = [...r.items, ...r.unmatched.map(estimateItem)];
+    return items.length ? mealFromItems(items, hhmm(), r.unmatched.length ? undefined : 'food') : toMeal(null, text, hhmm());
+  }, []);
+
+  const saveFood = useCallback((f: Food) => {
+    patch(cur => ({ foods: [...cur.foods.filter(x => x.id !== f.id), f] }));
+    const u = uidRef.current;
+    if (u) write.food(u, f);
+  }, [patch]);
+
+  const removeFood = useCallback((id: string) => {
+    patch(cur => ({ foods: cur.foods.filter(x => x.id !== id) }));
+    const u = uidRef.current;
+    if (u) write.deleteFood(u, id);
+  }, [patch]);
+
+  const addMeal = useCallback((meal: Meal) => {
+    const cur = ref.current;
+    const meals = [...cur.meals, meal];
+    saveMeals(meals);
+    setFuelVerdict(fuelLine(cur.profile, calcNutrition(meals, activityOf(cur))));
+    // Your foods you use most float up in search.
+    const now = Date.now();
+    for (const i of meal.items ?? []) {
+      const mine = cur.foods.find(f => f.id === i.food);
+      if (mine) saveFood({ ...mine, usedAt: now });
+    }
+  }, [saveMeals, activityOf, saveFood]);
+
+  const logItems = useCallback((items: MealItem[], src: Meal['src'] = 'food', name?: string) => {
+    if (items.length) addMeal(mealFromItems(items, hhmm(), src, name));
+  }, [addMeal]);
+
   const send = useCallback(async (text: string) => {
     text = text.trim();
     if (!text || thinking) return;
@@ -324,7 +409,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (upd) notes.push(msg('sys', upd.note));
       let meal: Meal | null = null;
       if (r.meal || (r.offline && /^just ate/i.test(text))) {
-        meal = toMeal(r.meal, text.replace(/^just ate:?\s*/i, ''), hhmm());
+        meal = r.meal ? toMeal(r.meal, text, hhmm()) : offlineMeal(text.replace(/^just ate:?\s*/i, ''));
         notes.push(msg('sys', mealNote(meal)));
       }
       // Offline answers about food should reflect the meal just logged.
@@ -337,7 +422,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } finally {
       setThinking(false);
     }
-  }, [thinking, cloud, msg, pushMessages, remote, offline, activityOf, saveProfile, saveMeals]);
+  }, [thinking, cloud, msg, pushMessages, remote, offline, offlineMeal, activityOf, saveProfile, saveMeals]);
 
   const voiceReply = useCallback(async (turns: Message[], onDelta?: (text: string) => void) => {
     const lastTurn = turns[turns.length - 1];
@@ -352,15 +437,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const r = offline(lastTurn?.text ?? '', cur);
     const upd = applyUpdate(cur.profile, r.upd);
     const lastUser = turns[turns.length - 1]?.text ?? '';
-    const meal = r.meal ? toMeal(r.meal, lastUser, hhmm()) : null;
+    const meal = r.meal ? toMeal(r.meal, lastUser, hhmm()) : /^just ate/i.test(lastUser) ? offlineMeal(lastUser.replace(/^just ate:?\s*/i, '')) : null;
     if (upd) saveProfile(upd.profile, upd.profile.weight !== cur.profile.weight);
     if (meal) saveMeals([...cur.meals, meal]);
     return { text: r.text, note: upd?.note ?? (meal ? mealNote(meal) : null) };
-  }, [msg, pushMessages, remote, offline, saveProfile, saveMeals]);
+  }, [msg, pushMessages, remote, offline, offlineMeal, saveProfile, saveMeals]);
 
   const logMeal = useCallback(async (text: string) => {
     text = text.trim();
     if (!text || fuelBusy) return;
+    // Everything found on the food list: log it now with the list's numbers, no round trip.
+    const match = matchMealText(text, withCatalog(ref.current.foods));
+    if (match.items.length && !match.unmatched.length) {
+      logItems(match.items, 'food');
+      return;
+    }
     setFuelBusy(true);
     try {
       const userMsg = msg('user', 'Just ate: ' + text);
@@ -374,7 +465,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       }
       const cur = ref.current;
-      const meal = toMeal(null, text, hhmm());
+      const meal = offlineMeal(text);
       const meals = [...cur.meals, meal];
       const reply = fuelLine(cur.profile, calcNutrition(meals, activityOf(cur)));
       setFuelVerdict(reply);
@@ -383,7 +474,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } finally {
       setFuelBusy(false);
     }
-  }, [fuelBusy, msg, remote, activityOf, saveMeals, pushMessages]);
+  }, [fuelBusy, msg, remote, activityOf, saveMeals, pushMessages, logItems, offlineMeal]);
 
   const finishSession = useCallback((done: number, total: number, seconds: number, sets?: SetLog[]) => {
     const s = ref.current;
@@ -440,6 +531,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       thinking,
       fuelBusy,
       fuelVerdict,
+      allFoods: withCatalog(p.foods),
+      recent: repeatable(p.meals, p.recentMeals),
       signIn,
       signUp,
       resetPassword,
@@ -465,6 +558,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setFuelVerdict('');
         saveMeals(ref.current.meals.filter((_, k) => k !== i));
       },
+      logItems,
+      repeatMeal: m => addMeal({ ...m, time: hhmm() }),
+      updateMeal: (i, m) => {
+        setFuelVerdict('');
+        saveMeals(ref.current.meals.map((x, k) => (k === i ? m : x)));
+      },
+      saveFood,
+      removeFood,
+      toggleFav: f => {
+        const mine = ref.current.foods.find(x => x.id === f.id);
+        if (!mine) saveFood({ ...f, fav: true });
+        // Un-starring a built-in food drops your copy; your own foods stay.
+        else if (mine.fav && /^[di]:/.test(mine.id)) removeFood(mine.id);
+        else saveFood({ ...mine, fav: !mine.fav });
+      },
+      findBarcode: async code => ref.current.foods.find(f => f.barcode === code) ?? lookupBarcode(code),
       finishSession,
       logMealPhoto: async (image, note) => {
         if (!uidRef.current || fuelBusy) return;
@@ -504,7 +613,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
     };
-  }, [p, streaming, ready, account, cloud, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg]);
+  }, [p, streaming, ready, account, cloud, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

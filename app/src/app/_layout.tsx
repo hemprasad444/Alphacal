@@ -55,6 +55,7 @@ function Root() {
           <Stack.Screen name="appearance" />
           <Stack.Screen name="voice" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
           <Stack.Screen name="session" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+          <Stack.Screen name="scan" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
         </Stack.Protected>
         <Stack.Protected guard={needsAuth}>
           <Stack.Screen name="sign-in" options={{ animation: 'fade' }} />

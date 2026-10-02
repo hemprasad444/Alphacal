@@ -1,7 +1,7 @@
 // Firestore reads and writes for one signed-in user. Writes are fire-and-forget: the
 // store has already updated the screen, and Firestore queues writes while offline.
-import { collection, doc, documentId, limit, onSnapshot, orderBy, query, setDoc, where, type Unsubscribe } from 'firebase/firestore';
-import type { DayDoc, Message, Profile, SessionLog, Settings, WeekProgram, WeighIn } from '@rei/shared';
+import { collection, deleteDoc, doc, documentId, limit, onSnapshot, orderBy, query, setDoc, where, type Unsubscribe } from 'firebase/firestore';
+import type { DayDoc, Food, Message, Profile, SessionLog, Settings, WeekProgram, WeighIn } from '@rei/shared';
 import { fb } from './firebase';
 
 export interface UserDoc {
@@ -51,6 +51,11 @@ export function onProgram(uid: string, week: string, cb: (program: WeekProgram |
   return onSnapshot(doc(fb().db, 'users', uid, 'programs', week), s => cb(s.exists() ? (s.data() as WeekProgram) : null), warn('program listener'));
 }
 
+/** The user's own foods. */
+export function onFoods(uid: string, cb: (foods: Food[]) => void): Unsubscribe {
+  return onSnapshot(sub(uid, 'foods'), s => cb(s.docs.map(d => ({ ...(d.data() as Food), id: d.id }))), warn('foods listener'));
+}
+
 export const write = {
   user: (uid: string, data: Partial<UserDoc>) => setDoc(userRef(uid), clean(data), { merge: true }).catch(warn('user write')),
   day: (uid: string, date: string, data: Partial<DayDoc>) => setDoc(doc(sub(uid, 'days'), date), clean(data), { merge: true }).catch(warn('day write')),
@@ -61,4 +66,9 @@ export const write = {
   session: (uid: string, data: SessionLog) =>
     setDoc(doc(sub(uid, 'sessions'), newId()), { ...data, createdAt: Date.now() }).catch(warn('session write')),
   weighIn: (uid: string, date: string, kg: number) => setDoc(doc(sub(uid, 'weighIns'), date), { kg }).catch(warn('weigh-in write')),
+  food: (uid: string, f: Food) => {
+    const { id, ...rest } = f;
+    return setDoc(doc(sub(uid, 'foods'), id), clean(rest)).catch(warn('food write'));
+  },
+  deleteFood: (uid: string, id: string) => deleteDoc(doc(sub(uid, 'foods'), id)).catch(warn('food delete')),
 };
