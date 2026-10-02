@@ -4,11 +4,8 @@ import { Platform, TextInput, View } from 'react-native';
 import { Core } from '../../components/Core';
 import { Screen } from '../../components/Screen';
 import { Bar, Card, Label, Tap, Txt } from '../../components/ui';
-import { BENCHMARKS } from '../../lib/data';
-import { trajectory, week } from '../../lib/derive';
+import { BENCHMARKS, isoDate, parseIsoDate, type ProfileKey, trajectory, week } from '@rei/shared';
 import { alpha, C, fontFamily } from '../../lib/theme';
-import { isoDate, parseIsoDate } from '../../lib/time';
-import type { ProfileKey } from '../../lib/types';
 import { useStore } from '../../state/store';
 
 const BODY: [string, ProfileKey, string][] = [['WEIGHT', 'weight', 'kg'], ['TARGET', 'targetWeight', 'kg'], ['BODY FAT', 'bf', '%'], ['TARGET BF', 'targetBf', '%'], ['HEIGHT', 'height', 'cm'], ['AGE', 'age', 'yrs']];
@@ -18,7 +15,7 @@ export default function Vow() {
   const s = useStore();
   const { profile, settings, accent } = s;
   const tough = settings.tone === 'Tough love';
-  const traj = trajectory(profile, week(settings.scenario, s.sessionDone).missed);
+  const traj = trajectory(profile, week(s.history, s.sessionDone).missed, new Date(), s.weighInsOrDemo);
   const strong = settings.scenario === 'Strong week';
   const deadline = parseIsoDate(profile.deadline) ?? new Date();
 

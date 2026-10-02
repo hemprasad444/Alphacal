@@ -4,7 +4,7 @@ import type { BottomTabBarProps } from 'expo-router/tabs';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../state/store';
-import { week, todaysPlan } from '../lib/derive';
+import { week, todaysPlan } from '@rei/shared';
 import { C } from '../lib/theme';
 import { Core } from './Core';
 import { Label, Tap, Txt } from './ui';
@@ -18,8 +18,9 @@ const TABS: Record<string, { kanji: string; label: string }> = {
 /** Floating glass pill: Today · Fuel · REI · Vow. REI opens the chat. */
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { settings, sessionDone } = useStore();
-  const slipping = !!todaysPlan() && !sessionDone && week(settings.scenario, sessionDone).missed > 0;
+  const s = useStore();
+  const { sessionDone } = s;
+  const slipping = !!todaysPlan() && !sessionDone && week(s.history, sessionDone).missed > 0;
 
   const tab = (name: string) => {
     const i = state.routes.findIndex(r => r.name === name);

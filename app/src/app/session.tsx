@@ -6,10 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
 import { Core } from '../components/Core';
 import { Bar, IconButton, Label, Tap, Txt } from '../components/ui';
-import { SESSIONS } from '../lib/data';
-import { sessionLine, todaysPlan } from '../lib/derive';
+import { pad, sessionLine, SESSIONS, todaysPlan } from '@rei/shared';
 import { C } from '../lib/theme';
-import { pad } from '../lib/time';
 import { useStore } from '../state/store';
 
 export default function Session() {

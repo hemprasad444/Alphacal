@@ -1,12 +1,13 @@
 // Numbers and copy the screens show, computed from app state.
 // Ported from renderVals() in design/REI.dc.html.
-import { activityFor, SESSION_TIME, SESSIONS, WEEK_PLAN, WEIGHT_HISTORY, type SessionKey, type SessionPlan } from './data';
-import { daysBetween, minutesUntil, monthDay, parseIsoDate, weekdayIndex } from './time';
-import type { Meal, Nutrition, Profile, Scenario } from './types';
+import { demoWeighIns, SESSION_TIME, SESSIONS, WEEK_PLAN, type SessionKey, type SessionPlan } from './data';
+import { daysBetween, isoDate, minutesUntil, monthDay, parseIsoDate, weekdayIndex } from './time';
+import type { Activity, History, Meal, Nutrition, Profile, WeighIn } from './types';
 
 const num = (s: string) => parseFloat(s) || 0;
 
-export type DayStatus = 'done' | 'missed' | 'rest' | 'today' | 'future';
+/** `none`: before the user started, so neither kept nor missed. */
+export type DayStatus = 'done' | 'missed' | 'rest' | 'today' | 'future' | 'none';
 
 export interface WeekDay {
   day: string;
@@ -25,9 +26,9 @@ export interface Week {
   yesterdayDone: boolean;
 }
 
-export function nutrition(meals: Meal[], scenario: Scenario, sessionDone: boolean): Nutrition {
+export function nutrition(meals: Meal[], activity: Activity): Nutrition {
   const sum = (k: 'kcal' | 'p' | 'c' | 'f') => meals.reduce((a, m) => a + (+m[k] || 0), 0);
-  return { ...activityFor(scenario, sessionDone), kcal: sum('kcal'), protein: sum('p'), carbs: sum('c'), fat: sum('f') };
+  return { ...activity, kcal: sum('kcal'), protein: sum('p'), carbs: sum('c'), fat: sum('f') };
 }
 
 export function todaysPlan(now: Date = new Date()): SessionPlan | null {
@@ -36,16 +37,25 @@ export function todaysPlan(now: Date = new Date()): SessionPlan | null {
 }
 
 /**
- * The current week. Past days come from the demo scenario: a strong week keeps every
- * session, a slipping week misses Tuesday and Wednesday.
+ * The current week. With real history, a past training day is done if its session was
+ * logged and missed otherwise. The demo story keeps every session in a strong week and
+ * misses Tuesday and Wednesday in a slipping one.
  */
-export function week(scenario: Scenario, sessionDone: boolean, now: Date = new Date()): Week {
+export function week(history: History, sessionDone: boolean, now: Date = new Date()): Week {
   const t = weekdayIndex(now);
   const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const pastStatus = (i: number): DayStatus => {
+    if (history.kind === 'demo') return history.scenario === 'Slipping week' && (i === 1 || i === 2) ? 'missed' : 'done';
+    const d = new Date(now);
+    d.setDate(now.getDate() - (t - i));
+    const iso = isoDate(d);
+    if (iso < history.startedOn) return 'none';
+    return history.sessions[iso] ? 'done' : 'missed';
+  };
   const days = WEEK_PLAN.map((type, i): WeekDay => {
     let status: DayStatus;
     if (type === 'REST') status = 'rest';
-    else if (i < t) status = scenario === 'Slipping week' && (i === 1 || i === 2) ? 'missed' : 'done';
+    else if (i < t) status = pastStatus(i);
     else if (i === t) status = sessionDone ? 'done' : 'today';
     else status = 'future';
     return { day: labels[i], type, status };
@@ -157,13 +167,24 @@ export interface Trajectory {
   note: string;
 }
 
-export function trajectory(profile: Profile, missed: number, now: Date = new Date()): Trajectory {
+/**
+ * Weight trajectory. `weighIns` are past entries (oldest first); the profile's weight is
+ * today's. Current pace compares today with the oldest entry from the last four weeks.
+ * Without `weighIns`, the demo history is used.
+ */
+export function trajectory(profile: Profile, missed: number, now: Date = new Date(), weighIns?: WeighIn[]): Trajectory {
   const w = num(profile.weight), tw = num(profile.targetWeight);
-  const history = [...WEIGHT_HISTORY, w];
+  const today = isoDate(now);
+  const past = (weighIns ?? demoWeighIns(now)).filter(x => x.date < today).sort((a, b) => (a.date < b.date ? -1 : 1));
+  const history = [...past.slice(-11).map(x => x.kg), w];
   const deadline = parseIsoDate(profile.deadline);
   const daysLeft = deadline ? Math.max(0, daysBetween(now, deadline)) : 0;
   const reqPace = daysLeft ? (w - tw) / (daysLeft / 7) : 0;
-  const curPace = (history[history.length - 5] - w) / 4;
+  const cutoff = new Date(now);
+  cutoff.setDate(now.getDate() - 28);
+  const base = past.find(x => x.date >= isoDate(cutoff)) ?? past[past.length - 1];
+  const span = base ? daysBetween(parseIsoDate(base.date) ?? now, now) : 0;
+  const curPace = base && span >= 7 ? (base.kg - w) / (span / 7) : 0;
   const behind = curPace < reqPace;
   let eta = 'NO TREND', etaAlert = true, note: string;
   if (w <= tw) {
@@ -209,8 +230,12 @@ export function protocol(plan: SessionPlan | null, nu: Nutrition, profile: Profi
     training,
     { label: 'Protein', jp: '蛋白', value: `${nu.protein} / ${protT} g`, status: pp < 0.7 ? 'BEHIND' : 'ON TRACK', tone: pp < 0.7 ? 'alert' : 'acc', pct: frac(nu.protein, protT), fuel: true },
     { label: 'Calories', jp: '熱量', value: `${fmt(nu.kcal)} / ${fmt(kcalT)}`, status: kp > 0.95 ? 'AT LIMIT' : kp > 0.78 ? 'WATCH' : 'OK', tone: kp > 0.95 ? 'alert' : kp > 0.78 ? 'warn' : 'acc', pct: frac(nu.kcal, kcalT), fuel: true },
-    { label: 'Steps', jp: '歩数', value: `${fmt(nu.steps)} / ${fmt(stepsT)}`, status: nu.steps / stepsT < 0.5 ? 'BEHIND' : nu.steps >= stepsT ? 'DONE' : 'ON TRACK', tone: nu.steps / stepsT < 0.5 ? 'alert' : 'acc', pct: frac(nu.steps, stepsT) },
-    { label: 'Sleep', jp: '睡眠', value: nu.sleepL, status: nu.sleep < sleepT - 0.25 ? 'SHORT' : 'DONE', tone: nu.sleep < sleepT - 0.25 ? 'warn' : 'acc', pct: frac(nu.sleep, sleepT) },
+    nu.steps == null
+      ? { label: 'Steps', jp: '歩数', value: `\u2014 / ${fmt(stepsT)}`, status: 'NO DATA', tone: 'warn', pct: 0 }
+      : { label: 'Steps', jp: '歩数', value: `${fmt(nu.steps)} / ${fmt(stepsT)}`, status: nu.steps / stepsT < 0.5 ? 'BEHIND' : nu.steps >= stepsT ? 'DONE' : 'ON TRACK', tone: nu.steps / stepsT < 0.5 ? 'alert' : 'acc', pct: frac(nu.steps, stepsT) },
+    nu.sleep == null
+      ? { label: 'Sleep', jp: '睡眠', value: '\u2014', status: 'NO DATA', tone: 'warn', pct: 0 }
+      : { label: 'Sleep', jp: '睡眠', value: nu.sleepL, status: nu.sleep < sleepT - 0.25 ? 'SHORT' : 'DONE', tone: nu.sleep < sleepT - 0.25 ? 'warn' : 'acc', pct: frac(nu.sleep, sleepT) },
   ];
 }
 

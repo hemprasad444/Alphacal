@@ -6,10 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
 import { Core } from '../components/Core';
 import { Dots, IconButton, Label, Tap, Txt } from '../components/ui';
-import { splitLead } from '../lib/rei';
+import { hhmm, type Message, splitLead } from '@rei/shared';
 import { alpha, C, fontFamily, mix } from '../lib/theme';
-import { hhmm } from '../lib/time';
-import type { Message } from '../lib/types';
 import { useStore } from '../state/store';
 
 type Phase = 'idle' | 'listening' | 'thinking' | 'speaking';

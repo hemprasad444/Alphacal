@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ChatTurn } from './rei';
+import type { ChatTurn } from '@rei/shared';
 
 // How the app reaches Claude, in order of preference:
 //  1. EXPO_PUBLIC_REI_API_URL: your own proxy that forwards /v1/messages and adds

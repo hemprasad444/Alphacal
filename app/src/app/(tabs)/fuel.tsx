@@ -4,10 +4,8 @@ import Svg, { Circle } from 'react-native-svg';
 import { Core } from '../../components/Core';
 import { Screen } from '../../components/Screen';
 import { Card, Jp, Label, Tap, Txt } from '../../components/ui';
-import { nutrition } from '../../lib/derive';
-import { fuelLine } from '../../lib/rei';
+import { dayStamp, fuelLine, nutrition } from '@rei/shared';
 import { C, fontFamily } from '../../lib/theme';
-import { dayStamp } from '../../lib/time';
 import { useStore } from '../../state/store';
 
 const QUICK = ['200 g chicken + rice', 'Protein shake', '3 eggs on toast', 'Burger & fries'];
@@ -17,7 +15,7 @@ export default function Fuel() {
   const s = useStore();
   const { settings, profile, accent, meals } = s;
   const [draft, setDraft] = useState('');
-  const nu = nutrition(meals, settings.scenario, s.sessionDone);
+  const nu = nutrition(meals, s.activity);
   const n = (k: keyof typeof profile) => parseFloat(profile[k]) || 0;
   const kcalT = n('kcal'), protT = n('protein');
   const kL = kcalT - nu.kcal, pL = protT - nu.protein;

@@ -1,4 +1,5 @@
-import type { Exercise, Meal, Message, Profile, Scenario, Settings } from './types';
+import type { Activity, Exercise, Meal, Message, Profile, Scenario, Settings, WeighIn } from './types';
+import { isoDate } from './time';
 
 export type SessionKey = 'PUSH' | 'RUN' | 'PULL' | 'REST' | 'LEGS' | 'CALI';
 
@@ -177,8 +178,27 @@ export function seedFor(scenario: Scenario): { messages: Message[]; meals: Meal[
   };
 }
 
-/** Steps and sleep per scenario, until HealthKit is wired in. */
-export function activityFor(scenario: Scenario, sessionDone: boolean) {
+/** Demo weigh-ins: WEIGHT_HISTORY spread one week apart, ending a week before `now`. */
+export function demoWeighIns(now: Date = new Date()): WeighIn[] {
+  return WEIGHT_HISTORY.map((kg, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 7 * (WEIGHT_HISTORY.length - i));
+    return { date: isoDate(d), kg };
+  });
+}
+
+/** Today's activity from a stored day. */
+export function activityFromDay(steps: number | null | undefined, sleepMin: number | null | undefined): Activity {
+  const sleep = sleepMin == null ? null : sleepMin / 60;
+  return {
+    steps: steps ?? null,
+    sleep,
+    sleepL: sleepMin == null ? '\u2014' : `${Math.floor(sleepMin / 60)}h ${String(Math.round(sleepMin % 60)).padStart(2, '0')}m`,
+  };
+}
+
+/** Steps and sleep per demo scenario. */
+export function activityFor(scenario: Scenario, sessionDone: boolean): Activity {
   return scenario === 'Strong week'
     ? { steps: sessionDone ? 11240 : 9120, sleep: 7 + 40 / 60, sleepL: '7h 40m' }
     : { steps: sessionDone ? 7840 : 4212, sleep: 6 + 5 / 60, sleepL: '6h 05m' };

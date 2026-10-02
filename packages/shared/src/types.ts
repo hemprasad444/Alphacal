@@ -1,11 +1,16 @@
-import type { FontKey, ThemeId } from './theme';
+export type ThemeId = 'zero' | 'shinobi' | 'voyager' | 'hero' | 'cursed' | 'slayer';
+export type FontKey = 'Geist' | 'Space Grotesk' | 'IBM Plex' | 'Zen Kaku';
 
 export type Role = 'rei' | 'user' | 'sys';
 
 export interface Message {
+  /** Stable id, also the Firestore document id once synced. */
+  id?: string;
   role: Role;
   text: string;
   time: string;
+  /** Epoch ms; orders messages across devices. */
+  createdAt?: number;
   alert?: boolean;
 }
 
@@ -63,10 +68,15 @@ export interface Settings {
   bgByTheme: Partial<Record<ThemeId, string | null>>;
 }
 
-export interface Nutrition {
-  steps: number;
-  sleep: number;
+/** Steps and sleep for today; null until a source (demo story or Apple Health) provides them. */
+export interface Activity {
+  steps: number | null;
+  /** Hours. */
+  sleep: number | null;
   sleepL: string;
+}
+
+export interface Nutrition extends Activity {
   kcal: number;
   protein: number;
   carbs: number;
@@ -79,3 +89,24 @@ export interface Exercise {
   last: string;
   reps: number[];
 }
+
+/** One calendar day, stored at users/{uid}/days/{yyyy-mm-dd}. */
+export interface DayDoc {
+  meals: Meal[];
+  sessionDone: boolean;
+  loggedMin: number;
+  steps: number | null;
+  sleepMin: number | null;
+}
+
+export interface WeighIn {
+  /** yyyy-mm-dd */
+  date: string;
+  kg: number;
+}
+
+/**
+ * Where past days come from: the demo story picked in Settings, or real day records
+ * keyed by date (true when that day's session was completed).
+ */
+export type History = { kind: 'demo'; scenario: Scenario } | { kind: 'real'; startedOn: string; sessions: Record<string, boolean> };

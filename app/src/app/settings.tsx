@@ -3,9 +3,9 @@ import { Alert, View } from 'react-native';
 import { Screen, SubHeader } from '../components/Screen';
 import { Card, Label, Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
 import { isOnline, MODEL } from '../lib/claude';
-import { trajectory, week } from '../lib/derive';
+import { firebaseEnabled, usingEmulators } from '../lib/firebase';
+import { programWeek, trajectory, week } from '@rei/shared';
 import { alpha, C, mix } from '../lib/theme';
-import { programWeek } from '../lib/time';
 import { useStore } from '../state/store';
 
 const TEXT_SIZES: [number, string, number][] = [[0.82, 'SMALLEST', 11], [0.9, 'SMALL', 13], [1, 'DEFAULT', 15], [1.08, 'LARGE', 17]];
@@ -14,7 +14,7 @@ export default function Settings() {
   const s = useStore();
   const { settings, accent, theme } = s;
   const tough = settings.tone === 'Tough love';
-  const daysLeft = trajectory(s.profile, week(settings.scenario, s.sessionDone).missed).daysLeft;
+  const daysLeft = trajectory(s.profile, week(s.history, s.sessionDone).missed, new Date(), s.weighInsOrDemo).daysLeft;
 
   return (
     <Screen tabs={false}>
@@ -25,7 +25,7 @@ export default function Settings() {
           <Txt size={22} w={500} color={accent}>H</Txt>
         </View>
         <View style={{ flex: 1, gap: 4 }}>
-          <Txt size={18} w={500} ls={-0.01}>Hemprasad</Txt>
+          <Txt size={18} w={500} ls={-0.01}>{s.cloud && s.account.email ? s.account.email.split('@')[0] : 'Hemprasad'}</Txt>
           <Txt size={13} color={C.muted}>{`Week ${programWeek(s.startedOn)} · ${daysLeft} days to the vow`}</Txt>
         </View>
         <Txt size={13} color={accent}>Vow ›</Txt>
@@ -69,10 +69,30 @@ export default function Settings() {
         <Row title="Proactive check-ins" sub="REI messages you when you slip" right={<Toggle on={settings.nudge} onPress={() => s.setOpt('nudge', !settings.nudge)} />} last />
       </Card>
 
-      <Label style={{ marginTop: 30 }}>DEMO</Label>
+      <Label style={{ marginTop: 30 }}>ACCOUNT</Label>
       <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
-        <Row title="Week scenario" sub="Preview how REI reacts" right={<Segmented value={settings.scenario} options={[['Slipping week', 'Slipping'], ['Strong week', 'Strong']]} onChange={v => s.setOpt('scenario', v)} />} last />
+        {s.cloud ? (
+          <Row
+            title={s.account.email ?? 'Signed in'}
+            sub={usingEmulators ? 'Synced to the local emulators' : 'Synced to your REI account'}
+            right={<Tap onPress={() => Alert.alert('Sign out?', 'Your data stays in your account.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign out', style: 'destructive', onPress: () => void s.signOut() }])}><Txt size={14} color={accent}>Sign out</Txt></Tap>}
+            last
+          />
+        ) : firebaseEnabled ? (
+          <Row title="Demo mode" sub="Stored on this phone only" right={<Tap onPress={() => s.setDemo(false)}><Txt size={14} color={accent}>Sign in</Txt></Tap>} last />
+        ) : (
+          <Row title="On this phone only" sub="Add a Firebase project to sync. See app/README.md." last />
+        )}
       </Card>
+
+      {s.cloud ? null : (
+        <>
+          <Label style={{ marginTop: 30 }}>DEMO</Label>
+          <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
+            <Row title="Week scenario" sub="Preview how REI reacts" right={<Segmented value={settings.scenario} options={[['Slipping week', 'Slipping'], ['Strong week', 'Strong']]} onChange={v => s.setOpt('scenario', v)} />} last />
+          </Card>
+        </>
+      )}
 
       <Label style={{ marginTop: 30 }}>DATA</Label>
       <View style={{ gap: 8, marginTop: 10 }}>
