@@ -57,7 +57,13 @@ npm test
 
 Signed in, everything is real and synced: meals, chat, completed sessions, the vow and targets, weigh-ins and settings. The week grid and integrity score come from the sessions you actually logged, and the trajectory from your weigh-ins.
 
-Still to come (see the backend plan): steps and sleep from Apple Health (shown as "no data" until then), the premium voice, AI-written weekly programs, food photos and proactive check-ins.
+Also live when signed in:
+- **REI writes your week.** Vow shows this week's plan with "Rebuild my week with REI", and a new week arrives every Sunday night. Session logs reps and kg per set (long press a set on iPhone), and the next week builds on them.
+- **Meal photos.** Tap the camera on Fuel; REI reads the plate and logs it, or asks if it isn't sure.
+- **Check-ins.** REI messages you first when you slip. Turn it off with "Proactive check-ins" in Settings.
+- **Premium voice.** Once the ElevenLabs key is set, tap the core to talk; REI starts speaking its first sentence while the rest is still streaming.
+
+Still to come: steps and sleep from Apple Health (shown as "no data" until then) and push notifications. Both need the Apple developer build.
 
 In demo mode (no account), past days, steps and sleep come from the *Week scenario* setting, as in the prototype.
 

@@ -5,4 +5,3 @@ functions/lib/
 .env
 functions/.env.local
 functions/.secret.local
-firebase.sandbox.json

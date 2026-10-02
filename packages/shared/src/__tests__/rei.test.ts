@@ -1,5 +1,5 @@
 import { DEFAULT_PROFILE } from '../data';
-import { applyUpdate, fuelLine, offlineReply, parseReply, splitLead, toMeal, toTurns } from '../rei';
+import { applyUpdate, fuelLine, offlineReply, parseReply, splitLead, takeSentences, toMeal, toTurns } from '../rei';
 import type { Nutrition } from '../types';
 
 const nu = (over: Partial<Nutrition> = {}): Nutrition => ({ steps: 4212, sleep: 6 + 5 / 60, sleepL: '6h 05m', kcal: 1840, protein: 92, carbs: 200, fat: 72, ...over });
@@ -91,5 +91,16 @@ describe('splitLead', () => {
   it('splits off the first sentence', () => {
     expect(splitLead("You're 22g short. Eat chicken. Go lift.")).toEqual({ lead: "You're 22g short.", rest: 'Eat chicken. Go lift.' });
     expect(splitLead('Go.')).toEqual({ lead: 'Go.', rest: '' });
+  });
+});
+
+describe('takeSentences', () => {
+  it('releases finished sentences and keeps the rest', () => {
+    expect(takeSentences('Good. Now lift')).toEqual({ sentences: ['Good.'], rest: 'Now lift' });
+    expect(takeSentences('Tired is information. Shoes on. ')).toEqual({ sentences: ['Tired is information.', 'Shoes on.'], rest: '' });
+  });
+  it('waits when the text may still be mid-sentence', () => {
+    expect(takeSentences('Shoes on.')).toEqual({ sentences: [], rest: 'Shoes on.' });
+    expect(takeSentences('Bench 82.5 kg')).toEqual({ sentences: [], rest: 'Bench 82.5 kg' });
   });
 });

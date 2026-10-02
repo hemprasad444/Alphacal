@@ -65,5 +65,6 @@ describe('users', () => {
   it('leaves programs and usage to the server', async () => {
     await assertFails(setDoc(doc(tester(), 'users/alice/programs/2026-W40'), { days: [] }));
     await assertFails(setDoc(doc(tester(), 'users/alice/usage/today'), { n: 0 }));
+    await assertFails(setDoc(doc(tester(), 'users/alice/jobs/j1'), { type: 'program' }));
   });
 });

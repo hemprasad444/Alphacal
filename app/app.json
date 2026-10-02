@@ -45,6 +45,12 @@
           "cameraPermission": "REI reads your plate to log the meal.",
           "photosPermission": "Pick a meal photo for REI to log."
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "REI listens when you tap the core and talk."
+        }
       ]
     ],
     "experiments": {

@@ -1,3 +1,4 @@
+import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import * as Speech from 'expo-speech';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -8,14 +9,16 @@ import { Core } from '../components/Core';
 import { Dots, IconButton, Label, Tap, Txt } from '../components/ui';
 import { hhmm, type Message, splitLead } from '@rei/shared';
 import { alpha, C, fontFamily, mix } from '../lib/theme';
+import { newSpeaker, premiumVoice, type Speaker, transcribe } from '../lib/voice';
 import { useStore } from '../state/store';
 
 type Phase = 'idle' | 'listening' | 'thinking' | 'speaking';
 
 /**
- * Voice mode. REI speaks replies aloud with the system voice. Input is typed or
- * dictated with the keyboard mic until on-device speech recognition is added
- * (that needs a development build, not Expo Go).
+ * Voice mode. Signed in with the premium voice configured: tap the core, talk, tap
+ * again; your words are transcribed and REI answers aloud, starting with its first
+ * sentence while the rest is still streaming. Otherwise: type or use the keyboard's
+ * dictation mic, and REI answers in the iPhone's voice.
  */
 export default function Voice() {
   const s = useStore();
@@ -25,55 +28,111 @@ export default function Voice() {
   const [turns, setTurns] = useState<Message[]>([]);
   const [notes, setNotes] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
+  const [typing, setTyping] = useState(false);
+  /** REI's reply while it streams in. */
+  const [live, setLive] = useState('');
+  /** Record-and-transcribe is available (signed in and the backend voice is set up). */
+  const [canRecord, setCanRecord] = useState(false);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const speaker = useRef<Speaker | null>(null);
   const input = useRef<TextInput>(null);
   const scroll = useRef<ScrollView>(null);
   const alive = useRef(true);
 
   useEffect(() => {
     alive.current = true;
+    if (s.cloud) premiumVoice().then(ok => alive.current && setCanRecord(ok)).catch(() => {});
     return () => {
       alive.current = false;
+      speaker.current?.stop();
       Speech.stop();
     };
-  }, []);
+  }, [s.cloud]);
 
-  const listen = () => {
+  const stopSpeaking = () => {
+    speaker.current?.stop();
+    speaker.current = null;
+    Speech.stop();
+  };
+
+  const listen = async () => {
     if (phase === 'thinking') return;
     if (phase === 'speaking') {
-      Speech.stop();
+      stopSpeaking();
       setPhase('idle');
       return;
     }
+    if (!canRecord) {
+      // Keyboard path: the iOS keyboard's mic does the dictation.
+      setTyping(true);
+      setPhase('listening');
+      setTimeout(() => input.current?.focus(), 50);
+      return;
+    }
+    if (phase === 'listening') {
+      setPhase('thinking');
+      try {
+        await recorder.stop();
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        const text = recorder.uri ? await transcribe(recorder.uri) : '';
+        if (text) await sendVoice(text);
+        else setPhase('idle');
+      } catch (e) {
+        console.warn('REI: transcription failed', e);
+        setPhase('idle');
+        setTyping(true);
+      }
+      return;
+    }
+    const perm = await requestRecordingPermissionsAsync();
+    if (!perm.granted) {
+      setTyping(true);
+      return;
+    }
+    stopSpeaking();
+    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+    await recorder.prepareToRecordAsync();
+    recorder.record();
     setPhase('listening');
-    input.current?.focus();
   };
 
   const sendVoice = async (text: string) => {
     text = text.trim();
-    if (!text || phase === 'thinking') return;
-    Speech.stop();
+    if (!text) return;
+    stopSpeaking();
     setDraft('');
     input.current?.blur();
     const next = [...turns, { role: 'user' as const, text, time: hhmm() }];
     setTurns(next);
+    setLive('');
     setPhase('thinking');
-    const r = await s.voiceReply(next);
+    const sp = settings.speak ? await newSpeaker(() => alive.current && setPhase(p => (p === 'speaking' ? 'idle' : p))) : null;
+    speaker.current = sp;
+    let streamed = false;
+    const r = await s.voiceReply(next, d => {
+      if (!alive.current) return;
+      if (!streamed) setPhase(sp ? 'speaking' : 'thinking');
+      streamed = true;
+      setLive(cur => cur + d);
+      sp?.push(d);
+    });
     if (!alive.current) return;
+    setLive('');
     setTurns(t => [...t, { role: 'rei', text: r.text, time: hhmm() }]);
     if (r.note) setNotes(n => [...n, { role: 'sys', text: r.note!, time: hhmm() }]);
-    if (settings.speak) {
+    if (sp) {
+      // On-device replies arrive whole rather than streamed.
+      if (!streamed) sp.push(r.text);
       setPhase('speaking');
-      const done = () => {
-        if (alive.current) setPhase(p => (p === 'speaking' ? 'idle' : p));
-      };
-      Speech.speak(r.text, { rate: 1.02, pitch: 1.05, onDone: done, onStopped: done, onError: done });
+      sp.end();
     } else {
       setPhase('idle');
     }
   };
 
   const close = () => {
-    Speech.stop();
+    stopSpeaking();
+    if (phase === 'listening' && canRecord) recorder.stop().catch(() => {});
     const t = hhmm();
     // Signed in, each turn was already stored as it happened.
     if (turns.length && !s.cloud) s.appendMessages([...turns.map(x => ({ ...x, time: t })), ...notes]);
@@ -82,7 +141,9 @@ export default function Voice() {
   };
 
   const label = phase === 'listening' ? 'LISTENING' : phase === 'thinking' ? 'THINKING' : phase === 'speaking' ? 'SPEAKING' : 'READY';
-  const hint = phase === 'listening' ? 'DICTATE OR TYPE · SEND' : phase === 'thinking' ? 'THINKING' : phase === 'speaking' ? 'TAP TO INTERRUPT' : 'TAP TO TALK';
+  const hint = phase === 'listening'
+    ? canRecord ? 'LISTENING · TAP TO SEND' : 'DICTATE OR TYPE · SEND'
+    : phase === 'thinking' ? 'THINKING' : phase === 'speaking' ? 'TAP TO INTERRUPT' : 'TAP TO TALK';
 
   return (
     <View style={{ flex: 1 }}>
@@ -130,7 +191,13 @@ export default function Voice() {
               </View>
             );
           })}
-          {phase === 'thinking' ? (
+          {live ? (
+            <View style={{ maxWidth: '94%', gap: 8 }}>
+              <Label size={10} ls={0.14}>REI</Label>
+              <Txt size={20} w={500} lh={1.3} ls={-0.02}>{live}</Txt>
+            </View>
+          ) : null}
+          {phase === 'thinking' && !live ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Label size={10} ls={0.14}>REI</Label>
               <Dots />
@@ -139,14 +206,18 @@ export default function Voice() {
         </ScrollView>
 
         <View style={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: Math.max(insets.bottom, 16), gap: 8 }}>
-          <View style={{ flexDirection: 'row', gap: 8, display: phase === 'listening' ? 'flex' : 'none' }}>
+          <View style={{ flexDirection: 'row', gap: 8, display: typing ? 'flex' : 'none' }}>
             <View style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.18)', justifyContent: 'center', paddingHorizontal: 16 }}>
               <TextInput
                 ref={input}
                 value={draft}
                 onChangeText={setDraft}
                 onSubmitEditing={() => sendVoice(draft)}
-                onBlur={() => !draft.trim() && setPhase(p => (p === 'listening' ? 'idle' : p))}
+                onBlur={() => {
+                  if (draft.trim()) return;
+                  setTyping(false);
+                  setPhase(p => (p === 'listening' && !canRecord ? 'idle' : p));
+                }}
                 placeholder="Tap the mic on your keyboard, or type"
                 placeholderTextColor={C.dim}
                 returnKeyType="send"
@@ -159,11 +230,19 @@ export default function Voice() {
             </Tap>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <IconButton size={44} onPress={() => (phase === 'listening' ? input.current?.blur() : listen())}>
+            <IconButton size={44} onPress={() => {
+              if (typing) {
+                input.current?.blur();
+                setTyping(false);
+              } else {
+                setTyping(true);
+                setTimeout(() => input.current?.focus(), 50);
+              }
+            }}>
               <Txt size={13} w={500} color={C.body}>Aa</Txt>
             </IconButton>
             <View style={{ alignItems: 'center', gap: 4 }}>
-              <Tap onPress={listen} haptic style={{ width: 76, height: 76, alignItems: 'center', justifyContent: 'center' }}>
+              <Tap onPress={() => void listen()} haptic style={{ width: 76, height: 76, alignItems: 'center', justifyContent: 'center' }}>
                 <Core size={phase === 'listening' ? 68 : 58} speaking={phase === 'speaking' || phase === 'listening'} />
               </Tap>
               <Label size={9} color={phase === 'listening' ? accent : C.label}>{hint}</Label>

@@ -191,3 +191,22 @@ export function splitLead(text: string): { lead: string; rest: string } {
   const m = /^([\s\S]+?[.!?])(\s+)([\s\S]+)$/.exec(text);
   return m ? { lead: m[1], rest: m[3].trim() } : { lead: text, rest: '' };
 }
+
+/**
+ * Pull complete sentences off the front of streamed text, so each can be spoken as soon
+ * as it's finished. Returns the sentences and the unfinished remainder.
+ */
+export function takeSentences(buffer: string): { sentences: string[]; rest: string } {
+  const sentences: string[] = [];
+  // A sentence ends at . ! or ? followed by whitespace, so "82.5" never splits; the
+  // final sentence is held until more text (or the end of the reply) arrives.
+  const re = /[^.!?]*[.!?]+(?:["'”’)]+)?(?=\s|$)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(buffer)) && m.index + m[0].length < buffer.length) {
+    const s = m[0].trim();
+    if (s) sentences.push(s);
+    last = m.index + m[0].length;
+  }
+  return { sentences, rest: buffer.slice(last).trimStart() };
+}
