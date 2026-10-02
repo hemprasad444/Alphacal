@@ -20,6 +20,17 @@ service cloud.firestore {
     function owner(uid) {
       return tester() && request.auth.uid == uid;
     }
+    function num(v, max) {
+      return v is number && v >= 0 && v <= max;
+    }
+    function validFood(f) {
+      return f.name is string && f.name.size() > 0 && f.name.size() <= 80
+        && num(f.per, 5000) && f.per > 0 && num(f.kcal, 10000) && num(f.p, 1000) && num(f.c, 2000) && num(f.f, 1000)
+        && f.units is list && f.units.size() >= 1 && f.units.size() <= 6;
+    }
+    function cm(d, k) {
+      return !(k in d) || num(d[k], 300);
+    }
     function isoDate(id) {
       return id.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
     }
@@ -51,8 +62,16 @@ service cloud.firestore {
       }
 
       match /sessions/{id} {
-        allow read, create: if owner(uid);
+        allow read: if owner(uid);
+        allow create: if owner(uid) && request.resource.data.date is string && isoDate(request.resource.data.date)
+          && num(request.resource.data.seconds, 86400) && num(request.resource.data.done, 500) && num(request.resource.data.total, 500);
         allow update, delete: if false;
+      }
+
+      // Your own foods: saved meals, scanned products, corrected numbers.
+      match /foods/{id} {
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && id.size() <= 42 && validFood(request.resource.data);
       }
 
       match /weighIns/{day} {
@@ -63,6 +82,26 @@ service cloud.firestore {
 
       // Written only by Cloud Functions.
       match /programs/{week} {
+        allow read: if owner(uid);
+        allow write: if false;
+      }
+      // Body measurements in cm, one document per day.
+      match /measurements/{day} {
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && isoDate(day)
+          && request.resource.data.keys().hasOnly(['date', 'waist', 'chest', 'hips', 'arms', 'thighs', 'neck'])
+          && cm(request.resource.data, 'waist') && cm(request.resource.data, 'chest') && cm(request.resource.data, 'hips')
+          && cm(request.resource.data, 'arms') && cm(request.resource.data, 'thighs') && cm(request.resource.data, 'neck');
+      }
+      // Progress photos: the image is in Storage under users/{uid}/progress/.
+      match /photos/{id} {
+        allow read, delete: if owner(uid);
+        allow create: if owner(uid) && request.resource.data.date is string && isoDate(request.resource.data.date)
+          && request.resource.data.pose in ['front', 'side', 'back']
+          && request.resource.data.path is string && request.resource.data.path.matches('users/' + uid + '/progress/[A-Za-z0-9_.-]+');
+        allow update: if false;
+      }
+      match /reports/{week} {
         allow read: if owner(uid);
         allow write: if false;
       }

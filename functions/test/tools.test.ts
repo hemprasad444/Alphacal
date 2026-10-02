@@ -1,4 +1,4 @@
-import { parseMeal, parseVow } from '../src/chat/tools';
+import { parseForget, parseMeal, parseMealItems, parseRemember, parseVow } from '../src/chat/tools';
 
 describe('parseMeal', () => {
   it('accepts a sane estimate and rounds', () => {
@@ -29,5 +29,33 @@ describe('parseVow', () => {
   it('returns null when nothing usable', () => {
     expect(parseVow({ changes: [] })).toBeNull();
     expect(parseVow({})).toBeNull();
+  });
+});
+
+describe('parseMealItems', () => {
+  const item = { food_id: 'd:roti', name: 'Roti', qty: 2, unit: 'roti', kcal: 220, p: 7, c: 38, f: 5 };
+  it('keeps valid items and the verdict', () => {
+    expect(parseMealItems({ name: ' Lunch ', items: [item], verdict: ' Solid. ' })).toEqual({ name: 'Lunch', items: [item], verdict: 'Solid.' });
+  });
+  it('drops broken items, and the meal when none are left', () => {
+    const r = parseMealItems({ name: 'x', items: [item, { ...item, qty: 0 }, { ...item, kcal: -5 }, { ...item, name: '' }, null] });
+    expect(r?.items).toHaveLength(1);
+    expect(parseMealItems({ name: 'x', items: [{ ...item, qty: -1 }] })).toBeNull();
+    expect(parseMealItems({ name: 'x', items: [] })).toBeNull();
+    expect(parseMealItems({ items: [item] })).toBeNull();
+  });
+});
+
+describe('memory tools', () => {
+  it('keeps sane facts with known kinds', () => {
+    expect(parseRemember({ facts: [{ text: ' Vegetarian ', kind: 'diet' }, { text: 'x', kind: 'diet' }, { text: 'Bad knee', kind: 'weird' }] })).toEqual([
+      { text: 'Vegetarian', kind: 'diet' },
+      { text: 'Bad knee', kind: 'life' },
+    ]);
+    expect(parseRemember(null)).toEqual([]);
+  });
+  it('takes string ids only', () => {
+    expect(parseForget({ ids: ['a', 2, 'b'] })).toEqual(['a', 'b']);
+    expect(parseForget({})).toEqual([]);
   });
 });

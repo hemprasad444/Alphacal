@@ -1,5 +1,6 @@
 // REI writing the week: the output schema, the prompt, and validation of what comes back.
 import { BENCHMARKS, type SessionKey, type SessionPlan, type WeekProgram } from './data';
+import { pace, records } from './strength';
 import type { Profile, SessionLog } from './types';
 
 const TRAINING: Exclude<SessionKey, 'REST'>[] = ['PUSH', 'PULL', 'LEGS', 'RUN', 'CALI'];
@@ -112,9 +113,16 @@ function summarize(logs: SessionLog[]): string {
         })
         .filter(Boolean)
         .join('; ');
+      if (s.cardio) return `${s.date} ${s.title ?? 'Run'}: ${s.cardio.km} km in ${Math.round(s.cardio.seconds / 60)} min${s.cardio.kind === 'cycle' ? '' : ` (${pace(s.cardio.km, s.cardio.seconds)})`}`;
       return `${s.date} ${s.plan}: ${s.done}/${s.total} sets${lifts ? ` (${lifts})` : ''}`;
     })
     .join('\n');
+}
+
+/** "Bench press 99 kg (85 × 5)" for the strongest logged lifts. */
+function bests(logs: SessionLog[]): string {
+  const top = Object.values(records(logs)).filter(r => r.best.e1rm != null).sort((a, b) => b.best.e1rm! - a.best.e1rm!).slice(0, 8);
+  return top.map(r => `${r.name} ${Math.round(r.best.e1rm!)} kg (${r.best.kg} × ${r.best.reps})`).join('; ');
 }
 
 export interface ProgramInput {
@@ -125,6 +133,10 @@ export interface ProgramInput {
   adherence: { kept: number; planned: number };
   week: string;
   focus?: string;
+  /** The latest weekly report, in one line. */
+  report?: string;
+  /** Lasting facts: injuries, equipment, schedule, likes and dislikes. */
+  memory?: string;
 }
 
 export function programPrompt(i: ProgramInput): { system: string; user: string } {
@@ -138,6 +150,6 @@ Benchmarks now → goal: ${BENCHMARKS.map(([n, now, goal]) => `${n} ${now} → $
 Last four weeks: kept ${i.adherence.kept} of ${i.adherence.planned} planned sessions.${i.adherence.planned && i.adherence.kept / i.adherence.planned < 0.7 ? ' Adherence is low: make sessions shorter and harder to skip, not easier.' : ''}
 Logged sessions:
 ${summarize(i.logs)}
-${i.focus ? `They asked for: "${i.focus}".\n` : ''}Progress loads by about 2.5 kg on lifts where every set was completed last time; hold or drop where reps were missed.`,
+${bests(i.logs) ? `Estimated one-rep maxes from their logs: ${bests(i.logs)}.\n` : ''}${i.memory ? `What you know about them (respect it: injuries, equipment, schedule, dislikes): ${i.memory}\n` : ''}${i.report ? `Latest weekly report: ${i.report}\n` : ''}${i.focus ? `They asked for: "${i.focus}".\n` : ''}Progress loads by about 2.5 kg on lifts where every set was completed last time; hold or drop where reps were missed.`,
   };
 }

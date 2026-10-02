@@ -31,6 +31,11 @@ describe('storage', () => {
     await assertFails(uploadBytes(ref(storage('alice', 'tester@rei.app'), 'users/bob/meals/a.jpg'), bytes, { contentType: 'image/jpeg' }));
     await assertFails(uploadBytes(ref(storage('mallory', 'mallory@evil.test'), 'users/mallory/meals/a.jpg'), bytes, { contentType: 'image/jpeg' }));
   });
+  it('keeps progress photos private and image-only', async () => {
+    await assertSucceeds(uploadBytes(ref(storage('alice', 'tester@rei.app'), 'users/alice/progress/p1.jpg'), bytes, { contentType: 'image/jpeg' }));
+    await assertFails(uploadBytes(ref(storage('alice', 'tester@rei.app'), 'users/alice/progress/p1.txt'), bytes, { contentType: 'text/plain' }));
+    await assertFails(uploadBytes(ref(storage('alice', 'tester@rei.app'), 'users/bob/progress/p1.jpg'), bytes, { contentType: 'image/jpeg' }));
+  });
   it('accepts voice clips as audio only', async () => {
     await assertSucceeds(uploadBytes(ref(storage('alice', 'tester@rei.app'), 'users/alice/voice/v.m4a'), bytes, { contentType: 'audio/mp4' }));
     await assertFails(uploadBytes(ref(storage('alice', 'tester@rei.app'), 'users/alice/voice/v.jpg'), bytes, { contentType: 'image/jpeg' }));

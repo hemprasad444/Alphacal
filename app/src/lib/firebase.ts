@@ -49,7 +49,8 @@ export function fb(): Services {
   const app = existing ? getApp() : initializeApp(config);
   // On web (used for previews), getAuth already persists to the browser.
   const auth = Platform.OS === 'web' ? getAuth(app) : initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
-  const db = initializeFirestore(app, {});
+  // Optional fields (a meal's items, a food's brand) are simply left out when unset.
+  const db = initializeFirestore(app, { ignoreUndefinedProperties: true });
   const functions = getFunctions(app, REGION);
   const storage = getStorage(app);
   if (EMULATOR_HOST && !existing) {

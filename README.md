@@ -14,12 +14,26 @@ REI, a personal AI fitness companion for iPhone.
 
 | Function | What it does |
 |---|---|
-| `chat` | Streams REI's replies. Quick chat goes to Claude Haiku 4.5; planning and analysis go to Claude Opus 5.5. Logs meals, updates the vow and queues program rebuilds through tools. |
+| `chat` | Streams REI's replies. Quick chat goes to Claude Haiku 4.5; planning and analysis go to Claude Opus 5.5. Logs meals, updates the vow, remembers lasting facts (diet, injuries, schedule) and queues program rebuilds through tools. |
 | `mealFromPhoto` | Reads a meal photo with Claude Opus 5.5 and logs the macros. |
 | `rebuildProgram`, `weeklyPrograms`, `runJob` | REI writes the training week: on demand, every Sunday at 21:00 IST, and when asked in chat. |
+| `weeklyReports`, `weeklyReport` | REI's weekly report: every Sunday at 20:30 IST (before the next week is planned), or on demand from Progress. |
 | `coach` | Every 15 minutes, checks each tester and sends a check-in when they slip (late session, over calories, low protein, missed days, bedtime). |
 | `tts`, `stt` | Premium voice through ElevenLabs: REI's replies spoken as they stream, and your speech transcribed. |
 | `activate` | Grants invited testers access. |
+
+### Food and exercise data
+
+The food list and exercise library ship inside the app, so searching and logging from it is instant and works offline.
+
+- **Indian ingredients:** 542 foods from the Indian Food Composition Tables 2017 (T. Longvah et al., National Institute of Nutrition), via [`@ifct2017/compositions`](https://www.npmjs.com/package/@ifct2017/compositions). Values are per 100 g, mostly raw. Regenerate with `npm --workspace @rei/shared run build:ifct`.
+- **Dishes:** about 120 common Indian and everyday dishes in typical home portions (`packages/shared/src/food/dishes.ts`). These are typical estimates. A tester who corrects one saves it as their own food.
+- **Packaged foods:** looked up by barcode in [Open Food Facts](https://world.openfoodfacts.org) (open data, ODbL), straight from the phone. Products it lacks are typed in once from the label.
+- **Your foods:** favourites, scanned products and saved meals are stored in `users/{uid}/foods`.
+
+- **Exercises:** 876 exercises with muscles, equipment, form steps and photos from [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain). The data ships in the app; the photos load from GitHub. Regenerate it with `npm --workspace @rei/shared run build:exercises -- <exercises.json>`.
+
+When you type a meal, the app first matches it against the list ("2 rotis and dal"). If everything matches, it logs immediately with the list's numbers. Anything it can't place goes to REI, which gets the closest list entries and uses their numbers; it only estimates foods that aren't on the list.
 
 ## Set up the backend (one time)
 

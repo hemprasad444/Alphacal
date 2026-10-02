@@ -21,6 +21,24 @@ export interface Meal {
   p: number;
   c: number;
   f: number;
+  /** What was in it, when it was matched to foods. Totals above are the sum. */
+  items?: MealItem[];
+  /** How it was logged: picked from the food list, by REI, from a photo, or by barcode. */
+  src?: 'food' | 'ai' | 'photo' | 'barcode';
+}
+
+/** One food in a meal: an amount of a known food, or REI's estimate when nothing matched (food ''). */
+export interface MealItem {
+  food: string;
+  name: string;
+  qty: number;
+  unit: string;
+  /** Grams eaten; 0 when unknown. */
+  g: number;
+  kcal: number;
+  p: number;
+  c: number;
+  f: number;
 }
 
 export interface Profile {
@@ -122,10 +140,17 @@ export interface SetLog {
 
 /** One completed session, stored at users/{uid}/sessions/{id}. */
 export interface SessionLog {
+  /** Firestore id, once stored. */
+  id?: string;
   date: string;
   plan: string;
+  /** e.g. "Heavy push", or "Run" for a logged run. */
+  title?: string;
   done: number;
   total: number;
   seconds: number;
   sets?: SetLog[];
+  /** A run, walk or ride logged by distance and time instead of sets. */
+  cardio?: { km: number; seconds: number; kind?: 'run' | 'walk' | 'cycle' };
+  createdAt?: number;
 }

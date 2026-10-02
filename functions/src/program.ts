@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {
-  DEFAULT_DISCIPLINES, DEFAULT_PROFILE, isoDate, isoWeek, MODELS, normalizeProgram, PROGRAM_SCHEMA, programPrompt, type Profile, type SessionLog,
-  type WeekProgram, zonedNow,
+  DEFAULT_DISCIPLINES, DEFAULT_PROFILE, isoDate, memorySummary, readMemory, isoWeek, MODELS, normalizeProgram, PROGRAM_SCHEMA, programPrompt, type Profile, type SessionLog,
+  type WeeklyReport, type WeekProgram, zonedNow,
 } from '@rei/shared';
 import { logger } from 'firebase-functions';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
@@ -33,8 +33,15 @@ export async function generateProgram(uid: string, opts: { next?: boolean; focus
   const week = isoWeek(start);
   const since = new Date(now);
   since.setDate(now.getDate() - 28);
-  const logsSnap = await user.collection('sessions').where('date', '>=', isoDate(since)).get();
+  const prevWeek = new Date(start);
+  prevWeek.setDate(start.getDate() - 7);
+  // The report for the week before this program, when there is one (Sunday's comes first).
+  const [logsSnap, reportSnap] = await Promise.all([
+    user.collection('sessions').where('date', '>=', isoDate(since)).get(),
+    user.collection('reports').doc(isoWeek(opts.next ? now : prevWeek)).get(),
+  ]);
   const logs = logsSnap.docs.map(d => d.data() as SessionLog);
+  const report = reportSnap.data() as WeeklyReport | undefined;
 
   const profile: Profile = { ...DEFAULT_PROFILE, ...(u.profile as Partial<Profile> | undefined) };
   const disc = (u.disc as Record<string, boolean> | undefined) ?? DEFAULT_DISCIPLINES;
@@ -47,6 +54,8 @@ export async function generateProgram(uid: string, opts: { next?: boolean; focus
     adherence: { kept: new Set(logs.map(l => l.date)).size, planned: weeksActive * (parseInt(profile.sessions, 10) || 4) },
     week,
     focus: opts.focus,
+    memory: memorySummary(readMemory(u.memory)) || undefined,
+    report: report ? `${report.headline}. Held back by: ${report.fix} Focus: ${report.focus}` : undefined,
   });
 
   const t0 = Date.now();

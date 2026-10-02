@@ -65,7 +65,8 @@ export default function Settings() {
         <Row title="Intensity" sub={tough ? '10 / 10 · no excuses accepted' : '6 / 10 · firm, warmer'} right={<Segmented value={settings.tone} options={[['Tough love', 'Tough'], ['Coach', 'Coach']]} onChange={v => s.setOpt('tone', v)} />} />
         <Row title="In conversation" sub="Show her portrait or the core" right={<Segmented value={settings.avatar} options={[['Character in chat', 'Portrait'], ['Core only', 'Core']]} onChange={v => s.setOpt('avatar', v)} />} />
         <Row title="Speak replies aloud" sub="In voice mode" right={<Toggle on={settings.speak} onPress={() => s.setOpt('speak', !settings.speak)} />} />
-        <Row title="Proactive check-ins" sub="REI messages you when you slip" right={<Toggle on={settings.nudge} onPress={() => s.setOpt('nudge', !settings.nudge)} />} last />
+        <Row title="Proactive check-ins" sub="REI messages you when you slip" right={<Toggle on={settings.nudge} onPress={() => s.setOpt('nudge', !settings.nudge)} />} />
+        <Row title="What REI remembers" sub={s.memory.length ? `${s.memory.length} fact${s.memory.length > 1 ? 's' : ''}: diet, health, schedule…` : 'Diet, injuries, schedule, equipment'} onPress={() => router.push('/memory')} right={<Txt size={18} color={C.dim}>›</Txt>} last />
       </Card>
 
       <Label style={{ marginTop: 30 }}>ACCOUNT</Label>

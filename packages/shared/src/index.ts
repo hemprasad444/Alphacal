@@ -7,3 +7,8 @@ export * from './route';
 export * from './context';
 export * from './program';
 export * from './coach';
+export * from './food';
+export * from './exercises';
+export * from './strength';
+export * from './progress';
+export * from './memory';
