@@ -4,7 +4,8 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Platform, ScrollView, TextInput, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Alert, Platform, ScrollView, TextInput, View } from 'react-native';
 import { Button, Sheet } from '../components/FoodSheet';
 import { LineChart } from '../components/LineChart';
 import { Screen, SubHeader } from '../components/Screen';
@@ -200,7 +201,8 @@ function PhotoImage({ p, height }: { p: ProgressPhoto; height: number }) {
       live = false;
     };
   }, [p.path]);
-  return <Image source={uri ? { uri } : undefined} style={{ width: '100%', height, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.05)' }} resizeMode="cover" />;
+  // Cached on disk by Storage path, so the signed URL changing doesn't refetch the image.
+  return <Image source={uri ? { uri, cacheKey: p.path } : undefined} cachePolicy="memory-disk" transition={120} contentFit="cover" style={{ width: '100%', height, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.05)' }} />;
 }
 
 function Photos() {

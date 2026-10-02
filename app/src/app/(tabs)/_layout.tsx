@@ -3,7 +3,7 @@ import { TabBar } from '../../components/TabBar';
 import { useStore } from '../../state/store';
 
 export default function TabsLayout() {
-  const { theme } = useStore();
+  const theme = useStore(s => s.theme);
   return (
     <Tabs tabBar={props => <TabBar {...props} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: theme.bg }, animation: 'fade' }}>
       <Tabs.Screen name="index" />

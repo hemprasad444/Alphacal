@@ -23,9 +23,11 @@ export interface TxtProps {
 }
 
 export function Txt({ children, size = 16, w = 400, face = 'sans', color = C.text, ls = 0, lh, align, style, numberOfLines, onPress }: TxtProps) {
-  const { settings } = useStore();
-  const fs = size * settings.textSize;
-  const family = face === 'sans' ? fontFamily(settings.font, w) : fontFamily(face, w);
+  // Only the two settings text depends on, so text doesn't redraw on unrelated changes.
+  const font = useStore(s => s.settings.font);
+  const textSize = useStore(s => s.settings.textSize);
+  const fs = size * textSize;
+  const family = face === 'sans' ? fontFamily(font, w) : fontFamily(face, w);
   return (
     <Text
       onPress={onPress}
@@ -44,8 +46,8 @@ export function Label({ children, color = C.label, size = 11, ls = 0.16, style }
 }
 
 export function Jp({ children, size = 11, color = C.faint, style }: { children: ReactNode; size?: number; color?: string; style?: StyleProp<TextStyle> }) {
-  const { settings } = useStore();
-  if (!settings.hud) return null;
+  const hud = useStore(s => s.settings.hud);
+  if (!hud) return null;
   return <Txt face="jp" size={size} color={color} style={style}>{children}</Txt>;
 }
 
@@ -95,7 +97,7 @@ export function Bar({ pct, color, glow, height = 2 }: { pct: number; color: stri
 }
 
 export function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
-  const { accent } = useStore();
+  const accent = useStore(s => s.accent);
   return (
     <Tap onPress={onPress} style={{ width: 48, height: 28, borderRadius: 14, padding: 3, backgroundColor: on ? accent : 'rgba(255,255,255,0.12)', alignItems: on ? 'flex-end' : 'flex-start' }}>
       <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: on ? C.ink : C.body }} />
@@ -142,7 +144,7 @@ export function IconButton({ onPress, children, size = 36 }: { onPress: () => vo
 
 /** Three pulsing dots: REI is thinking. */
 export function Dots() {
-  const { accent } = useStore();
+  const accent = useStore(s => s.accent);
   const [vs] = useState(() => [0, 1, 2].map(() => new Animated.Value(0.2)));
   useEffect(() => {
     const loops = vs.map((v, i) =>

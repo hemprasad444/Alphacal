@@ -1,9 +1,9 @@
 // Form tips and photos for an exercise, and swapping it for one that trains the same muscles.
 import { alternatives, e1rm, exerciseImage, findExercise, type LibExercise, liftKey, records, searchExercises } from '@rei/shared';
-import { TIPS } from '@rei/shared/src/exercises/tips';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Image, TextInput, View } from 'react-native';
+import { Image } from 'expo-image';
+import { TextInput, View } from 'react-native';
 import { C, fontFamily } from '../lib/theme';
 import { useStore } from '../state/store';
 import { Button, Sheet } from './FoodSheet';
@@ -11,15 +11,23 @@ import { Label, Tap, Txt } from './ui';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+// The form steps are large (about 580 KB), so they load the first time a guide opens.
+let TIPS: Record<string, string[]> | null = null;
+const tipsFor = (id: string): string[] => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- deferred on purpose
+  TIPS ??= (require('@rei/shared/src/exercises/tips') as typeof import('@rei/shared/src/exercises/tips')).TIPS;
+  return TIPS[id] ?? [];
+};
+
 /** Photos, muscles and the first form cues. */
 export function ExerciseInfo({ ex, steps = 4 }: { ex: LibExercise; steps?: number }) {
-  const tips = TIPS[ex.id] ?? [];
+  const tips = tipsFor(ex.id);
   return (
     <View style={{ gap: 14 }}>
       {ex.images ? (
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {[0, 1].slice(0, ex.images).map(i => (
-            <Image key={i} source={{ uri: exerciseImage(ex.id, i) }} style={{ flex: 1, aspectRatio: 1.2, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.05)' }} resizeMode="cover" />
+            <Image key={i} source={{ uri: exerciseImage(ex.id, i) }} cachePolicy="memory-disk" transition={120} contentFit="cover" style={{ flex: 1, aspectRatio: 1.2, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.05)' }} />
           ))}
         </View>
       ) : null}

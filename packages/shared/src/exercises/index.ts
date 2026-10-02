@@ -71,6 +71,11 @@ const wordsOf = (e: LibExercise) => {
   return w;
 };
 
+/** Split every name into search words ahead of the first search. */
+export function warmExerciseSearch(): void {
+  for (const e of library()) wordsOf(e);
+}
+
 /** Library matches for a search, best first. */
 export function searchExercises(query: string, max = 30, pool: LibExercise[] = library()): LibExercise[] {
   const q = words(query);

@@ -12,3 +12,4 @@ export * from './exercises';
 export * from './strength';
 export * from './progress';
 export * from './memory';
+export * from './chart';

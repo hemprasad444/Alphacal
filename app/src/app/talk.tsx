@@ -1,24 +1,27 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { memo, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
 import { Core } from '../components/Core';
 import { Dots, IconButton, Label, Tap, Txt, VoiceGlyph } from '../components/ui';
-import { integrity, nutrition, todaysPlan, trajectory, week } from '@rei/shared';
+import { integrity, type Message, nutrition, todaysPlan, trajectory, week } from '@rei/shared';
 import { alpha, C, fontFamily, mix } from '../lib/theme';
-import { useStore } from '../state/store';
+import { useLiveReply, useStore } from '../state/store';
 
 const QUICK = ["I'm too tired today", 'Log a meal', "What's left today?", 'Change my goal'];
 
 export default function Talk() {
   const s = useStore();
   const { settings, accent, profile } = s;
+  const live = useLiveReply();
+  const messages = live && live.text && !s.messages.some(m => m.id === live.id) ? [...s.messages, live] : s.messages;
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ draft?: string }>();
   const [draft, setDraft] = useState(params.draft ?? '');
   const input = useRef<TextInput>(null);
-  const scroll = useRef<ScrollView>(null);
+  const list = useRef<FlashListRef<Message>>(null);
 
   const tough = settings.tone === 'Tough love';
   const strong = settings.scenario === 'Strong week';
@@ -84,48 +87,29 @@ export default function Talk() {
       </ScrollView>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          ref={scroll}
-          style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 18, paddingBottom: 12, gap: 16 }}
-          onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
+        {/* Virtualised, newest at the bottom; only the streaming bubble redraws as REI types. */}
+        <FlashList
+          ref={list}
+          data={messages}
+          keyExtractor={(m, i) => m.id ?? `i${i}`}
+          renderItem={({ item }) => <Bubble m={item} strong={strong} />}
+          contentContainerStyle={{ padding: 18, paddingBottom: 12 }}
+          ItemSeparatorComponent={Gap}
+          // Keep the newest message in view as replies stream in.
+          onContentSizeChange={() => list.current?.scrollToEnd({ animated: !s.thinking })}
+          onLoad={() => list.current?.scrollToEnd({ animated: false })}
           keyboardDismissMode="interactive"
-        >
-          {s.messages.map((m, i) => {
-            if (m.role === 'sys') {
-              return (
-                <View key={i} style={{ alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: alpha(accent, 0.45) }}>
-                  <Label size={10} ls={0.14} color={accent}>{m.text}</Label>
-                </View>
-              );
-            }
-            if (m.role === 'user') {
-              return (
-                <View key={i} style={{ alignSelf: 'flex-end', alignItems: 'flex-end', maxWidth: '80%', gap: 6 }}>
-                  <Label size={10} ls={0.14} color={C.faint}>{`YOU · ${m.time}`}</Label>
-                  <View style={{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 20, borderBottomRightRadius: 4, backgroundColor: mix(accent, '#0A0C0F', 0.14), borderWidth: 1, borderColor: alpha(accent, 0.28) }}>
-                    <Txt size={16} lh={1.45}>{m.text}</Txt>
-                  </View>
-                </View>
-              );
-            }
-            return (
-              <View key={i} style={{ alignSelf: 'flex-start', maxWidth: '88%', gap: 6 }}>
-                <Label size={10} ls={0.14} color={m.alert && !strong ? C.alert : C.label}>{m.alert && !strong ? `REI · CALL-OUT · ${m.time}` : `REI · ${m.time}`}</Label>
-                <View style={{ paddingVertical: 13, paddingHorizontal: 16, borderRadius: 20, borderTopLeftRadius: 4, backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: m.alert && !strong ? 'rgba(255,90,60,0.4)' : C.line2 }}>
-                  <Txt size={16} lh={1.45} color={C.textSoft}>{m.text}</Txt>
-                </View>
+          keyboardShouldPersistTaps="handled"
+          ListFooterComponent={
+            // Dots until REI's streamed reply starts showing.
+            s.thinking && messages[messages.length - 1]?.role !== 'rei' ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16 }}>
+                <Label size={10} ls={0.14}>REI IS READING YOU</Label>
+                <Dots />
               </View>
-            );
-          })}
-          {/* Dots until REI's streamed reply starts showing. */}
-          {s.thinking && s.messages[s.messages.length - 1]?.role !== 'rei' ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Label size={10} ls={0.14}>REI IS READING YOU</Label>
-              <Dots />
-            </View>
-          ) : null}
-        </ScrollView>
+            ) : null
+          }
+        />
 
         <View style={{ paddingTop: 8, paddingBottom: Math.max(insets.bottom, 12) }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 10 }}>
@@ -164,3 +148,36 @@ export default function Talk() {
     </View>
   );
 }
+
+const Gap = () => <View style={{ height: 16 }} />;
+
+/** One chat message. Memoised, so typing in the box doesn't redraw the conversation. */
+const Bubble = memo(function Bubble({ m, strong }: { m: Message; strong: boolean }) {
+  const accent = useStore(st => st.accent);
+  if (m.role === 'sys') {
+    return (
+      <View style={{ alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: alpha(accent, 0.45) }}>
+        <Label size={10} ls={0.14} color={accent}>{m.text}</Label>
+      </View>
+    );
+  }
+  if (m.role === 'user') {
+    return (
+      <View style={{ alignSelf: 'flex-end', alignItems: 'flex-end', maxWidth: '80%', gap: 6 }}>
+        <Label size={10} ls={0.14} color={C.faint}>{`YOU · ${m.time}`}</Label>
+        <View style={{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 20, borderBottomRightRadius: 4, backgroundColor: mix(accent, '#0A0C0F', 0.14), borderWidth: 1, borderColor: alpha(accent, 0.28) }}>
+          <Txt size={16} lh={1.45}>{m.text}</Txt>
+        </View>
+      </View>
+    );
+  }
+  const callout = m.alert && !strong;
+  return (
+    <View style={{ alignSelf: 'flex-start', maxWidth: '88%', gap: 6 }}>
+      <Label size={10} ls={0.14} color={callout ? C.alert : C.label}>{callout ? `REI · CALL-OUT · ${m.time}` : `REI · ${m.time}`}</Label>
+      <View style={{ paddingVertical: 13, paddingHorizontal: 16, borderRadius: 20, borderTopLeftRadius: 4, backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: callout ? 'rgba(255,90,60,0.4)' : C.line2 }}>
+        <Txt size={16} lh={1.45} color={C.textSoft}>{m.text}</Txt>
+      </View>
+    </View>
+  );
+});

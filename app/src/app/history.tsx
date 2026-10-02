@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { Button, Sheet } from '../components/FoodSheet';
-import { Screen, SubHeader } from '../components/Screen';
+import { ListScreen, SubHeader } from '../components/Screen';
 import { Card, Label, Segmented, Tap, Txt } from '../components/ui';
 import { C, fontFamily } from '../lib/theme';
 import { useStore } from '../state/store';
@@ -28,8 +28,9 @@ export default function History() {
     ['PRS', String(month.reduce((a, l) => a + (prsBy.get(l) ?? 0), 0))],
   ];
 
-  return (
-    <Screen tabs={false}>
+  const newest = useMemo(() => [...sorted].reverse(), [sorted]);
+  const header = (
+    <View>
       <SubHeader title="TRAINING LOG" onBack={() => router.back()} />
 
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 22 }}>
@@ -62,14 +63,16 @@ export default function History() {
         </>
       ) : null}
 
-      <Label style={{ marginTop: 28 }}>SESSIONS</Label>
-      <View style={{ marginTop: 8 }}>
-        {!sorted.length ? <Txt size={14} color={C.dim} style={{ paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.line }}>Nothing logged yet. Finish a session or log a run.</Txt> : null}
-        {[...sorted].reverse().map((l, i) => <SessionRow key={l.id ?? `${l.date}-${i}`} l={l} prs={prsBy.get(l) ?? 0} />)}
-      </View>
+      <Label style={{ marginTop: 28, marginBottom: 8 }}>SESSIONS</Label>
+      {!sorted.length ? <Txt size={14} color={C.dim} style={{ paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.line }}>Nothing logged yet. Finish a session or log a run.</Txt> : null}
+    </View>
+  );
 
+  return (
+    <>
+      <ListScreen header={header} data={newest} keyExtractor={(l, i) => l.id ?? `${l.date}-${i}`} renderItem={({ item }) => <SessionRow l={item} prs={prsBy.get(item) ?? 0} />} />
       <CardioSheet open={logging} onClose={() => setLogging(false)} />
-    </Screen>
+    </>
   );
 }
 

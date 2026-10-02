@@ -14,30 +14,39 @@ export interface BestSet {
   date: string;
 }
 
-export const liftKey = (name: string) => name.trim().toLowerCase();
+const keys = new Map<string, string>();
+export const liftKey = (name: string): string => {
+  let k = keys.get(name);
+  if (k === undefined) keys.set(name, (k = name.trim().toLowerCase()));
+  return k;
+};
 
 function doneSets(x: SetLog): { kg: number | null; reps: number }[] {
   return x.reps.map((reps, i) => ({ kg: x.kg[i] ?? null, reps })).filter((s, i) => x.done[i] && s.reps > 0);
 }
 
-/** The best set of one exercise: highest estimated max, or most reps when bodyweight. */
-function bestOf(x: SetLog, date: string): BestSet | null {
-  let best: BestSet | null = null;
-  for (const s of doneSets(x)) {
-    const e = e1rm(s.kg, s.reps);
-    const cand = { kg: s.kg, reps: s.reps, e1rm: e, date };
-    if (!best) best = cand;
-    else if (e != null && (best.e1rm == null || e > best.e1rm)) best = cand;
-    else if (e == null && best.e1rm == null && s.reps > best.reps) best = cand;
+// Best and heaviest set of one exercise in one session, worked out once per set list:
+// history screens and PR checks ask for them again and again.
+const summaries = new WeakMap<SetLog, { date: string; best: BestSet | null; heaviest: BestSet | null }>();
+function summary(x: SetLog, date: string) {
+  const hit = summaries.get(x);
+  if (hit && hit.date === date) return hit;
+  let best: BestSet | null = null, heaviest: BestSet | null = null;
+  for (let i = 0; i < x.reps.length; i++) {
+    const reps = x.reps[i], kg = x.kg[i] ?? null;
+    if (!x.done[i] || !(reps > 0)) continue;
+    const e = e1rm(kg, reps);
+    // Best: highest estimated max, or most reps when bodyweight.
+    if (!best || (e != null && (best.e1rm == null || e > best.e1rm)) || (e == null && best.e1rm == null && reps > best.reps)) best = { kg, reps, e1rm: e, date };
+    if (kg != null && kg > 0 && (!heaviest || kg > heaviest.kg! || (kg === heaviest.kg && reps > heaviest.reps))) heaviest = { kg, reps, e1rm: e, date };
   }
-  return best;
+  const out = { date, best, heaviest };
+  summaries.set(x, out);
+  return out;
 }
 
-function heaviestOf(x: SetLog, date: string): BestSet | null {
-  let top: BestSet | null = null;
-  for (const s of doneSets(x)) if (s.kg != null && s.kg > 0 && (!top || s.kg > top.kg! || (s.kg === top.kg && s.reps > top.reps))) top = { kg: s.kg, reps: s.reps, e1rm: e1rm(s.kg, s.reps), date };
-  return top;
-}
+const bestOf = (x: SetLog, date: string) => summary(x, date).best;
+const heaviestOf = (x: SetLog, date: string) => summary(x, date).heaviest;
 
 export interface LiftRecord {
   name: string;

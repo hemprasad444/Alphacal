@@ -12,7 +12,8 @@
     "test": "npm --workspace @rei/shared test && npm --workspace app test && npm --prefix functions test",
     "test:rules": "firebase emulators:exec --project demo-rei --only firestore,storage \"npm --prefix functions run test:rules\"",
     "emulators": "npm --prefix functions run build && firebase emulators:start --project demo-rei",
-    "deploy": "npm --prefix functions run build && firebase deploy"
+    "deploy": "npm --prefix functions run build && firebase deploy",
+    "check:bundle": "node scripts/check-bundle.mjs 5"
   },
   "devDependencies": {
     "firebase-tools": "^15.32.1"

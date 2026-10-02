@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
   type Activity, activityFor, activityFromDay, addMemory, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
@@ -185,12 +185,71 @@ interface Store extends Persisted {
   resetDay: () => void;
 }
 
-const Ctx = createContext<Store | null>(null);
+/**
+ * A value components subscribe to directly. Each component re-renders only when what it
+ * selects changes, instead of every consumer re-rendering on every change of one context.
+ */
+interface Source<T> {
+  get: () => T;
+  set: (v: T) => void;
+  emit: () => void;
+  /** Emit on the next frame, once, however many times it's called before then. */
+  emitSoon: () => void;
+  subscribe: (l: () => void) => () => void;
+}
 
-export function useStore(): Store {
-  const s = useContext(Ctx);
-  if (!s) throw new Error('useStore outside StoreProvider');
-  return s;
+function createSource<T>(initial: T): Source<T> {
+  let value = initial;
+  let pending = false;
+  const listeners = new Set<() => void>();
+  const emit = () => listeners.forEach(l => l());
+  return {
+    get: () => value,
+    set: v => {
+      value = v;
+    },
+    emit,
+    // Words can arrive faster than the screen redraws: tell listeners at most once a frame.
+    emitSoon: () => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        emit();
+      });
+    },
+    subscribe: l => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+  };
+}
+
+const Ctx = createContext<Source<Store | null> | null>(null);
+const LiveCtx = createContext<Source<Message | null> | null>(null);
+
+/**
+ * The whole store, or one slice of it: `useStore(s => s.settings.font)`. A selector must
+ * return a primitive or an object already in the store (not a new one), so unchanged
+ * slices compare equal and skip the render.
+ */
+export function useStore(): Store;
+export function useStore<T>(select: (s: Store) => T): T;
+export function useStore<T>(select?: (s: Store) => T): Store | T {
+  const src = useContext(Ctx);
+  if (!src) throw new Error('useStore outside StoreProvider');
+  const get = () => {
+    const s = src.get()!;
+    return select ? select(s) : s;
+  };
+  return useSyncExternalStore(src.subscribe, get, get);
+}
+
+/** REI's reply while it streams in. Only the chat bubble listens, not the whole app. */
+export function useLiveReply(): Message | null {
+  const src = useContext(LiveCtx);
+  if (!src) throw new Error('useLiveReply outside StoreProvider');
+  return useSyncExternalStore(src.subscribe, src.get, src.get);
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -207,7 +266,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [fuelBusy, setFuelBusy] = useState(false);
   const [fuelVerdict, setFuelVerdict] = useState('');
   /** REI's reply while it streams in, until the stored copy arrives from Firestore. */
-  const [streaming, setStreaming] = useState<Message | null>(null);
+  const [live] = useState(() => createSource<Message | null>(null));
+  const [source] = useState(() => createSource<Store | null>(null));
+  const setStreaming = useCallback((next: Message | null | ((cur: Message | null) => Message | null)) => {
+    live.set(typeof next === 'function' ? next(live.get()) : next);
+    live.emitSoon();
+  }, [live]);
   const ref = useRef(p);
   const uidRef = useRef(uid);
   // Local edits not yet written: the listener must not overwrite them with older values.
@@ -370,7 +434,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setStreaming(null);
       return null;
     }
-  }, []);
+  }, [setStreaming]);
 
   const saveProfile = useCallback((profile: Profile, weightChanged: boolean) => {
     patch({ profile });
@@ -456,7 +520,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } finally {
       setThinking(false);
     }
-  }, [thinking, cloud, msg, pushMessages, remote, offline, offlineMeal, activityOf, saveProfile, saveMeals]);
+  }, [thinking, cloud, msg, pushMessages, remote, offline, offlineMeal, activityOf, saveProfile, saveMeals, setStreaming]);
 
   const voiceReply = useCallback(async (turns: Message[], onDelta?: (text: string) => void) => {
     const lastTurn = turns[turns.length - 1];
@@ -565,11 +629,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       patch({ settings });
       if (uidRef.current) write.user(uidRef.current, { settings });
     };
-    const shown = visibleMessages(p, cloud);
-    const live = streaming && streaming.text && !shown.some(m => m.id === streaming.id) ? [streaming] : [];
     return {
       ...p,
-      messages: [...shown, ...live],
+      messages: visibleMessages(p, cloud),
       ready,
       account,
       cloud,
@@ -721,9 +783,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
     };
-  }, [p, streaming, ready, account, cloud, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
+  }, [p, ready, account, cloud, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  // Subscribers read the new value during this render pass; those that didn't render (their
+  // slice is unchanged, or they sit outside this subtree) are told after commit.
+  // `value` holds callbacks that read refs; storing it doesn't read them.
+  // eslint-disable-next-line react-hooks/refs
+  source.set(value);
+  useLayoutEffect(() => source.emit(), [source, value]);
+
+  return (
+    <Ctx.Provider value={source}>
+      <LiveCtx.Provider value={live}>{children}</LiveCtx.Provider>
+    </Ctx.Provider>
+  );
 }
 
 export { firebaseEnabled };
