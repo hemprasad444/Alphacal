@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "REI",
+    "slug": "rei",
+    "version": "0.5.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "rei",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#050608",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.alphacal.rei",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.alphacal.rei",
+      "adaptiveIcon": {
+        "backgroundColor": "#050608",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#050608"
+        }
+      ],
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
