@@ -51,6 +51,12 @@ export function onProgram(uid: string, week: string, cb: (program: WeekProgram |
   return onSnapshot(doc(fb().db, 'users', uid, 'programs', week), s => cb(s.exists() ? (s.data() as WeekProgram) : null), warn('program listener'));
 }
 
+/** Logged sessions and runs from `fromIso` on. */
+export function onSessions(uid: string, fromIso: string, cb: (sessions: SessionLog[]) => void): Unsubscribe {
+  const q = query(sub(uid, 'sessions'), where('date', '>=', fromIso));
+  return onSnapshot(q, s => cb(s.docs.map(d => ({ ...(d.data() as SessionLog), id: d.id }))), warn('sessions listener'));
+}
+
 /** The user's own foods. */
 export function onFoods(uid: string, cb: (foods: Food[]) => void): Unsubscribe {
   return onSnapshot(sub(uid, 'foods'), s => cb(s.docs.map(d => ({ ...(d.data() as Food), id: d.id }))), warn('foods listener'));
@@ -63,8 +69,10 @@ export const write = {
     const { id, ...rest } = m;
     return setDoc(doc(sub(uid, 'messages'), id ?? newId()), clean({ ...rest, createdAt: m.createdAt ?? Date.now() })).catch(warn('message write'));
   },
-  session: (uid: string, data: SessionLog) =>
-    setDoc(doc(sub(uid, 'sessions'), newId()), { ...data, createdAt: Date.now() }).catch(warn('session write')),
+  session: (uid: string, data: SessionLog) => {
+    const { id, ...rest } = data;
+    return setDoc(doc(sub(uid, 'sessions'), id ?? newId()), clean({ ...rest, createdAt: data.createdAt ?? Date.now() })).catch(warn('session write'));
+  },
   weighIn: (uid: string, date: string, kg: number) => setDoc(doc(sub(uid, 'weighIns'), date), { kg }).catch(warn('weigh-in write')),
   food: (uid: string, f: Food) => {
     const { id, ...rest } = f;

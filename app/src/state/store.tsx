@@ -1,12 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  type Activity, activityFor, activityFromDay, applyUpdate, catalog, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  type Activity, activityFor, activityFromDay, applyUpdate, catalog, clock, newPrs, pace, type SessionLog, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
 import { lookupBarcode } from '../lib/foods';
-import { newId, onDays, onFoods, onMessages, onProgram, onUser, onWeighIns, write } from '../lib/sync';
+import { newId, onDays, onFoods, onMessages, onProgram, onSessions, onUser, onWeighIns, write } from '../lib/sync';
 import { httpsCallable } from 'firebase/functions';
 import { DEFAULT_EMBLEM, EMBLEMS, THEMES, type Emblem, type Theme } from '../lib/theme';
 import { type Account, useAccount } from './account';
@@ -37,6 +37,8 @@ interface Persisted {
   foods: Food[];
   /** Meals from the last two weeks before today, newest first. */
   recentMeals: Meal[];
+  /** Sessions and runs from the last six months. */
+  sessions: SessionLog[];
 }
 
 function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
@@ -58,6 +60,7 @@ function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
     program: null,
     foods: [],
     recentMeals: [],
+    sessions: [],
   };
 }
 
@@ -151,7 +154,9 @@ interface Store extends Persisted {
   toggleFav: (f: Food) => void;
   /** Your saved product first, then Open Food Facts. */
   findBarcode: (code: string) => Promise<Food | null>;
-  finishSession: (done: number, total: number, seconds: number, sets?: SetLog[]) => void;
+  finishSession: (done: number, total: number, seconds: number, sets?: SetLog[], title?: string) => void;
+  /** A run, walk or ride by distance and time. Counts as today's session. */
+  logCardio: (km: number, seconds: number, kind?: 'run' | 'walk' | 'cycle') => void;
   /** Ask REI to rewrite this week's training. Resolves with REI's note for the week. */
   rebuildProgram: (focus?: string) => Promise<string>;
   clearChat: () => void;
@@ -303,6 +308,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       onWeighIns(uid, daysAgoIso(120), weighIns => patch({ weighIns })),
       onProgram(uid, isoWeek(), program => patch({ program })),
       onFoods(uid, foods => patch({ foods })),
+      onSessions(uid, daysAgoIso(183), sessions => patch({ sessions })),
     ];
     return () => unsubs.forEach(u => u());
   }, [uid, loadedKey, today, patch, pushMessages, msg]);
@@ -476,22 +482,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [fuelBusy, msg, remote, activityOf, saveMeals, pushMessages, logItems, offlineMeal]);
 
-  const finishSession = useCallback((done: number, total: number, seconds: number, sets?: SetLog[]) => {
+  const finishSession = useCallback((done: number, total: number, seconds: number, sets?: SetLog[], title?: string) => {
     const s = ref.current;
     const min = Math.max(1, Math.round(seconds / 60));
     const nu = calcNutrition(s.meals, activityOf(s, true));
     const left = Math.max(0, (parseFloat(s.profile.protein) || 0) - nu.protein);
     const missed = calcWeek(history(s), false, new Date(), s.program).missed;
     const plan = todaysPlan(new Date(), s.program);
-    const sum = sessionSummary(done, total, min, left, plan?.title ?? 'Session', missed);
-    patch({ sessionDone: true, loggedMin: min });
-    pushMessages([msg('rei', sum.text, { alert: sum.alert })]);
+    const log: SessionLog = { id: newId(), date: s.day, plan: plan?.key ?? 'PUSH', title: title ?? plan?.title, done, total, seconds, ...(sets ? { sets } : {}), createdAt: Date.now() };
+    const prs = newPrs(log, s.sessions);
+    const sum = sessionSummary(done, total, min, left, log.title ?? 'Session', missed);
+    const prText = prs.length ? ` New PR${prs.length > 1 ? 's' : ''}: ${prs.slice(0, 2).map(p => p.text).join('; ')}.` : '';
+    patch({ sessionDone: true, loggedMin: min, sessions: [...s.sessions, log] });
+    pushMessages([msg('rei', sum.text + prText, { alert: sum.alert })]);
     const u = uidRef.current;
     if (u) {
       write.day(u, s.day, { sessionDone: true, loggedMin: min });
-      write.session(u, { date: s.day, plan: plan?.key ?? 'PUSH', done, total, seconds, ...(sets ? { sets } : {}) });
+      write.session(u, log);
     }
   }, [patch, msg, pushMessages, activityOf, history]);
+
+  const logCardio = useCallback((km: number, seconds: number, kind: 'run' | 'walk' | 'cycle' = 'run') => {
+    const s = ref.current;
+    const title = kind === 'run' ? 'Run' : kind === 'walk' ? 'Walk' : 'Ride';
+    const log: SessionLog = { id: newId(), date: s.day, plan: 'RUN', title, done: 1, total: 1, seconds, cardio: { km, seconds, kind }, createdAt: Date.now() };
+    const min = Math.max(1, Math.round(seconds / 60));
+    patch({ sessionDone: true, loggedMin: s.loggedMin + min, sessions: [...s.sessions, log] });
+    pushMessages([msg('rei', `Logged: ${title.toLowerCase()}, ${+km.toFixed(2)} km in ${clock(seconds)}${kind === 'cycle' ? '' : `, ${pace(km, seconds)}`}. That counts. Now refuel with protein.`)]);
+    const u = uidRef.current;
+    if (u) {
+      write.day(u, s.day, { sessionDone: true, loggedMin: s.loggedMin + min });
+      write.session(u, log);
+    }
+  }, [patch, msg, pushMessages]);
 
   const setOpt = useCallback(<K extends keyof Settings>(k: K, v: Settings[K]) => {
     const cur = ref.current;
@@ -575,6 +598,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       findBarcode: async code => ref.current.foods.find(f => f.barcode === code) ?? lookupBarcode(code),
       finishSession,
+      logCardio,
       logMealPhoto: async (image, note) => {
         if (!uidRef.current || fuelBusy) return;
         setFuelBusy(true);
@@ -613,7 +637,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
     };
-  }, [p, streaming, ready, account, cloud, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood]);
+  }, [p, streaming, ready, account, cloud, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

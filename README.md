@@ -21,14 +21,16 @@ REI, a personal AI fitness companion for iPhone.
 | `tts`, `stt` | Premium voice through ElevenLabs: REI's replies spoken as they stream, and your speech transcribed. |
 | `activate` | Grants invited testers access. |
 
-### Food data
+### Food and exercise data
 
-The food list ships inside the app, so searching and logging from it is instant and works offline.
+The food list and exercise library ship inside the app, so searching and logging from it is instant and works offline.
 
 - **Indian ingredients:** 542 foods from the Indian Food Composition Tables 2017 (T. Longvah et al., National Institute of Nutrition), via [`@ifct2017/compositions`](https://www.npmjs.com/package/@ifct2017/compositions). Values are per 100 g, mostly raw. Regenerate with `npm --workspace @rei/shared run build:ifct`.
 - **Dishes:** about 120 common Indian and everyday dishes in typical home portions (`packages/shared/src/food/dishes.ts`). These are typical estimates. A tester who corrects one saves it as their own food.
 - **Packaged foods:** looked up by barcode in [Open Food Facts](https://world.openfoodfacts.org) (open data, ODbL), straight from the phone. Products it lacks are typed in once from the label.
 - **Your foods:** favourites, scanned products and saved meals are stored in `users/{uid}/foods`.
+
+- **Exercises:** 876 exercises with muscles, equipment, form steps and photos from [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain). The data ships in the app; the photos load from GitHub. Regenerate it with `npm --workspace @rei/shared run build:exercises -- <exercises.json>`.
 
 When you type a meal, the app first matches it against the list ("2 rotis and dal"). If everything matches, it logs immediately with the list's numbers. Anything it can't place goes to REI, which gets the closest list entries and uses their numbers; it only estimates foods that aren't on the list.
 

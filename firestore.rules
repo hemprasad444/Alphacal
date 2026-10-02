@@ -59,7 +59,9 @@ service cloud.firestore {
       }
 
       match /sessions/{id} {
-        allow read, create: if owner(uid);
+        allow read: if owner(uid);
+        allow create: if owner(uid) && request.resource.data.date is string && isoDate(request.resource.data.date)
+          && num(request.resource.data.seconds, 86400) && num(request.resource.data.done, 500) && num(request.resource.data.total, 500);
         allow update, delete: if false;
       }
 

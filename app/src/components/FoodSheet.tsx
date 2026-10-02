@@ -55,12 +55,12 @@ function Stepper({ value, step, onChange }: { value: number; step: number; onCha
       </Tap>
       <TextInput
         value={text ?? String(+value.toFixed(2))}
-        onChangeText={setText}
-        onEndEditing={() => {
-          const v = parseFloat((text ?? '').replace(',', '.'));
+        onChangeText={t => {
+          setText(t);
+          const v = parseFloat(t.replace(',', '.'));
           if (v > 0) onChange(v);
-          setText(null);
         }}
+        onBlur={() => setText(null)}
         keyboardType="decimal-pad"
         keyboardAppearance="dark"
         selectTextOnFocus

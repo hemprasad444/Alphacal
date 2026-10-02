@@ -62,6 +62,13 @@ describe('users', () => {
     await assertSucceeds(setDoc(doc(tester(), 'users/alice/weighIns/2026-10-02'), { kg: 81.6 }));
     await assertFails(setDoc(doc(tester(), 'users/alice/weighIns/2026-10-02'), { kg: '81.6' }));
   });
+  it('validates sessions', async () => {
+    const run = { date: '2026-10-02', plan: 'RUN', done: 1, total: 1, seconds: 1800, cardio: { km: 5, seconds: 1800 } };
+    await assertSucceeds(setDoc(doc(tester(), 'users/alice/sessions/s1'), run));
+    await assertFails(setDoc(doc(tester(), 'users/alice/sessions/s2'), { ...run, date: 'today' }));
+    await assertFails(setDoc(doc(tester(), 'users/alice/sessions/s3'), { ...run, seconds: -5 }));
+    await assertFails(setDoc(doc(tester(), 'users/alice/sessions/s1'), { ...run, seconds: 10 }));
+  });
   it('validates own foods', async () => {
     const food = { name: 'Usual breakfast', per: 1, kcal: 420, p: 30, c: 40, f: 14, units: [{ n: 'serving', g: 1 }], src: 'mine', serving: true };
     await assertSucceeds(setDoc(doc(tester(), 'users/alice/foods/m:abc123'), food));
