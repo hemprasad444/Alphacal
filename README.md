@@ -58,6 +58,13 @@ Then run the app (`npm run app`) and sign up with an invited email.
 
 The chat function keeps one warm instance (`CHAT_MIN_INSTANCES`, default 1) so replies never wait on a cold start. That costs a few dollars a month; set it to 0 in `functions/.env.<project-id>` to save it.
 
+## Speed
+
+- **Local-first.** Every screen reads data already on the phone. Each part of the state (settings, meals, sessions…) is saved separately, in SQLite on the phone (`app/src/lib/sliceStore.native.ts`) and in browser storage on web, so a change writes only what it touched. Firestore syncs in the background.
+- **Small redraws.** Components subscribe to the slice they show (`useStore(s => s.accent)`), and REI's streaming reply updates only its own bubble, at most once a frame. Long lists (chat, exercise library, training log) render only the rows on screen.
+- **Search.** Food and exercise indexes are built right after the first screen draws; a keystroke scores only foods that can reach the top results.
+- **Budgets in CI.** `.github/workflows/ci.yml` runs typecheck, lint, unit tests, speed budgets (`packages/shared/src/__tests__/perf.test.ts`), rules tests and a 5 MB bundle check (`npm run check:bundle`).
+
 ## Local development
 
 ```bash

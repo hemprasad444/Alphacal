@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loadState, saveSlices } from '../lib/persist';
+import { sliceStore } from '../lib/sliceStore';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
   type Activity, activityFor, activityFromDay, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
@@ -49,6 +51,9 @@ interface Persisted {
   memory: MemoryItem[];
 }
 
+/** The old format kept everything in one AsyncStorage key per mode; moved over on first load. */
+const LEGACY = { get: (k: string) => AsyncStorage.getItem(k), remove: (k: string) => AsyncStorage.removeItem(k) };
+
 function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
   const seed = demo ? seedFor(settings.scenario) : { meals: [], messages: [] };
   return {
@@ -76,6 +81,14 @@ function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
     memory: [],
   };
 }
+
+/** `next` if its contents differ from `cur`, else `cur` itself. */
+function same<T>(cur: T, next: T): T {
+  return JSON.stringify(cur) === JSON.stringify(next) ? cur : next;
+}
+
+/** Each top-level field is saved separately. */
+const SLICES = Object.keys(fresh()) as (keyof Persisted)[];
 
 /** Meals worth one-tap repeating: the most often eaten, then the most recent. */
 function repeatable(today: Meal[], past: Meal[], max = 8): Meal[] {
@@ -275,6 +288,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     live.emitSoon();
   }, [live]);
   const ref = useRef(p);
+  /** What was last written to storage, to find the slices that changed. */
+  const savedRef = useRef<Partial<Persisted> | null>(null);
   const uidRef = useRef(uid);
   // Local edits not yet written: the listener must not overwrite them with older values.
   const dirtyProfile = useRef(false);
@@ -300,15 +315,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!storageKey) return;
     let live = true;
-    AsyncStorage.getItem(storageKey)
-      .then(raw => {
+    loadState<Persisted>(sliceStore, storageKey, SLICES, LEGACY)
+      .then(saved => {
         if (!live) return;
         const base = fresh(DEFAULT_SETTINGS, !uid);
-        if (!raw) {
+        savedRef.current = saved;
+        if (!saved) {
           setP(base);
           return;
         }
-        const saved = JSON.parse(raw) as Partial<Persisted>;
         const next: Persisted = { ...base, ...saved, settings: { ...DEFAULT_SETTINGS, ...saved.settings }, profile: { ...DEFAULT_PROFILE, ...saved.profile } };
         if (next.day !== isoDate()) Object.assign(next, { day: isoDate(), meals: [], pastDays: [...next.pastDays, daySummary(next.day, { meals: next.meals, sessionDone: next.sessionDone })].slice(-90), recentMeals: [...[...next.meals].reverse(), ...next.recentMeals].slice(0, 80), sessionDone: false, loggedMin: 0, activity: null });
         setP(next);
@@ -324,8 +339,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!ready || !storageKey) return;
+    // Only the slices that changed since the last save are written.
     const t = setTimeout(() => {
-      AsyncStorage.setItem(storageKey, JSON.stringify(ref.current)).catch(e => console.warn('REI: could not save state', e));
+      const next = ref.current;
+      saveSlices(sliceStore, storageKey, next, savedRef.current, SLICES)
+        .then(() => {
+          savedRef.current = next;
+        })
+        .catch(e => console.warn('REI: could not save state', e));
     }, 300);
     return () => clearTimeout(t);
   }, [p, ready, storageKey]);
@@ -368,12 +389,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           pushMessages([msg('rei', 'You’re in. I have your vow. Now we find out if you meant it. What’s first today?')]);
           return;
         }
+        // Unchanged values keep their old object, so nothing redraws or re-saves for them.
         patch(cur => ({
-          ...(doc.profile && !dirtyProfile.current ? { profile: { ...DEFAULT_PROFILE, ...doc.profile } } : {}),
-          ...(doc.settings ? { settings: { ...DEFAULT_SETTINGS, ...doc.settings } } : {}),
-          ...(doc.disc ? { disc: doc.disc } : {}),
+          ...(doc.profile && !dirtyProfile.current ? { profile: same(cur.profile, { ...DEFAULT_PROFILE, ...doc.profile }) } : {}),
+          ...(doc.settings ? { settings: same(cur.settings, { ...DEFAULT_SETTINGS, ...doc.settings }) } : {}),
+          ...(doc.disc ? { disc: same(cur.disc, doc.disc) } : {}),
           startedOn: doc.startedOn ?? cur.startedOn,
-          ...(doc.memory ? { memory: readMemory(doc.memory) } : {}),
+          ...(doc.memory ? { memory: same(cur.memory, readMemory(doc.memory)) } : {}),
           chatClearedAt: doc.chatClearedAt ?? 0,
         }));
       }),
