@@ -18,6 +18,8 @@ export interface Loaded {
   today: string;
   timeZone: string;
   usedToday: number;
+  /** Proactive nudges already sent today (see coach.ts). */
+  nudgesSent: string[];
 }
 
 /**
@@ -71,5 +73,6 @@ export async function loadUser(uid: string): Promise<Loaded> {
     today,
     timeZone,
     usedToday: Number(usage.data()?.chat ?? 0),
+    nudgesSent: Array.isArray((t as { nudges?: unknown }).nudges) ? ((t as { nudges: string[] }).nudges) : [],
   };
 }
