@@ -188,7 +188,7 @@ function mealCall(system: Anthropic.Beta.Messages.BetaTextBlockParam[], turns: A
 }
 
 /** Store REI's reply and any meal or vow change in one batch. Returns the system notes shown in chat. */
-async function save(uid: string, data: Awaited<ReturnType<typeof loadUser>>, replyId: string, text: string, meal: Meal | null, vow: ReturnType<typeof parseVow>, rebuild: string | null) {
+export async function save(uid: string, data: Awaited<ReturnType<typeof loadUser>>, replyId: string, text: string, meal: Meal | null, vow: ReturnType<typeof parseVow>, rebuild: string | null) {
   const user = db.doc(`users/${uid}`);
   const batch = db.batch();
   const now = Date.now();

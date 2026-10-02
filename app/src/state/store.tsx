@@ -104,6 +104,8 @@ interface Store extends Persisted {
   voiceReply: (turns: Message[], onDelta?: (text: string) => void) => Promise<{ text: string; note: string | null }>;
   appendMessages: (ms: Message[]) => void;
   logMeal: (text: string) => Promise<void>;
+  /** Signed in only: REI reads a meal photo (base64 JPEG) and logs it if sure. */
+  logMealPhoto: (jpegBase64: string, note?: string) => Promise<void>;
   removeMeal: (i: number) => void;
   finishSession: (done: number, total: number, seconds: number, sets?: SetLog[]) => void;
   /** Ask REI to rewrite this week's training. Resolves with REI's note for the week. */
@@ -464,6 +466,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         saveMeals(ref.current.meals.filter((_, k) => k !== i));
       },
       finishSession,
+      logMealPhoto: async (image, note) => {
+        if (!uidRef.current || fuelBusy) return;
+        setFuelBusy(true);
+        try {
+          const res = await httpsCallable<{ image: string; note?: string }, { text: string; logged: boolean }>(fb().functions, 'mealFromPhoto', { timeout: 120000 })({ image, note });
+          setFuelVerdict(res.data.text);
+        } catch (e) {
+          console.warn('REI: photo failed', e);
+          setFuelVerdict('Couldn\u2019t read that photo. Describe the meal instead.');
+        } finally {
+          setFuelBusy(false);
+        }
+      },
       rebuildProgram: async focus => {
         const res = await httpsCallable<{ focus?: string }, { week: string; note: string }>(fb().functions, 'rebuildProgram', { timeout: 300000 })({ focus });
         return res.data.note;

@@ -38,7 +38,14 @@
           "backgroundColor": "#050608"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "REI reads your plate to log the meal.",
+          "photosPermission": "Pick a meal photo for REI to log."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
