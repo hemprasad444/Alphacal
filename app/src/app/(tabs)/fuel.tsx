@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
+import { Alert, Platform, TextInput, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Core } from '../../components/Core';
 import { Screen } from '../../components/Screen';
 import { Card, Jp, Label, Tap, Txt } from '../../components/ui';
-import { nutrition } from '../../lib/derive';
-import { fuelLine } from '../../lib/rei';
+import { dayStamp, fuelLine, nutrition } from '@rei/shared';
 import { C, fontFamily } from '../../lib/theme';
-import { dayStamp } from '../../lib/time';
 import { useStore } from '../../state/store';
 
 const QUICK = ['200 g chicken + rice', 'Protein shake', '3 eggs on toast', 'Burger & fries'];
@@ -17,7 +17,7 @@ export default function Fuel() {
   const s = useStore();
   const { settings, profile, accent, meals } = s;
   const [draft, setDraft] = useState('');
-  const nu = nutrition(meals, settings.scenario, s.sessionDone);
+  const nu = nutrition(meals, s.activity);
   const n = (k: keyof typeof profile) => parseFloat(profile[k]) || 0;
   const kcalT = n('kcal'), protT = n('protein');
   const kL = kcalT - nu.kcal, pL = protT - nu.protein;
@@ -27,6 +27,27 @@ export default function Fuel() {
   const fuelTagColor = kL < 0 ? C.alert : fuelTag === 'TIGHT' ? C.warn : accent;
   const has = !!draft.trim() && !s.fuelBusy;
   const fmt = (v: number) => v.toLocaleString('en-US');
+
+  /** Camera (or library on web): resize on the phone, then let REI read the plate. */
+  const photo = async (fromLibrary = false) => {
+    if (s.fuelBusy) return;
+    const useLibrary = fromLibrary || Platform.OS === 'web';
+    if (!useLibrary) {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Camera is off', 'Allow camera access in Settings to log meals by photo.');
+        return;
+      }
+    }
+    const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1 };
+    const res = useLibrary ? await ImagePicker.launchImageLibraryAsync(opts) : await ImagePicker.launchCameraAsync(opts);
+    const asset = res.canceled ? null : res.assets[0];
+    if (!asset) return;
+    const img = await ImageManipulator.manipulate(asset.uri).resize({ width: 1024 }).renderAsync();
+    const out = await img.saveAsync({ compress: 0.7, format: SaveFormat.JPEG, base64: true });
+    if (out.base64) await s.logMealPhoto(out.base64, draft.trim() || undefined);
+    setDraft('');
+  };
 
   const log = (t: string) => {
     if (!t.trim() || s.fuelBusy) return;
@@ -119,13 +140,18 @@ export default function Fuel() {
             value={draft}
             onChangeText={setDraft}
             onSubmitEditing={() => log(draft)}
-            placeholder="Describe it. REI does the math"
+            placeholder={s.cloud ? 'Describe it, or snap it' : 'Describe it. REI does the math'}
             placeholderTextColor={C.dim}
             returnKeyType="done"
             keyboardAppearance="dark"
             style={{ fontFamily: fontFamily(settings.font, 400), fontSize: 16, color: C.text }}
           />
         </View>
+        {s.cloud ? (
+          <Tap onPress={() => photo()} onLongPress={() => photo(true)} disabled={s.fuelBusy} style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+            <CameraGlyph color={C.body} />
+          </Tap>
+        ) : null}
         <Tap onPress={() => log(draft)} disabled={!has} style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: has ? accent : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' }}>
           <Txt size={22} w={500} color={has ? C.ink : C.dim}>{s.fuelBusy ? '…' : '+'}</Txt>
         </Tap>
@@ -167,5 +193,15 @@ export default function Fuel() {
         ))}
       </View>
     </Screen>
+  );
+}
+
+/** Simple camera outline. */
+function CameraGlyph({ color }: { color: string }) {
+  return (
+    <View style={{ width: 22, height: 16, borderRadius: 4, borderWidth: 1.6, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ position: 'absolute', top: -4, left: 6, width: 8, height: 3, borderTopLeftRadius: 2, borderTopRightRadius: 2, backgroundColor: color }} />
+      <View style={{ width: 7, height: 7, borderRadius: 4, borderWidth: 1.6, borderColor: color }} />
+    </View>
   );
 }

@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// Meal photos and voice clips, readable and writable only by their owner.
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Set by the activate function once the user's email is on the allowlist.
+    function tester() {
+      return request.auth != null && request.auth.token.tester == true;
+    }
+    function owner(uid) {
+      return tester() && request.auth.uid == uid;
+    }
+
+    match /users/{uid}/meals/{file} {
+      allow read: if owner(uid);
+      allow create: if owner(uid)
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    match /users/{uid}/voice/{file} {
+      allow read: if owner(uid);
+      allow create: if owner(uid)
+        && request.resource.contentType.matches('audio/.*')
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+  }
+}

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
 import { Core } from '../components/Core';
 import { Dots, IconButton, Label, Tap, Txt, VoiceGlyph } from '../components/ui';
-import { integrity, nutrition, todaysPlan, trajectory, week } from '../lib/derive';
+import { integrity, nutrition, todaysPlan, trajectory, week } from '@rei/shared';
 import { alpha, C, fontFamily, mix } from '../lib/theme';
 import { useStore } from '../state/store';
 
@@ -22,15 +22,15 @@ export default function Talk() {
 
   const tough = settings.tone === 'Tough love';
   const strong = settings.scenario === 'Strong week';
-  const wk = week(settings.scenario, s.sessionDone);
-  const nu = nutrition(s.meals, settings.scenario, s.sessionDone);
-  const slipping = !!todaysPlan() && !s.sessionDone && wk.missed > 0;
+  const wk = week(s.history, s.sessionDone, new Date(), s.program);
+  const nu = nutrition(s.meals, s.activity);
+  const slipping = !!todaysPlan(new Date(), s.program) && !s.sessionDone && wk.missed > 0;
   const chips = [
     { t: `INTEGRITY ${integrity(wk)}%`, color: slipping ? C.alert : accent },
     { t: wk.missed ? `${wk.missed} MISSED` : `STREAK ${wk.done}`, color: wk.missed ? C.alert : accent },
     { t: `PROTEIN ${nu.protein}/${profile.protein}`, color: C.body },
     { t: `KCAL ${nu.kcal}/${profile.kcal}`, color: C.body },
-    { t: `${trajectory(profile, wk.missed).daysLeft} DAYS LEFT`, color: C.body },
+    { t: `${trajectory(profile, wk.missed, new Date(), s.weighInsOrDemo).daysLeft} DAYS LEFT`, color: C.body },
   ];
 
   useEffect(() => {
@@ -118,7 +118,8 @@ export default function Talk() {
               </View>
             );
           })}
-          {s.thinking ? (
+          {/* Dots until REI's streamed reply starts showing. */}
+          {s.thinking && s.messages[s.messages.length - 1]?.role !== 'rei' ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Label size={10} ls={0.14}>REI IS READING YOU</Label>
               <Dots />

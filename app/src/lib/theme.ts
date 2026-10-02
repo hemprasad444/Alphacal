@@ -1,3 +1,4 @@
+import type { FontKey, ThemeId } from '@rei/shared';
 import type { ImageSourcePropType } from 'react-native';
 
 export const C = {
@@ -24,7 +25,7 @@ export const C = {
   card2: 'rgba(255,255,255,0.02)',
 };
 
-export type ThemeId = 'zero' | 'shinobi' | 'voyager' | 'hero' | 'cursed' | 'slayer';
+export type { FontKey, ThemeId };
 
 export interface Theme {
   id: ThemeId;
@@ -63,7 +64,6 @@ export const EMBLEMS: Partial<Record<ThemeId, Emblem[]>> = {
 /** Emblem selected by default for a theme before the user picks one. */
 export const DEFAULT_EMBLEM: Partial<Record<ThemeId, string>> = { shinobi: 'seed-naruto-1' };
 
-export type FontKey = 'Geist' | 'Space Grotesk' | 'IBM Plex' | 'Zen Kaku';
 export type Weight = 300 | 400 | 500 | 600;
 
 const FAMILY: Record<FontKey | 'mono' | 'jp', Record<Weight, string>> = {

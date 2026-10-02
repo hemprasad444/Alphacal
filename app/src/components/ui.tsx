@@ -49,7 +49,7 @@ export function Jp({ children, size = 11, color = C.faint, style }: { children: 
   return <Txt face="jp" size={size} color={color} style={style}>{children}</Txt>;
 }
 
-export function Tap({ onPress, children, style, haptic = true, disabled }: { onPress?: () => void; children?: ReactNode; style?: StyleProp<ViewStyle>; haptic?: boolean; disabled?: boolean }) {
+export function Tap({ onPress, onLongPress, children, style, haptic = true, disabled }: { onPress?: () => void; onLongPress?: () => void; children?: ReactNode; style?: StyleProp<ViewStyle>; haptic?: boolean; disabled?: boolean }) {
   return (
     <Pressable
       disabled={disabled}
@@ -57,6 +57,7 @@ export function Tap({ onPress, children, style, haptic = true, disabled }: { onP
         if (haptic) Haptics.selectionAsync().catch(() => {});
         onPress?.();
       }}
+      onLongPress={onLongPress}
       style={({ pressed }) => [style, pressed && !disabled ? { opacity: 0.7 } : null]}
     >
       {children}

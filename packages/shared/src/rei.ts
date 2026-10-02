@@ -39,14 +39,29 @@ export interface ParsedReply {
 
 const num = (s: string) => parseFloat(s) || 0;
 
-export function systemPrompt(x: ReiContext): string {
-  const p = x.profile, nu = x.nutrition;
-  return `You are REI (零, "zero", as in zero excuses), a personal AI fitness companion living inside one person's iPhone. You are their tough-love best friend and elite coach in one. Intensity: ${x.tough ? '10/10: blunt, direct, refuses excuses' : '6/10: firm but warmer'}.
-Rules: Be short and specific, 1 to 3 sentences, under 60 words. Use their real numbers. Call out excuses, broken commitments and negotiating plainly. Praise real effort briefly, then demand repetition. Never insult, demean, or comment negatively on their body. No em dashes, no emojis, no exclamation spam, no lists, no therapy-speak, no "as an AI". Speak like a person with character. End with a concrete next action when relevant. Latency-sensitive; begin your visible answer immediately.
-${x.nudge ? '' : 'The user turned off proactive check-ins: do not nag unprompted, but stay honest when asked. '}Context: now ${x.today}, ${x.now}. Goal (their words): "${p.goal}". Deadline ${p.deadline}. Weight ${p.weight} kg → ${p.targetWeight} kg. Body fat ${p.bf}% → ${p.targetBf}%. Height ${p.height} cm, age ${p.age}. Daily targets: ${p.kcal} kcal, ${p.protein} g protein, ${p.carbs} g carbs, ${p.fat} g fat, ${p.steps} steps, ${p.sleep} h sleep, ${p.sessions} sessions/week. Trains: ${x.disciplines.join(', ').toLowerCase() || 'general fitness'}.
-This week: ${x.weekLine}. Today: ${x.todayLine}${x.todayLine === 'Rest day' ? '' : x.sessionDone ? ' (DONE)' : ' (not done yet)'}. Calories ${nu.kcal}/${p.kcal}, protein ${nu.protein}/${p.protein} g, carbs ${nu.carbs}/${p.carbs} g, fat ${nu.fat}/${p.fat} g, steps ${nu.steps}, sleep last night ${nu.sleepL}. Meals today: ${x.meals.map(m => `${m.time} ${m.name} (${m.kcal} kcal, P${m.p} C${m.c} F${m.f})`).join('; ') || 'none yet'}.
-If the user reports eating something, estimate its macros realistically, react to how it fits the remaining budget (numbers after this meal), and append a final line exactly: MEAL {"name":"short name","kcal":n,"p":n,"c":n,"f":n}.
+/** REI's persona and rules. Stable per user, so it is the cacheable prefix of the prompt. */
+export function systemRules(o: { tough: boolean; nudge: boolean; tools: boolean }): string {
+  const actions = o.tools
+    ? `If the user reports eating something, estimate its macros realistically, react to how it fits the remaining budget (numbers after this meal), then call log_meal.
+If the user explicitly asks to change their goal, deadline, or a stat or target, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it), then call update_vow with only the fields that change.
+Always write your complete reply first; a tool call ends your turn. Never mention the tools.`
+    : `If the user reports eating something, estimate its macros realistically, react to how it fits the remaining budget (numbers after this meal), and append a final line exactly: MEAL {"name":"short name","kcal":n,"p":n,"c":n,"f":n}.
 If the user explicitly asks to change their goal, deadline, or a stat/target, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it) and append a final line exactly: UPDATE {json} using only these keys: goal (string), deadline (YYYY-MM-DD), weight, targetWeight, bf, targetBf, kcal, protein, carbs, fat, steps, sleep, sessions (numbers).`;
+  return `You are REI (零, "zero", as in zero excuses), a personal AI fitness companion living inside one person's iPhone. You are their tough-love best friend and elite coach in one. Intensity: ${o.tough ? '10/10: blunt, direct, refuses excuses' : '6/10: firm but warmer'}.
+Rules: Be short and specific, 1 to 3 sentences, under 60 words. Use their real numbers. Call out excuses, broken commitments and negotiating plainly. Praise real effort briefly, then demand repetition. Never insult, demean, or comment negatively on their body. No em dashes, no emojis, no exclamation spam, no lists, no therapy-speak, no "as an AI". Speak like a person with character. End with a concrete next action when relevant. Latency-sensitive; begin your visible answer immediately.
+${o.nudge ? '' : 'The user turned off proactive check-ins: do not nag unprompted, but stay honest when asked.\n'}${actions}`;
+}
+
+/** Today's numbers. Changes every request, so it goes after the cached rules. */
+export function systemContext(x: ReiContext): string {
+  const p = x.profile, nu = x.nutrition;
+  return `Context: now ${x.today}, ${x.now}. Goal (their words): "${p.goal}". Deadline ${p.deadline}. Weight ${p.weight} kg → ${p.targetWeight} kg. Body fat ${p.bf}% → ${p.targetBf}%. Height ${p.height} cm, age ${p.age}. Daily targets: ${p.kcal} kcal, ${p.protein} g protein, ${p.carbs} g carbs, ${p.fat} g fat, ${p.steps} steps, ${p.sleep} h sleep, ${p.sessions} sessions/week. Trains: ${x.disciplines.join(', ').toLowerCase() || 'general fitness'}.
+This week: ${x.weekLine}. Today: ${x.todayLine}${x.todayLine === 'Rest day' ? '' : x.sessionDone ? ' (DONE)' : ' (not done yet)'}. Calories ${nu.kcal}/${p.kcal}, protein ${nu.protein}/${p.protein} g, carbs ${nu.carbs}/${p.carbs} g, fat ${nu.fat}/${p.fat} g, steps ${nu.steps ?? 'unknown'}, sleep last night ${nu.sleep == null ? 'unknown' : nu.sleepL}. Meals today: ${x.meals.map(m => `${m.time} ${m.name} (${m.kcal} kcal, P${m.p} C${m.c} F${m.f})`).join('; ') || 'none yet'}.`;
+}
+
+/** Single-string prompt with text control lines, for the on-device path. */
+export function systemPrompt(x: ReiContext): string {
+  return `${systemRules({ tough: x.tough, nudge: x.nudge, tools: false })}\n${systemContext(x)}`;
 }
 
 /** Collapse the chat log into alternating user/assistant turns for the API. */
@@ -153,17 +168,17 @@ export function fuelLine(profile: Profile, nu: Nutrition): string {
 /** Canned replies used when no API is configured or the request fails. */
 export function offlineReply(text: string, x: Pick<ReiContext, 'profile' | 'nutrition' | 'tough' | 'todayLine'>): string {
   const s = text.toLowerCase(), tough = x.tough;
-  const sleepH = Math.floor(x.nutrition.sleep);
   if (/tired|skip|wiped|exhausted|tomorrow|move|reschedule|double/.test(s)) {
+    const slept = x.nutrition.sleep == null ? null : Math.floor(x.nutrition.sleep);
     return tough
-      ? `Tired is information, not a verdict. You slept ${sleepH} hours, so we cut volume, not the session. 35 minutes, compounds only. Shoes on.`
-      : `Fair. ${sleepH} hours of sleep is rough. Do a 35-minute version: bench, OHP, dips. Showing up matters more than volume tonight.`;
+      ? `Tired is information, not a verdict. ${slept == null ? 'Bad sleep' : `You slept ${slept} hours`}, so we cut volume, not the session. 35 minutes, compounds only. Shoes on.`
+      : `Fair. ${slept == null ? 'A rough night' : `${slept} hours of sleep`} is hard. Do a 35-minute version: bench, OHP, dips. Showing up matters more than volume tonight.`;
   }
   if (/ate|eat|meal|dinner|lunch|pizza|snack|food/.test(s)) return fuelLine(x.profile, x.nutrition);
   if (/goal|change|target|vow/.test(s)) return "Tell me the new target in one line (weight, date, or lift) and I'll rewrite the vow. Just make sure it's a raise, not a retreat.";
   if (/left|what.*today|status/.test(s)) {
     const pL = Math.max(0, num(x.profile.protein) - x.nutrition.protein);
-    const stepsL = Math.max(0, num(x.profile.steps) - x.nutrition.steps);
+    const stepsL = Math.max(0, num(x.profile.steps) - (x.nutrition.steps ?? 0));
     return `${x.todayLine}. ${pL} g protein. ${stepsL.toLocaleString('en-US')} steps. Bed by 23:30. Four things. None of them optional.`;
   }
   return tough
@@ -175,4 +190,23 @@ export function offlineReply(text: string, x: Pick<ReiContext, 'profile' | 'nutr
 export function splitLead(text: string): { lead: string; rest: string } {
   const m = /^([\s\S]+?[.!?])(\s+)([\s\S]+)$/.exec(text);
   return m ? { lead: m[1], rest: m[3].trim() } : { lead: text, rest: '' };
+}
+
+/**
+ * Pull complete sentences off the front of streamed text, so each can be spoken as soon
+ * as it's finished. Returns the sentences and the unfinished remainder.
+ */
+export function takeSentences(buffer: string): { sentences: string[]; rest: string } {
+  const sentences: string[] = [];
+  // A sentence ends at . ! or ? followed by whitespace, so "82.5" never splits; the
+  // final sentence is held until more text (or the end of the reply) arrives.
+  const re = /[^.!?]*[.!?]+(?:["'”’)]+)?(?=\s|$)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(buffer)) && m.index + m[0].length < buffer.length) {
+    const s = m[0].trim();
+    if (s) sentences.push(s);
+    last = m.index + m[0].length;
+  }
+  return { sentences, rest: buffer.slice(last).trimStart() };
 }

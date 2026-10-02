@@ -56,3 +56,30 @@ export function minutesUntil(time: string, now: Date = new Date()): number {
 export function longDate(d: Date = new Date()): string {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
+
+/**
+ * The current wall-clock time in an IANA time zone, as a Date whose local fields
+ * (getHours, getDate, ...) read as that zone. For servers running in UTC.
+ */
+export function zonedNow(timeZone: string, now: Date = new Date()): Date {
+  try {
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', { timeZone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
+        .formatToParts(now)
+        .map(p => [p.type, p.value]),
+    );
+    return new Date(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+  } catch {
+    return now;
+  }
+}
+
+/** ISO 8601 week of a date, e.g. "2026-W40". Weeks start Monday; week 1 holds the year's first Thursday. */
+export function isoWeek(d: Date = new Date()): string {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const n = Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${t.getUTCFullYear()}-W${String(n).padStart(2, '0')}`;
+}

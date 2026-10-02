@@ -5,10 +5,8 @@ import { Core } from '../../components/Core';
 import { useNow } from '../../components/hooks';
 import { Screen } from '../../components/Screen';
 import { Bar, Blink, Card, Corners, Jp, Label, Tap, Txt } from '../../components/ui';
-import { isOnline } from '../../lib/claude';
-import { CLEARED, hero as calcHero, integrity as calcIntegrity, nutrition, protocol, sessionCountdown, todaysPlan, trajectory, week as calcWeek, weekNote } from '../../lib/derive';
+import { CLEARED, dayStamp, hero as calcHero, hhmm, integrity as calcIntegrity, nutrition, programWeek, protocol, sessionCountdown, todaysPlan, trajectory, week as calcWeek, weekdayIndex, weekNote } from '@rei/shared';
 import { alpha, C } from '../../lib/theme';
-import { dayStamp, hhmm, programWeek, weekdayIndex } from '../../lib/time';
 import { useStore } from '../../state/store';
 
 export default function Today() {
@@ -17,16 +15,16 @@ export default function Today() {
   const { settings, profile, sessionDone, accent } = s;
   const strong = settings.scenario === 'Strong week';
   const tough = settings.tone === 'Tough love';
-  const plan = todaysPlan(now);
-  const nu = nutrition(s.meals, settings.scenario, sessionDone);
-  const wk = calcWeek(settings.scenario, sessionDone, now);
+  const plan = todaysPlan(now, s.program);
+  const nu = nutrition(s.meals, s.activity);
+  const wk = calcWeek(s.history, sessionDone, now, s.program);
   const protT = parseFloat(profile.protein) || 0;
   const protLeft = Math.max(0, protT - nu.protein);
   const slipping = !!plan && !sessionDone && wk.missed > 0;
   const hero = calcHero(wk, plan, sessionDone, tough, protLeft, parseFloat(profile.steps) || 0);
   const integrity = calcIntegrity(wk);
   const rows = protocol(plan, nu, profile, sessionDone, s.loggedMin, strong);
-  const traj = trajectory(profile, wk.missed, now);
+  const traj = trajectory(profile, wk.missed, now, s.weighInsOrDemo);
   const tone = (t: 'acc' | 'warn' | 'alert') => (t === 'alert' ? C.alert : t === 'warn' ? C.warn : accent);
   const heroColor = hero.tone === 'alert' ? C.alert : accent;
 
@@ -72,8 +70,8 @@ export default function Today() {
 
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Blink color={isOnline() ? accent : C.warn} />
-          <Label color={C.muted}>{isOnline() ? 'REI · ONLINE' : 'REI · OFFLINE MODE'}</Label>
+          <Blink color={s.cloud ? accent : C.warn} />
+          <Label color={C.muted}>{s.cloud ? 'REI · ONLINE · SYNCED' : 'REI · DEMO · ON DEVICE'}</Label>
         </View>
         <Tap onPress={() => router.push('/settings')} style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' }}>
           <Txt size={14} w={500}>H</Txt>
@@ -172,6 +170,7 @@ export default function Today() {
               rest: { mark: '·', bg: 'transparent', border: C.line, fg: C.faint, label: C.faint },
               today: { mark: '', bg: 'transparent', border: accent, fg: accent, label: accent },
               future: { mark: '', bg: C.card2, border: C.line3, fg: C.muted, label: C.faint },
+              none: { mark: '\u2013', bg: 'transparent', border: C.line, fg: C.ghost, label: C.ghost },
             }[d.status];
             return (
               <View key={i} style={{ flex: 1, alignItems: 'center', gap: 8 }}>
@@ -206,7 +205,8 @@ export default function Today() {
 function TrajectoryChart({ history, target, color }: { history: number[]; target: number; color: string }) {
   const lo = Math.min(target, ...history) - 0.6, hi = Math.max(...history) + 0.4;
   const y = (v: number) => 64 - ((v - lo) / (hi - lo)) * 60;
-  const x = (i: number) => i * (230 / (history.length - 1));
+  // A single point (no past weigh-ins yet) sits at the right edge.
+  const x = (i: number) => (history.length > 1 ? i * (230 / (history.length - 1)) : 230);
   const path = history.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
   const lx = x(history.length - 1), ly = y(history[history.length - 1]);
   return (

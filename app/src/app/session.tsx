@@ -1,15 +1,13 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Alert, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
 import { Core } from '../components/Core';
 import { Bar, IconButton, Label, Tap, Txt } from '../components/ui';
-import { SESSIONS } from '../lib/data';
-import { sessionLine, todaysPlan } from '../lib/derive';
+import { pad, sessionLine, SESSIONS, type SetLog, todaysPlan } from '@rei/shared';
 import { C } from '../lib/theme';
-import { pad } from '../lib/time';
 import { useStore } from '../state/store';
 
 export default function Session() {
@@ -17,8 +15,10 @@ export default function Session() {
   const { accent, settings } = s;
   const insets = useSafeAreaInsets();
   // Rest days can still open a session from a link; fall back to push day.
-  const plan = useMemo(() => todaysPlan() ?? SESSIONS.PUSH, []);
+  const plan = useMemo(() => todaysPlan(new Date(), s.program) ?? SESSIONS.PUSH, [s.program]);
   const [sets, setSets] = useState(() => plan.exercises.map(e => e.reps.map(() => false)));
+  // What was actually lifted, editable per set with a long press; starts at the target.
+  const [log, setLog] = useState(() => plan.exercises.map(e => ({ reps: [...e.reps], kg: e.reps.map(() => targetKg(e.target)) })));
   const [elapsed, setElapsed] = useState(0);
   const [t0] = useState(() => Date.now());
 
@@ -37,8 +37,22 @@ export default function Session() {
   const complete = () => {
     if (!done) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    s.finishSession(done, total, elapsed);
+    const sets_: SetLog[] = plan.exercises.map((e, i) => ({ exercise: e.name, done: sets[i], reps: log[i].reps, kg: log[i].kg }));
+    s.finishSession(done, total, elapsed, sets_);
     router.back();
+  };
+
+  /** Long press: log the reps and weight actually done for one set (iOS prompt). */
+  const edit = (i: number, j: number) => {
+    if (Platform.OS !== 'ios') return;
+    const cur = log[i];
+    const def = `${cur.reps[j]}${cur.kg[j] != null ? ` @ ${cur.kg[j]}` : ''}`;
+    Alert.prompt(`${plan.exercises[i].name} · set ${j + 1}`, 'Reps @ kg, e.g. "6 @ 82.5"', value => {
+      const m = /^\s*(\d+)\s*(?:[@x×]\s*(\d+(?:\.\d+)?))?/i.exec(value ?? '');
+      if (!m) return;
+      setLog(all => all.map((x, a) => (a === i ? { reps: x.reps.map((r, b) => (b === j ? +m[1] : r)), kg: x.kg.map((k, b) => (b === j ? (m[2] ? +m[2] : k) : k)) } : x)));
+      setSets(all => all.map((row, a) => (a === i ? row.map((v, b) => (b === j ? true : v)) : row)));
+    }, 'plain-text', def, 'numbers-and-punctuation');
   };
 
   return (
@@ -69,19 +83,21 @@ export default function Session() {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 8, paddingHorizontal: 20, paddingBottom: 20 }}>
+        <Label size={10} ls={0.12} color={C.faint} style={{ marginTop: 6 }}>{Platform.OS === 'ios' ? 'TAP A SET WHEN DONE · HOLD TO LOG REPS AND KG' : 'TAP A SET WHEN DONE'}</Label>
         {plan.exercises.map((ex, i) => (
           <View key={ex.name} style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.line }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
               <Txt size={17} w={500} ls={-0.01}>{ex.name}</Txt>
               <Txt face="mono" size={12} color={C.body}>{ex.target}</Txt>
             </View>
-            <Txt face="mono" size={11} color={C.dim} style={{ marginTop: 4 }}>{ex.last}</Txt>
+            {ex.last ? <Txt face="mono" size={11} color={C.dim} style={{ marginTop: 4 }}>{ex.last}</Txt> : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-              {ex.reps.map((r, j) => {
+              {ex.reps.map((target, j) => {
                 const on = sets[i][j];
+                const r = log[i].reps[j];
                 return (
-                  <Tap key={j} haptic={false} onPress={() => toggle(i, j)} style={{ width: 48, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? accent : C.card, borderWidth: 1, borderColor: on ? accent : 'rgba(255,255,255,0.12)' }}>
-                    <Txt face="mono" size={14} color={on ? C.ink : C.body}>{on ? '✓' : String(r)}</Txt>
+                  <Tap key={j} haptic={false} onPress={() => toggle(i, j)} onLongPress={() => edit(i, j)} style={{ width: 48, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? accent : C.card, borderWidth: 1, borderColor: on ? accent : 'rgba(255,255,255,0.12)' }}>
+                    <Txt face="mono" size={14} color={on ? C.ink : r !== target ? C.warn : C.body}>{on ? (r !== target ? String(r) : '✓') : String(r)}</Txt>
                   </Tap>
                 );
               })}
@@ -97,4 +113,10 @@ export default function Session() {
       </View>
     </View>
   );
+}
+
+/** The working weight in a target like "4 × 6 · 82.5 kg" or "+15 kg"; null for bodyweight. */
+function targetKg(target: string): number | null {
+  const m = /([+-]?\d+(?:\.\d+)?)\s*kg/i.exec(target);
+  return m ? Math.abs(parseFloat(m[1])) : null;
 }

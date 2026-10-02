@@ -27,7 +27,7 @@ import { StoreProvider, useStore } from '../state/store';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function Root() {
-  const { ready, theme } = useStore();
+  const { ready, theme, account } = useStore();
   const [fontsLoaded, fontError] = useFonts({
     Geist_300Light, Geist_400Regular, Geist_500Medium, Geist_600SemiBold,
     GeistMono_400Regular, GeistMono_500Medium,
@@ -42,16 +42,23 @@ function Root() {
   }, [done]);
 
   if (!done) return null;
+  // With a Firebase project configured, testers sign in; "Try the demo" skips it.
+  const needsAuth = (account.status === 'signedOut' || account.status === 'denied') && !account.demo;
   return (
     <>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.bg }, animation: 'slide_from_right' }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="talk" />
-        <Stack.Screen name="settings" />
-        <Stack.Screen name="appearance" />
-        <Stack.Screen name="voice" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
-        <Stack.Screen name="session" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+        <Stack.Protected guard={!needsAuth}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="talk" />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="appearance" />
+          <Stack.Screen name="voice" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
+          <Stack.Screen name="session" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+        </Stack.Protected>
+        <Stack.Protected guard={needsAuth}>
+          <Stack.Screen name="sign-in" options={{ animation: 'fade' }} />
+        </Stack.Protected>
       </Stack>
     </>
   );
