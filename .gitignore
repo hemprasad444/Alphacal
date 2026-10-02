@@ -5,3 +5,5 @@ functions/lib/
 .env
 functions/.env.local
 functions/.secret.local
+# Built at deploy time by scripts/build-images.mjs.
+hosting/exercises/

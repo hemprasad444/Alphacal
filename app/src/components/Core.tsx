@@ -27,7 +27,7 @@ const spin = (v: Animated.Value, dir = 1) => v.interpolate({ inputRange: [0, 1],
  * `alert` turns it red; `speaking` speeds it up.
  */
 export function Core({ size, alert = false, speaking = false }: { size: number; alert?: boolean; speaking?: boolean }) {
-  const { accent } = useStore();
+  const accent = useStore(s => s.accent);
   const a = alert ? C.alert : accent;
   const small = size < 60;
   // SVG ids can't contain the colons useId produces.

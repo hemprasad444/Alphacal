@@ -151,6 +151,8 @@ export interface SessionLog {
   seconds: number;
   sets?: SetLog[];
   /** A run, walk or ride logged by distance and time instead of sets. */
-  cardio?: { km: number; seconds: number; kind?: 'run' | 'walk' | 'cycle' };
+  cardio?: { km: number; seconds: number; kind?: 'run' | 'walk' | 'cycle'; kcal?: number };
+  /** A sport or activity by minutes (see activities.ts), with an estimated burn. */
+  activity?: { id: string; name: string; minutes: number; kcal: number };
   createdAt?: number;
 }

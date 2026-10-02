@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { addMemory, applyUpdate, catalog, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, MODELS, nutrition, parseReply, reiContext, resolveAiItems, route, systemContext, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
+import { addMemory, applyUpdate, catalog, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, MODELS, nutrition, parseReply, reiContext, resolveAiItems, route, systemContext, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineInt } from 'firebase-functions/params';
@@ -9,6 +9,9 @@ import { ANTHROPIC_API_KEY, claude } from '../claude';
 import { verify } from '../http';
 import { DAILY_LIMIT, loadUser, usageDay } from './load';
 import { forgetTool, logMealTool, logMealWithVerdictTool, parseForget, parseMealItems, parseRemember, parseVow, rebuildProgramTool, rememberTool, updateVowTool } from './tools';
+
+// Index the food list when the instance starts, not on the first message.
+warmFoodSearch();
 
 /** Warm instances kept running so the first reply never waits on a cold start. */
 const MIN_INSTANCES = defineInt('CHAT_MIN_INSTANCES', { default: 1 });

@@ -8,7 +8,7 @@ import { C, fontFamily } from '../lib/theme';
 import { useStore } from '../state/store';
 import { Label, Tap, Txt } from './ui';
 
-const SOURCE: Record<Food['src'], string> = { ifct: 'IFCT 2017 · INDIAN FOOD TABLES', dish: 'TYPICAL PORTION', barcode: 'OPEN FOOD FACTS', mine: 'YOUR FOOD' };
+const SOURCE: Record<Food['src'], string> = { ifct: 'IFCT 2017 · INDIAN FOOD TABLES', dish: 'TYPICAL PORTION', usda: 'USDA · VIA TEMPOLIFE (CC-BY)', barcode: 'OPEN FOOD FACTS', mine: 'YOUR FOOD' };
 
 export function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
   const insets = useSafeAreaInsets();

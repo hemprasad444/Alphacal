@@ -27,11 +27,13 @@ REI, a personal AI fitness companion for iPhone.
 The food list and exercise library ship inside the app, so searching and logging from it is instant and works offline.
 
 - **Indian ingredients:** 542 foods from the Indian Food Composition Tables 2017 (T. Longvah et al., National Institute of Nutrition), via [`@ifct2017/compositions`](https://www.npmjs.com/package/@ifct2017/compositions). Values are per 100 g, mostly raw. Regenerate with `npm --workspace @rei/shared run build:ifct`.
-- **Dishes:** about 120 common Indian and everyday dishes in typical home portions (`packages/shared/src/food/dishes.ts`). These are typical estimates. A tester who corrects one saves it as their own food.
+- **Dishes:** 400 Indian (by region) and everyday dishes in typical home portions (`packages/shared/src/food/dishes.ts`). These are typical estimates. A tester who corrects one saves it as their own food.
 - **Packaged foods:** looked up by barcode in [Open Food Facts](https://world.openfoodfacts.org) (open data, ODbL), straight from the phone. Products it lacks are typed in once from the label.
 - **Your foods:** favourites, scanned products and saved meals are stored in `users/{uid}/foods`.
 
-- **Exercises:** 876 exercises with muscles, equipment, form steps and photos from [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain). The data ships in the app; the photos load from GitHub. Regenerate it with `npm --workspace @rei/shared run build:exercises -- <exercises.json>`.
+- **More foods:** 5,937 foods from USDA FoodData Central SR Legacy (public domain), as packaged in [`tempo-food-db`](https://www.npmjs.com/package/tempo-food-db) by TempoLife (CC-BY-4.0: "Food nutrition data from TempoLife, tempolife.app"). Ranked below the Indian lists. Regenerate with `npm --workspace @rei/shared run build:usda`.
+- **Sports and activities:** about 70 with MET values from the Compendium of Physical Activities (Ainsworth et al.); calories ≈ MET × weight × hours.
+- **Exercises:** 876 exercises with muscles, equipment, form steps and photos from [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain). The data ships in the app. `npm run deploy` also builds 360 px WebP thumbnails into `hosting/exercises/` and serves them from Firebase Hosting with a one-year cache; set `EXPO_PUBLIC_IMAGES_BASE_URL=https://<project-id>.web.app/exercises` in `app/.env` to use them (otherwise photos load from GitHub). Regenerate it with `npm --workspace @rei/shared run build:exercises -- <exercises.json>`.
 
 When you type a meal, the app first matches it against the list ("2 rotis and dal"). If everything matches, it logs immediately with the list's numbers. Anything it can't place goes to REI, which gets the closest list entries and uses their numbers; it only estimates foods that aren't on the list.
 
@@ -55,6 +57,13 @@ When you type a meal, the app first matches it against the list ("2 rotis and da
 Then run the app (`npm run app`) and sign up with an invited email.
 
 The chat function keeps one warm instance (`CHAT_MIN_INSTANCES`, default 1) so replies never wait on a cold start. That costs a few dollars a month; set it to 0 in `functions/.env.<project-id>` to save it.
+
+## Speed
+
+- **Local-first.** Every screen reads data already on the phone. Each part of the state (settings, meals, sessions…) is saved separately, in SQLite on the phone (`app/src/lib/sliceStore.native.ts`) and in browser storage on web, so a change writes only what it touched. Firestore syncs in the background.
+- **Small redraws.** Components subscribe to the slice they show (`useStore(s => s.accent)`), and REI's streaming reply updates only its own bubble, at most once a frame. Long lists (chat, exercise library, training log) render only the rows on screen.
+- **Search.** Food and exercise indexes are built right after the first screen draws; a keystroke scores only foods that can reach the top results.
+- **Budgets in CI.** `.github/workflows/ci.yml` runs typecheck, lint, unit tests, speed budgets (`packages/shared/src/__tests__/perf.test.ts`), rules tests and a 5 MB bundle check (`npm run check:bundle`).
 
 ## Local development
 

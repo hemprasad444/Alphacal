@@ -1,9 +1,9 @@
 // Browse the exercise library by muscle, or search it.
 import { library, type LibExercise, searchExercises } from '@rei/shared';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { TextInput, View } from 'react-native';
-import { Screen, SubHeader } from '../components/Screen';
+import { ListScreen, SubHeader } from '../components/Screen';
 import { Label, Tap, Txt } from '../components/ui';
 import { C, fontFamily } from '../lib/theme';
 import { useStore } from '../state/store';
@@ -26,11 +26,11 @@ export default function Exercises() {
   const list = useMemo(() => {
     const muscles = GROUPS.find(g => g[0] === group)?.[1] ?? [];
     const pool = library().filter((e: LibExercise) => (group === 'Cardio' ? e.category === 'cardio' : group === 'All' ? e.category !== 'stretching' : muscles.includes(e.primary[0])));
-    return q.trim() ? searchExercises(q, 60, pool) : pool.slice(0, 80);
+    return q.trim() ? searchExercises(q, 200, pool) : pool;
   }, [q, group]);
 
-  return (
-    <Screen tabs={false}>
+  const header = (
+    <View>
       <SubHeader title="EXERCISE LIBRARY" onBack={() => router.back()} />
       <TextInput
         value={q}
@@ -47,15 +47,18 @@ export default function Exercises() {
           </Tap>
         ))}
       </View>
-      <Label size={10} color={C.faint} style={{ marginTop: 14 }}>{`${list.length}${list.length >= 60 ? '+' : ''} EXERCISES · FREE-EXERCISE-DB`}</Label>
-      <View style={{ marginTop: 6 }}>
-        {list.map(e => (
-          <Tap key={e.id} onPress={() => router.push({ pathname: '/lift', params: { name: e.name, id: e.id } })} style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line, gap: 3 }}>
-            <Txt size={15}>{e.name}</Txt>
-            <Txt face="mono" size={11} color={C.dim}>{`${e.primary.join(', ')} · ${e.equipment} · ${e.level}`}</Txt>
-          </Tap>
-        ))}
-      </View>
-    </Screen>
+      <Label size={10} color={C.faint} style={{ marginTop: 14, marginBottom: 6 }}>{`${list.length} EXERCISES · FREE-EXERCISE-DB`}</Label>
+    </View>
   );
+
+  return <ListScreen header={header} data={list} keyExtractor={e => e.id} renderItem={({ item }) => <Row e={item} />} />;
 }
+
+const Row = memo(function Row({ e }: { e: LibExercise }) {
+  return (
+    <Tap onPress={() => router.push({ pathname: '/lift', params: { name: e.name, id: e.id } })} style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line, gap: 3 }}>
+      <Txt size={15}>{e.name}</Txt>
+      <Txt face="mono" size={11} color={C.dim}>{`${e.primary.join(', ')} · ${e.equipment} · ${e.level}`}</Txt>
+    </Tap>
+  );
+});

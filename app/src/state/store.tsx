@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { loadState, saveSlices } from '../lib/persist';
+import { sliceStore } from '../lib/sliceStore';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
-  type Activity, activityFor, activityFromDay, addMemory, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  type Activity, activityFor, activityFromDay, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
@@ -49,6 +51,9 @@ interface Persisted {
   memory: MemoryItem[];
 }
 
+/** The old format kept everything in one AsyncStorage key per mode; moved over on first load. */
+const LEGACY = { get: (k: string) => AsyncStorage.getItem(k), remove: (k: string) => AsyncStorage.removeItem(k) };
+
 function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
   const seed = demo ? seedFor(settings.scenario) : { meals: [], messages: [] };
   return {
@@ -76,6 +81,14 @@ function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
     memory: [],
   };
 }
+
+/** `next` if its contents differ from `cur`, else `cur` itself. */
+function same<T>(cur: T, next: T): T {
+  return JSON.stringify(cur) === JSON.stringify(next) ? cur : next;
+}
+
+/** Each top-level field is saved separately. */
+const SLICES = Object.keys(fresh()) as (keyof Persisted)[];
 
 /** Meals worth one-tap repeating: the most often eaten, then the most recent. */
 function repeatable(today: Meal[], past: Meal[], max = 8): Meal[] {
@@ -179,18 +192,79 @@ interface Store extends Persisted {
   removePhoto: (p: ProgressPhoto) => void;
   /** A run, walk or ride by distance and time. Counts as today's session. */
   logCardio: (km: number, seconds: number, kind?: 'run' | 'walk' | 'cycle') => void;
+  /** A sport or activity by minutes, with its estimated burn. Counts as today's session. */
+  logActivity: (m: Movement, minutes: number) => void;
   /** Ask REI to rewrite this week's training. Resolves with REI's note for the week. */
   rebuildProgram: (focus?: string) => Promise<string>;
   clearChat: () => void;
   resetDay: () => void;
 }
 
-const Ctx = createContext<Store | null>(null);
+/**
+ * A value components subscribe to directly. Each component re-renders only when what it
+ * selects changes, instead of every consumer re-rendering on every change of one context.
+ */
+interface Source<T> {
+  get: () => T;
+  set: (v: T) => void;
+  emit: () => void;
+  /** Emit on the next frame, once, however many times it's called before then. */
+  emitSoon: () => void;
+  subscribe: (l: () => void) => () => void;
+}
 
-export function useStore(): Store {
-  const s = useContext(Ctx);
-  if (!s) throw new Error('useStore outside StoreProvider');
-  return s;
+function createSource<T>(initial: T): Source<T> {
+  let value = initial;
+  let pending = false;
+  const listeners = new Set<() => void>();
+  const emit = () => listeners.forEach(l => l());
+  return {
+    get: () => value,
+    set: v => {
+      value = v;
+    },
+    emit,
+    // Words can arrive faster than the screen redraws: tell listeners at most once a frame.
+    emitSoon: () => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        emit();
+      });
+    },
+    subscribe: l => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+  };
+}
+
+const Ctx = createContext<Source<Store | null> | null>(null);
+const LiveCtx = createContext<Source<Message | null> | null>(null);
+
+/**
+ * The whole store, or one slice of it: `useStore(s => s.settings.font)`. A selector must
+ * return a primitive or an object already in the store (not a new one), so unchanged
+ * slices compare equal and skip the render.
+ */
+export function useStore(): Store;
+export function useStore<T>(select: (s: Store) => T): T;
+export function useStore<T>(select?: (s: Store) => T): Store | T {
+  const src = useContext(Ctx);
+  if (!src) throw new Error('useStore outside StoreProvider');
+  const get = () => {
+    const s = src.get()!;
+    return select ? select(s) : s;
+  };
+  return useSyncExternalStore(src.subscribe, get, get);
+}
+
+/** REI's reply while it streams in. Only the chat bubble listens, not the whole app. */
+export function useLiveReply(): Message | null {
+  const src = useContext(LiveCtx);
+  if (!src) throw new Error('useLiveReply outside StoreProvider');
+  return useSyncExternalStore(src.subscribe, src.get, src.get);
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -207,8 +281,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [fuelBusy, setFuelBusy] = useState(false);
   const [fuelVerdict, setFuelVerdict] = useState('');
   /** REI's reply while it streams in, until the stored copy arrives from Firestore. */
-  const [streaming, setStreaming] = useState<Message | null>(null);
+  const [live] = useState(() => createSource<Message | null>(null));
+  const [source] = useState(() => createSource<Store | null>(null));
+  const setStreaming = useCallback((next: Message | null | ((cur: Message | null) => Message | null)) => {
+    live.set(typeof next === 'function' ? next(live.get()) : next);
+    live.emitSoon();
+  }, [live]);
   const ref = useRef(p);
+  /** What was last written to storage, to find the slices that changed. */
+  const savedRef = useRef<Partial<Persisted> | null>(null);
   const uidRef = useRef(uid);
   // Local edits not yet written: the listener must not overwrite them with older values.
   const dirtyProfile = useRef(false);
@@ -234,15 +315,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!storageKey) return;
     let live = true;
-    AsyncStorage.getItem(storageKey)
-      .then(raw => {
+    loadState<Persisted>(sliceStore, storageKey, SLICES, LEGACY)
+      .then(saved => {
         if (!live) return;
         const base = fresh(DEFAULT_SETTINGS, !uid);
-        if (!raw) {
+        savedRef.current = saved;
+        if (!saved) {
           setP(base);
           return;
         }
-        const saved = JSON.parse(raw) as Partial<Persisted>;
         const next: Persisted = { ...base, ...saved, settings: { ...DEFAULT_SETTINGS, ...saved.settings }, profile: { ...DEFAULT_PROFILE, ...saved.profile } };
         if (next.day !== isoDate()) Object.assign(next, { day: isoDate(), meals: [], pastDays: [...next.pastDays, daySummary(next.day, { meals: next.meals, sessionDone: next.sessionDone })].slice(-90), recentMeals: [...[...next.meals].reverse(), ...next.recentMeals].slice(0, 80), sessionDone: false, loggedMin: 0, activity: null });
         setP(next);
@@ -258,8 +339,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!ready || !storageKey) return;
+    // Only the slices that changed since the last save are written.
     const t = setTimeout(() => {
-      AsyncStorage.setItem(storageKey, JSON.stringify(ref.current)).catch(e => console.warn('REI: could not save state', e));
+      const next = ref.current;
+      saveSlices(sliceStore, storageKey, next, savedRef.current, SLICES)
+        .then(() => {
+          savedRef.current = next;
+        })
+        .catch(e => console.warn('REI: could not save state', e));
     }, 300);
     return () => clearTimeout(t);
   }, [p, ready, storageKey]);
@@ -302,12 +389,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           pushMessages([msg('rei', 'You’re in. I have your vow. Now we find out if you meant it. What’s first today?')]);
           return;
         }
+        // Unchanged values keep their old object, so nothing redraws or re-saves for them.
         patch(cur => ({
-          ...(doc.profile && !dirtyProfile.current ? { profile: { ...DEFAULT_PROFILE, ...doc.profile } } : {}),
-          ...(doc.settings ? { settings: { ...DEFAULT_SETTINGS, ...doc.settings } } : {}),
-          ...(doc.disc ? { disc: doc.disc } : {}),
+          ...(doc.profile && !dirtyProfile.current ? { profile: same(cur.profile, { ...DEFAULT_PROFILE, ...doc.profile }) } : {}),
+          ...(doc.settings ? { settings: same(cur.settings, { ...DEFAULT_SETTINGS, ...doc.settings }) } : {}),
+          ...(doc.disc ? { disc: same(cur.disc, doc.disc) } : {}),
           startedOn: doc.startedOn ?? cur.startedOn,
-          ...(doc.memory ? { memory: readMemory(doc.memory) } : {}),
+          ...(doc.memory ? { memory: same(cur.memory, readMemory(doc.memory)) } : {}),
           chatClearedAt: doc.chatClearedAt ?? 0,
         }));
       }),
@@ -370,7 +458,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setStreaming(null);
       return null;
     }
-  }, []);
+  }, [setStreaming]);
 
   const saveProfile = useCallback((profile: Profile, weightChanged: boolean) => {
     patch({ profile });
@@ -456,7 +544,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } finally {
       setThinking(false);
     }
-  }, [thinking, cloud, msg, pushMessages, remote, offline, offlineMeal, activityOf, saveProfile, saveMeals]);
+  }, [thinking, cloud, msg, pushMessages, remote, offline, offlineMeal, activityOf, saveProfile, saveMeals, setStreaming]);
 
   const voiceReply = useCallback(async (turns: Message[], onDelta?: (text: string) => void) => {
     const lastTurn = turns[turns.length - 1];
@@ -533,10 +621,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const logCardio = useCallback((km: number, seconds: number, kind: 'run' | 'walk' | 'cycle' = 'run') => {
     const s = ref.current;
     const title = kind === 'run' ? 'Run' : kind === 'walk' ? 'Walk' : 'Ride';
-    const log: SessionLog = { id: newId(), date: s.day, plan: 'RUN', title, done: 1, total: 1, seconds, cardio: { km, seconds, kind }, createdAt: Date.now() };
+    const kg = parseFloat(s.profile.weight) || 0;
+    const kcal = distanceKcal(kind, km, seconds, kg);
+    const log: SessionLog = { id: newId(), date: s.day, plan: 'RUN', title, done: 1, total: 1, seconds, cardio: { km, seconds, kind, ...(kcal ? { kcal } : {}) }, createdAt: Date.now() };
     const min = Math.max(1, Math.round(seconds / 60));
     patch({ sessionDone: true, loggedMin: s.loggedMin + min, sessions: [...s.sessions, log] });
-    pushMessages([msg('rei', `Logged: ${title.toLowerCase()}, ${+km.toFixed(2)} km in ${clock(seconds)}${kind === 'cycle' ? '' : `, ${pace(km, seconds)}`}. That counts. Now refuel with protein.`)]);
+    pushMessages([msg('rei', `Logged: ${title.toLowerCase()}, ${+km.toFixed(2)} km in ${clock(seconds)}${kind === 'cycle' ? '' : `, ${pace(km, seconds)}`}${kcal ? `, about ${kcal} kcal` : ''}. That counts. Now refuel with protein.`)]);
     const u = uidRef.current;
     if (u) {
       write.day(u, s.day, { sessionDone: true, loggedMin: s.loggedMin + min });
@@ -565,11 +655,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       patch({ settings });
       if (uidRef.current) write.user(uidRef.current, { settings });
     };
-    const shown = visibleMessages(p, cloud);
-    const live = streaming && streaming.text && !shown.some(m => m.id === streaming.id) ? [streaming] : [];
     return {
       ...p,
-      messages: [...shown, ...live],
+      messages: visibleMessages(p, cloud),
       ready,
       account,
       cloud,
@@ -627,6 +715,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       findBarcode: async code => ref.current.foods.find(f => f.barcode === code) ?? lookupBarcode(code),
       finishSession,
       logCardio,
+      logActivity: (m, minutes) => {
+        const s = ref.current;
+        const kcal = movementKcal(m.met, parseFloat(s.profile.weight) || 0, minutes);
+        const log: SessionLog = { id: newId(), date: s.day, plan: 'ACTIVITY', title: m.name, done: 1, total: 1, seconds: Math.round(minutes * 60), activity: { id: m.id, name: m.name, minutes, kcal }, createdAt: Date.now() };
+        patch({ sessionDone: true, loggedMin: s.loggedMin + Math.round(minutes), sessions: [...s.sessions, log] });
+        pushMessages([msg('rei', `Logged: ${m.name.toLowerCase()}, ${Math.round(minutes)} min${kcal ? `, about ${kcal} kcal` : ''}. Moving counts. Don't eat it back.`)]);
+        const u = uidRef.current;
+        if (u) {
+          write.day(u, s.day, { sessionDone: true, loggedMin: s.loggedMin + Math.round(minutes) });
+          write.session(u, log);
+        }
+      },
       writeReport: async () => {
         // The plain report from what's on this device, used in demo mode or if REI can't be reached.
         const local = (): WeeklyReport => {
@@ -721,9 +821,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
     };
-  }, [p, streaming, ready, account, cloud, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
+  }, [p, ready, account, cloud, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  // Subscribers read the new value during this render pass; those that didn't render (their
+  // slice is unchanged, or they sit outside this subtree) are told after commit.
+  // `value` holds callbacks that read refs; storing it doesn't read them.
+  // eslint-disable-next-line react-hooks/refs
+  source.set(value);
+  useLayoutEffect(() => source.emit(), [source, value]);
+
+  return (
+    <Ctx.Provider value={source}>
+      <LiveCtx.Provider value={live}>{children}</LiveCtx.Provider>
+    </Ctx.Provider>
+  );
 }
 
 export { firebaseEnabled };

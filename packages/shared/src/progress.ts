@@ -1,7 +1,7 @@
 // Progress over weeks: streaks, badges, body measurements, and the numbers behind REI's
 // weekly report. Pure functions, shared by the app and the report function.
 import { WEEK_PLAN, type WeekProgram } from './data';
-import { newPrs, pace } from './strength';
+import { pace, prTimeline, sessionOrder } from './strength';
 import { isoDate, parseIsoDate, weekdayIndex } from './time';
 import type { DayDoc, Profile, SessionLog, WeighIn } from './types';
 
@@ -143,10 +143,11 @@ function streakEvents(days: DaySummary[], ok: (d: DaySummary) => boolean): { dat
 }
 
 export function badges(i: { days: DaySummary[]; sessions: SessionLog[]; weighIns: WeighIn[]; profile: Profile }): Badge[] {
-  const sessions = [...i.sessions].sort((a, b) => (a.date === b.date ? (a.createdAt ?? 0) - (b.createdAt ?? 0) : a.date < b.date ? -1 : 1));
+  const sessions = [...i.sessions].sort(sessionOrder);
   const count = sessions.map((s, k) => ({ date: s.date, n: k + 1 }));
+  const timeline = prTimeline(sessions);
   let prs = 0;
-  const prEvents = sessions.map((s, k) => ({ date: s.date, n: (prs += newPrs(s, sessions.slice(0, k)).length) }));
+  const prEvents = sessions.map(s => ({ date: s.date, n: (prs += timeline.get(s)?.length ?? 0) }));
   const runs = sessions.filter(s => s.cardio && s.cardio.kind !== 'cycle' && s.cardio.kind !== 'walk').map(s => ({ date: s.date, n: s.cardio!.km }));
   const proteinT = num(i.profile.protein), target = Math.max(1, parseInt(i.profile.sessions, 10) || 4);
   const weighIns = [...i.weighIns].sort((a, b) => (a.date < b.date ? -1 : 1));
@@ -212,6 +213,8 @@ export interface WeekStats {
   sleepH: number | null;
   weight: { start: number | null; end: number | null; change: number | null };
   runs: { count: number; km: number; best: string | null };
+  /** Sports and activities logged by minutes. */
+  activities: { count: number; minutes: number; kcal: number };
 }
 
 export interface WeekStatsInput {
@@ -236,9 +239,10 @@ export function weekStats(i: WeekStatsInput): WeekStats {
   const logged = dates.map(d => daySummary(d, i.days[d])).filter(d => d.meals > 0);
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
   const planned = dates.filter((_, k) => (i.program ? !!i.program.days[k] : WEEK_PLAN[k] !== 'REST')).length;
-  const sorted = [...i.sessions].sort((a, b) => (a.date === b.date ? (a.createdAt ?? 0) - (b.createdAt ?? 0) : a.date < b.date ? -1 : 1));
+  const sorted = [...i.sessions].sort(sessionOrder);
   const inWeek = sorted.filter(s => s.date >= i.monday && s.date <= last);
-  const prs = inWeek.flatMap(s => newPrs(s, sorted.filter(x => x !== s && (x.date < s.date || (x.date === s.date && (x.createdAt ?? 0) < (s.createdAt ?? 0))))).map(p => p.text));
+  const timeline = prTimeline(sorted);
+  const prs = inWeek.flatMap(s => timeline.get(s) ?? []).map(p => p.text);
   const runs = inWeek.filter(s => s.cardio);
   const longest = runs.reduce<SessionLog | null>((a, s) => (!a || s.cardio!.km > a.cardio!.km ? s : a), null);
   const steps = dates.map(d => i.days[d]?.steps).filter((v): v is number => typeof v === 'number' && v > 0);
@@ -264,6 +268,11 @@ export function weekStats(i: WeekStatsInput): WeekStats {
     steps: avg(steps),
     sleepH: sleep.length ? +(sleep.reduce((a, b) => a + b, 0) / sleep.length / 60).toFixed(1) : null,
     weight: { start: start?.kg ?? null, end: end?.kg ?? null, change: start && end && start !== end ? +(end.kg - start.kg).toFixed(1) : null },
+    activities: {
+      count: inWeek.filter(s => s.activity).length,
+      minutes: Math.round(inWeek.reduce((a, s) => a + (s.activity?.minutes ?? 0), 0)),
+      kcal: Math.round(inWeek.reduce((a, s) => a + (s.activity?.kcal ?? 0) + (s.cardio?.kcal ?? 0), 0)),
+    },
     runs: { count: runs.length, km: +runs.reduce((a, s) => a + s.cardio!.km, 0).toFixed(1), best: longest ? `${longest.cardio!.km} km${longest.cardio!.kind === 'cycle' ? '' : ` at ${pace(longest.cardio!.km, longest.cardio!.seconds)}`}` : null },
   };
 }
@@ -307,6 +316,8 @@ export function statsLines(s: WeekStats): string {
     `Food logged ${f.daysLogged} days. Average ${f.avgKcal ?? '?'} kcal (target ${f.kcalTarget}) and ${f.avgProtein ?? '?'} g protein (target ${f.proteinTarget}). Protein hit on ${f.proteinDays} days; over calories on ${f.overDays}.`,
     s.weight.change != null ? `Weight ${s.weight.start} → ${s.weight.end} kg (${s.weight.change > 0 ? '+' : ''}${s.weight.change}).` : s.weight.end != null ? `Weight ${s.weight.end} kg, no change measured.` : 'No weigh-ins.',
     s.runs.count ? `Cardio: ${s.runs.count} sessions, ${s.runs.km} km; longest ${s.runs.best}.` : '',
+    s.activities?.count ? `Sports and activities: ${s.activities.count}, ${s.activities.minutes} min.` : '',
+    s.activities?.kcal ? `Estimated burn from logged cardio and sport: about ${s.activities.kcal} kcal.` : '',
     s.steps != null ? `Average steps ${s.steps}.` : '',
     s.sleepH != null ? `Average sleep ${s.sleepH} h.` : '',
   ].filter(Boolean).join('\n');

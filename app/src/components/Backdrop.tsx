@@ -10,7 +10,7 @@ const EMBLEM_OPACITY = { Subtle: 0.22, Medium: 0.38, Bold: 0.6 } as const;
  * the theme's emblem watermark. `glow` picks where the accent light comes from.
  */
 export function Backdrop({ glow = 'top' }: { glow?: 'top' | 'bottom' }) {
-  const { theme, accent, emblem, settings } = useStore();
+  const theme = useStore(s => s.theme), accent = useStore(s => s.accent), emblem = useStore(s => s.emblem), settings = useStore(s => s.settings);
   const { width: W, height: H } = useWindowDimensions();
   const e = EMBLEM_PX[settings.emblemSize];
   const ey = settings.emblemPos === 'Top' ? 120 : settings.emblemPos === 'Bottom' ? H - 150 - e : (H - e) / 2 - 15;

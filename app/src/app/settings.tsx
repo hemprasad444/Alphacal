@@ -109,6 +109,10 @@ export default function Settings() {
           <Txt size={15} color={C.alertSoft}>{"Reset today's log"}</Txt>
         </Tap>
       </View>
+      <Label style={{ marginTop: 30 }}>DATA CREDITS</Label>
+      <Txt size={12} lh={1.5} color={C.dim} style={{ marginTop: 10 }}>
+        Indian Food Composition Tables 2017, National Institute of Nutrition (ICMR-NIN). Food nutrition data from TempoLife (tempolife.app), CC-BY-4.0, based on USDA FoodData Central. Packaged foods from Open Food Facts (ODbL). Exercises from free-exercise-db (public domain). Activity estimates from the Compendium of Physical Activities. Dish values are typical estimates.
+      </Txt>
       <Label size={10} ls={0.14} color={C.ghost} style={{ textAlign: 'center', marginTop: 26 }}>
         {`REI · 零 · BUILD 0.6 · ${s.cloud ? 'CLOUD' : 'ON DEVICE'}`}
       </Label>

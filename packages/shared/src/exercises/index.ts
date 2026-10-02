@@ -36,8 +36,16 @@ export function exerciseById(id: string): LibExercise | undefined {
   return byId.get(id);
 }
 
+let imageBase: string | null = null;
+
+/** Serve the thumbnails from Firebase Hosting (built by scripts/build-images.mjs) instead of GitHub. */
+export function configureExerciseImages(base: string | null | undefined): void {
+  imageBase = base ? base.replace(/\/$/, '') : null;
+}
+
 /** Photo of the start (0) or end (1) position. */
-export const exerciseImage = (id: string, i = 0) => `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${id}/${i}.jpg`;
+export const exerciseImage = (id: string, i = 0) =>
+  imageBase ? `${imageBase}/${id}/${i}.webp` : `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${id}/${i}.jpg`;
 
 // Names people (and REI) use, mapped to the library's entry.
 export const ALIASES: Record<string, string> = {
@@ -70,6 +78,11 @@ const wordsOf = (e: LibExercise) => {
   if (!w) wordCache.set(e, (w = words(e.name)));
   return w;
 };
+
+/** Split every name into search words ahead of the first search. */
+export function warmExerciseSearch(): void {
+  for (const e of library()) wordsOf(e);
+}
 
 /** Library matches for a search, best first. */
 export function searchExercises(query: string, max = 30, pool: LibExercise[] = library()): LibExercise[] {

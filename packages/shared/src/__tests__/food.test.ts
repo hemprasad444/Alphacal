@@ -1,4 +1,4 @@
-import { catalog, DISHES, foodCandidates, foodFromMeal, IFCT, itemFor, matchMealText, mealFromItems, offToFood, resolveAiItems, searchFoods, splitMealText, unitFor, validFood, type Food } from '../food';
+import { catalog, DISHES, USDA, foodCandidates, searchFoodsLinear, foodFromMeal, IFCT, itemFor, matchMealText, mealFromItems, offToFood, resolveAiItems, searchFoods, splitMealText, unitFor, validFood, type Food } from '../food';
 
 const cat = catalog();
 const byId = (id: string) => cat.find(f => f.id === id)!;
@@ -7,13 +7,14 @@ const top = (q: string, foods: Food[] = cat) => searchFoods(q, foods, 1)[0]?.foo
 describe('the food list', () => {
   it('has the IFCT tables and the dishes, with unique ids', () => {
     expect(IFCT.length).toBe(542);
-    expect(cat.length).toBe(IFCT.length + DISHES.length);
+    expect(cat.length).toBe(IFCT.length + DISHES.length + USDA.length);
+    expect(USDA.length).toBeGreaterThan(5000);
     expect(new Set(cat.map(f => f.id)).size).toBe(cat.length);
   });
 
   it('keeps every dish’s calories consistent with its macros', () => {
-    // Beer's calories are mostly alcohol, which isn't a macro here.
-    for (const [id, , , units, kcal, p, c, f] of DISHES.filter(d => d[0] !== 'beer')) {
+    // Drinks whose calories are mostly alcohol, which isn't a macro here.
+    for (const [id, , , units, kcal, p, c, f] of DISHES.filter(d => !['beer', 'wine', 'whisky'].includes(d[0]))) {
       const est = 4 * p + 4 * c + 9 * f;
       expect({ id, off: Math.abs(kcal - est) / Math.max(kcal, 20) < 0.2 }).toEqual({ id, off: true });
       expect(units[0][1]).toBeGreaterThan(0);
@@ -87,7 +88,12 @@ describe('typed meals', () => {
   });
 
   it('separates two foods written without "and"', () => {
-    expect(matchMealText('2 idli sambar', cat).items.map(i => `${i.qty} ${i.name}`)).toEqual(['2 Idli', '1 Sambar']);
+    expect(matchMealText('3 idli chutney', cat).items.map(i => `${i.qty} ${i.name}`)).toEqual(['3 Idli', '1 Coconut chutney']);
+  });
+
+  it('knows combined dishes, counted per piece', () => {
+    const [i] = matchMealText('2 idli sambar', cat).items;
+    expect(i).toMatchObject({ name: 'Idli sambar', qty: 2, g: 230 });
   });
 
   it('offers REI the close candidates', () => {
@@ -137,4 +143,14 @@ it('saves a meal as a food counted in servings', () => {
   const f = foodFromMeal({ time: '08:00', name: 'Usual breakfast', kcal: 420, p: 30, c: 40, f: 14 }, 'm:abc123');
   expect(validFood(f)).toBe(true);
   expect(itemFor(f, 2)).toMatchObject({ unit: 'serving', g: 0, kcal: 840, p: 60 });
+});
+
+describe('search index', () => {
+  it('returns exactly what a full scan returns', () => {
+    const mine: Food = { id: 'm:x2', name: 'Paneer wrap, office canteen', per: 1, kcal: 420, p: 22, c: 40, f: 18, units: [{ n: 'serving', g: 1 }], src: 'mine', serving: true };
+    const lists = [cat, [mine, ...cat], cat.filter(f => f.id !== 'd:roti')];
+    for (const foods of lists)
+      for (const q of ['roti', 'pa', 'chi', 'dal', 'paneer wrap', 'egg', 'rice cook', 'moong', 'bajra', 'ban', 'curd rice', 'xyz', 'ghee', 'chicken breast', 'masala dosa'])
+        expect(searchFoods(q, foods, 8).map(m => m.food.id)).toEqual(searchFoodsLinear(q, foods, 8).map(m => m.food.id));
+  });
 });
