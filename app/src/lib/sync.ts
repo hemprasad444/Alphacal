@@ -1,7 +1,7 @@
 // Firestore reads and writes for one signed-in user. Writes are fire-and-forget: the
 // store has already updated the screen, and Firestore queues writes while offline.
 import { collection, deleteDoc, doc, documentId, limit, onSnapshot, orderBy, query, setDoc, where, type Unsubscribe } from 'firebase/firestore';
-import type { DayDoc, Food, Message, Profile, SessionLog, Settings, WeekProgram, WeighIn } from '@rei/shared';
+import type { DayDoc, Food, Measurement, Message, ProgressPhoto, WeeklyReport, Profile, SessionLog, Settings, WeekProgram, WeighIn } from '@rei/shared';
 import { fb } from './firebase';
 
 export interface UserDoc {
@@ -57,6 +57,20 @@ export function onSessions(uid: string, fromIso: string, cb: (sessions: SessionL
   return onSnapshot(q, s => cb(s.docs.map(d => ({ ...(d.data() as SessionLog), id: d.id }))), warn('sessions listener'));
 }
 
+/** The latest weekly reports, newest first. */
+export function onReports(uid: string, cb: (reports: WeeklyReport[]) => void): Unsubscribe {
+  const q = query(sub(uid, 'reports'), orderBy('generatedAt', 'desc'), limit(8));
+  return onSnapshot(q, s => cb(s.docs.map(d => d.data() as WeeklyReport)), warn('reports listener'));
+}
+
+export function onMeasurements(uid: string, cb: (ms: Measurement[]) => void): Unsubscribe {
+  return onSnapshot(sub(uid, 'measurements'), s => cb(s.docs.map(d => ({ ...(d.data() as Measurement), date: d.id }))), warn('measurements listener'));
+}
+
+export function onPhotos(uid: string, cb: (photos: ProgressPhoto[]) => void): Unsubscribe {
+  return onSnapshot(sub(uid, 'photos'), s => cb(s.docs.map(d => ({ ...(d.data() as ProgressPhoto), id: d.id }))), warn('photos listener'));
+}
+
 /** The user's own foods. */
 export function onFoods(uid: string, cb: (foods: Food[]) => void): Unsubscribe {
   return onSnapshot(sub(uid, 'foods'), s => cb(s.docs.map(d => ({ ...(d.data() as Food), id: d.id }))), warn('foods listener'));
@@ -78,5 +92,11 @@ export const write = {
     const { id, ...rest } = f;
     return setDoc(doc(sub(uid, 'foods'), id), clean(rest)).catch(warn('food write'));
   },
+  measurement: (uid: string, m: Measurement) => setDoc(doc(sub(uid, 'measurements'), m.date), clean(m)).catch(warn('measurement write')),
+  photo: (uid: string, p: ProgressPhoto) => {
+    const { id, ...rest } = p;
+    return setDoc(doc(sub(uid, 'photos'), id), clean(rest)).catch(warn('photo write'));
+  },
+  deletePhoto: (uid: string, id: string) => deleteDoc(doc(sub(uid, 'photos'), id)).catch(warn('photo delete')),
   deleteFood: (uid: string, id: string) => deleteDoc(doc(sub(uid, 'foods'), id)).catch(warn('food delete')),
 };

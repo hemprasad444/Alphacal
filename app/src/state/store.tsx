@@ -1,12 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  type Activity, activityFor, activityFromDay, applyUpdate, catalog, clock, newPrs, pace, type SessionLog, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  type Activity, activityFor, activityFromDay, applyUpdate, catalog, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
 import { lookupBarcode } from '../lib/foods';
-import { newId, onDays, onFoods, onMessages, onProgram, onSessions, onUser, onWeighIns, write } from '../lib/sync';
+import { deletePhotoFile, uploadPhoto } from '../lib/photos';
+import { newId, onDays, onFoods, onMeasurements, onMessages, onPhotos, onProgram, onReports, onSessions, onUser, onWeighIns, write } from '../lib/sync';
 import { httpsCallable } from 'firebase/functions';
 import { DEFAULT_EMBLEM, EMBLEMS, THEMES, type Emblem, type Theme } from '../lib/theme';
 import { type Account, useAccount } from './account';
@@ -39,6 +40,11 @@ interface Persisted {
   recentMeals: Meal[];
   /** Sessions and runs from the last six months. */
   sessions: SessionLog[];
+  /** Totals for the last 90 days before today, for streaks and badges. */
+  pastDays: DaySummary[];
+  reports: WeeklyReport[];
+  measurements: Measurement[];
+  photos: ProgressPhoto[];
 }
 
 function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
@@ -61,6 +67,10 @@ function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
     foods: [],
     recentMeals: [],
     sessions: [],
+    pastDays: [],
+    reports: [],
+    measurements: [],
+    photos: [],
   };
 }
 
@@ -155,6 +165,12 @@ interface Store extends Persisted {
   /** Your saved product first, then Open Food Facts. */
   findBarcode: (code: string) => Promise<Food | null>;
   finishSession: (done: number, total: number, seconds: number, sets?: SetLog[], title?: string) => void;
+  /** REI's report on the week so far (on the device in demo mode or offline). */
+  writeReport: () => Promise<WeeklyReport>;
+  saveMeasurement: (m: Measurement) => void;
+  /** Store a progress photo: a resized JPEG, as base64 and its local file. */
+  addPhoto: (jpegBase64: string, uri: string, pose: ProgressPhoto['pose']) => Promise<void>;
+  removePhoto: (p: ProgressPhoto) => void;
   /** A run, walk or ride by distance and time. Counts as today's session. */
   logCardio: (km: number, seconds: number, kind?: 'run' | 'walk' | 'cycle') => void;
   /** Ask REI to rewrite this week's training. Resolves with REI's note for the week. */
@@ -222,7 +238,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
         const saved = JSON.parse(raw) as Partial<Persisted>;
         const next: Persisted = { ...base, ...saved, settings: { ...DEFAULT_SETTINGS, ...saved.settings }, profile: { ...DEFAULT_PROFILE, ...saved.profile } };
-        if (next.day !== isoDate()) Object.assign(next, { day: isoDate(), meals: [], recentMeals: [...[...next.meals].reverse(), ...next.recentMeals].slice(0, 80), sessionDone: false, loggedMin: 0, activity: null });
+        if (next.day !== isoDate()) Object.assign(next, { day: isoDate(), meals: [], pastDays: [...next.pastDays, daySummary(next.day, { meals: next.meals, sessionDone: next.sessionDone })].slice(-90), recentMeals: [...[...next.meals].reverse(), ...next.recentMeals].slice(0, 80), sessionDone: false, loggedMin: 0, activity: null });
         setP(next);
       })
       .catch(e => console.warn('REI: could not load saved state', e))
@@ -245,7 +261,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // A new day on-device: empty food log, no session.
   useEffect(() => {
     if (!ready || ref.current.day === today) return;
-    patch(cur => ({ day: today, meals: [], recentMeals: [...[...cur.meals].reverse(), ...cur.recentMeals].slice(0, 80), sessionDone: false, loggedMin: 0, activity: null }));
+    patch(cur => ({ day: today, meals: [], pastDays: [...cur.pastDays, daySummary(cur.day, { meals: cur.meals, sessionDone: cur.sessionDone })].slice(-90), recentMeals: [...[...cur.meals].reverse(), ...cur.recentMeals].slice(0, 80), sessionDone: false, loggedMin: 0, activity: null }));
   }, [today, ready, patch]);
 
   const msg = useCallback((role: Message['role'], text: string, extra: Partial<Message> = {}): Message => {
@@ -288,15 +304,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           chatClearedAt: doc.chatClearedAt ?? 0,
         }));
       }),
-      // Two weeks back: this week's sessions, and recent meals to repeat.
-      onDays(uid, daysAgoIso(14), days => {
+      // 90 days back: this week's sessions, two weeks of meals to repeat, and streaks.
+      onDays(uid, daysAgoIso(90), days => {
         const t = days[today];
-        const monday = mondayIso();
-        const weekSessions = Object.fromEntries(Object.entries(days).filter(([d]) => d >= monday && d < today).map(([d, v]) => [d, !!v.sessionDone]));
-        const recentMeals = Object.entries(days).filter(([d]) => d < today).sort(([a], [b]) => (a < b ? 1 : -1)).flatMap(([, v]) => [...(v.meals ?? [])].reverse());
+        const monday = mondayIso(), twoWeeks = daysAgoIso(14);
+        const past = Object.entries(days).filter(([d]) => d < today).sort(([a], [b]) => (a < b ? -1 : 1));
+        const weekSessions = Object.fromEntries(past.filter(([d]) => d >= monday).map(([d, v]) => [d, !!v.sessionDone]));
+        const recentMeals = past.filter(([d]) => d >= twoWeeks).reverse().flatMap(([, v]) => [...(v.meals ?? [])].reverse());
         patch({
           weekSessions,
           recentMeals,
+          pastDays: past.map(([d, v]) => daySummary(d, v)),
           day: today,
           meals: t?.meals ?? [],
           sessionDone: !!t?.sessionDone,
@@ -309,6 +327,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       onProgram(uid, isoWeek(), program => patch({ program })),
       onFoods(uid, foods => patch({ foods })),
       onSessions(uid, daysAgoIso(183), sessions => patch({ sessions })),
+      onReports(uid, reports => patch({ reports })),
+      onMeasurements(uid, measurements => patch({ measurements })),
+      onPhotos(uid, photos => patch({ photos })),
     ];
     return () => unsubs.forEach(u => u());
   }, [uid, loadedKey, today, patch, pushMessages, msg]);
@@ -599,6 +620,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       findBarcode: async code => ref.current.foods.find(f => f.barcode === code) ?? lookupBarcode(code),
       finishSession,
       logCardio,
+      writeReport: async () => {
+        // The plain report from what's on this device, used in demo mode or if REI can't be reached.
+        const local = (): WeeklyReport => {
+          const cur = ref.current, now = new Date(), today = isoDate(now);
+          const days = Object.fromEntries([
+            ...cur.pastDays.map(d => [d.date, { meals: d.meals ? [{ time: '', name: '', kcal: d.kcal, p: d.protein, c: 0, f: 0 }] : [], sessionDone: d.session }] as const),
+            [today, { meals: cur.meals, sessionDone: cur.sessionDone }] as const,
+          ]);
+          const stats = weekStats({ week: isoWeek(now), monday: mondayOf(today), upTo: today, days, sessions: cur.sessions, weighIns: cur.weighIns, profile: cur.profile, program: cur.program });
+          return { ...fallbackReport(stats), week: stats.week, stats, generatedAt: Date.now(), ai: false };
+        };
+        if (!uidRef.current) {
+          const r = local();
+          patch(cur => ({ reports: [r, ...cur.reports.filter(x => x.week !== r.week)] }));
+          return r;
+        }
+        try {
+          const res = await httpsCallable<void, WeeklyReport>(fb().functions, 'weeklyReport', { timeout: 120000 })();
+          return res.data;
+        } catch (e) {
+          console.warn('REI: report failed, using the plain one', e);
+          return local();
+        }
+      },
+      saveMeasurement: m => {
+        patch(cur => ({ measurements: [...cur.measurements.filter(x => x.date !== m.date), m] }));
+        if (uidRef.current) write.measurement(uidRef.current, m);
+      },
+      addPhoto: async (base64, uri, pose) => {
+        const id = newId(), u = uidRef.current;
+        const photo: ProgressPhoto = { id, date: isoDate(), pose, path: uri, createdAt: Date.now(), ...(parseFloat(ref.current.profile.weight) > 0 ? { kg: parseFloat(ref.current.profile.weight) } : {}) };
+        // Shown right away from the local file; the synced copy replaces it.
+        patch(cur => ({ photos: [...cur.photos, photo] }));
+        if (!u) return;
+        const path = `users/${u}/progress/${id}.jpg`;
+        await uploadPhoto(path, base64);
+        await write.photo(u, { ...photo, path });
+      },
+      removePhoto: photo => {
+        patch(cur => ({ photos: cur.photos.filter(x => x.id !== photo.id) }));
+        const u = uidRef.current;
+        if (u) {
+          write.deletePhoto(u, photo.id);
+          deletePhotoFile(photo.path);
+        }
+      },
       logMealPhoto: async (image, note) => {
         if (!uidRef.current || fuelBusy) return;
         setFuelBusy(true);

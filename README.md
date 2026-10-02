@@ -17,6 +17,7 @@ REI, a personal AI fitness companion for iPhone.
 | `chat` | Streams REI's replies. Quick chat goes to Claude Haiku 4.5; planning and analysis go to Claude Opus 5.5. Logs meals, updates the vow and queues program rebuilds through tools. |
 | `mealFromPhoto` | Reads a meal photo with Claude Opus 5.5 and logs the macros. |
 | `rebuildProgram`, `weeklyPrograms`, `runJob` | REI writes the training week: on demand, every Sunday at 21:00 IST, and when asked in chat. |
+| `weeklyReports`, `weeklyReport` | REI's weekly report: every Sunday at 20:30 IST (before the next week is planned), or on demand from Progress. |
 | `coach` | Every 15 minutes, checks each tester and sends a check-in when they slip (late session, over calories, low protein, missed days, bedtime). |
 | `tts`, `stt` | Premium voice through ElevenLabs: REI's replies spoken as they stream, and your speech transcribed. |
 | `activate` | Grants invited testers access. |

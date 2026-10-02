@@ -186,10 +186,16 @@ export default function Today() {
         <Txt size={14} lh={1.45} color={C.sub} style={{ marginTop: 16 }}>{weekNote(wk, sessionDone)}</Txt>
       </Card>
 
-      <Tap onPress={() => router.push('/history')} style={{ marginTop: 12, paddingVertical: 16, paddingHorizontal: 18, borderRadius: 22, borderWidth: 1, borderColor: C.line2, backgroundColor: C.card2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Label>TRAINING LOG · RECORDS</Label>
-        <Label ls={0.12} color={accent}>{`${s.sessions.length} LOGGED ›`}</Label>
-      </Tap>
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+        <Tap onPress={() => router.push('/history')} style={{ flex: 1, paddingVertical: 16, paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderColor: C.line2, backgroundColor: C.card2, gap: 6 }}>
+          <Label>TRAINING LOG</Label>
+          <Label ls={0.12} color={accent}>{`${s.sessions.length} LOGGED ›`}</Label>
+        </Tap>
+        <Tap onPress={() => router.push('/progress')} style={{ flex: 1, paddingVertical: 16, paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderColor: C.line2, backgroundColor: C.card2, gap: 6 }}>
+          <Label>PROGRESS</Label>
+          <Label ls={0.12} color={accent}>{'REPORT · STREAKS ›'}</Label>
+        </Tap>
+      </View>
 
       <Tap onPress={() => router.navigate('/vow')} style={{ marginTop: 12, padding: 18, borderRadius: 22, borderWidth: 1, borderColor: C.line2, backgroundColor: C.card2 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>

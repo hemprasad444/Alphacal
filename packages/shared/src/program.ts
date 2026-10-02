@@ -133,6 +133,8 @@ export interface ProgramInput {
   adherence: { kept: number; planned: number };
   week: string;
   focus?: string;
+  /** The latest weekly report, in one line. */
+  report?: string;
 }
 
 export function programPrompt(i: ProgramInput): { system: string; user: string } {
@@ -146,6 +148,6 @@ Benchmarks now → goal: ${BENCHMARKS.map(([n, now, goal]) => `${n} ${now} → $
 Last four weeks: kept ${i.adherence.kept} of ${i.adherence.planned} planned sessions.${i.adherence.planned && i.adherence.kept / i.adherence.planned < 0.7 ? ' Adherence is low: make sessions shorter and harder to skip, not easier.' : ''}
 Logged sessions:
 ${summarize(i.logs)}
-${bests(i.logs) ? `Estimated one-rep maxes from their logs: ${bests(i.logs)}.\n` : ''}${i.focus ? `They asked for: "${i.focus}".\n` : ''}Progress loads by about 2.5 kg on lifts where every set was completed last time; hold or drop where reps were missed.`,
+${bests(i.logs) ? `Estimated one-rep maxes from their logs: ${bests(i.logs)}.\n` : ''}${i.report ? `Latest weekly report: ${i.report}\n` : ''}${i.focus ? `They asked for: "${i.focus}".\n` : ''}Progress loads by about 2.5 kg on lifts where every set was completed last time; hold or drop where reps were missed.`,
   };
 }

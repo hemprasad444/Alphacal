@@ -79,8 +79,20 @@ describe('users', () => {
     await assertFails(setDoc(doc(tester(), 'users/alice/foods/m:x'), { ...food, name: '' }));
     await assertFails(setDoc(doc(tester(), 'users/bob/foods/m:x'), food));
   });
-  it('leaves programs and usage to the server', async () => {
+  it('validates measurements and progress photos', async () => {
+    await assertSucceeds(setDoc(doc(tester(), 'users/alice/measurements/2026-10-02'), { date: '2026-10-02', waist: 86.5, arms: 37 }));
+    await assertFails(setDoc(doc(tester(), 'users/alice/measurements/2026-10-02'), { date: '2026-10-02', waist: '86' }));
+    await assertFails(setDoc(doc(tester(), 'users/alice/measurements/2026-10-02'), { date: '2026-10-02', weight: 80 }));
+    await assertFails(setDoc(doc(tester(), 'users/alice/measurements/someday'), { waist: 86 }));
+    const photo = { date: '2026-10-02', pose: 'front', path: 'users/alice/progress/p1.jpg', createdAt: 1 };
+    await assertSucceeds(setDoc(doc(tester(), 'users/alice/photos/p1'), photo));
+    await assertFails(setDoc(doc(tester(), 'users/alice/photos/p2'), { ...photo, path: 'users/bob/progress/p1.jpg' }));
+    await assertFails(setDoc(doc(tester(), 'users/alice/photos/p3'), { ...photo, pose: 'selfie' }));
+    await assertFails(getDoc(doc(tester(), 'users/bob/photos/p1')));
+  });
+  it('leaves programs, reports and usage to the server', async () => {
     await assertFails(setDoc(doc(tester(), 'users/alice/programs/2026-W40'), { days: [] }));
+    await assertFails(setDoc(doc(tester(), 'users/alice/reports/2026-W40'), { headline: 'x' }));
     await assertFails(setDoc(doc(tester(), 'users/alice/usage/today'), { n: 0 }));
     await assertFails(setDoc(doc(tester(), 'users/alice/jobs/j1'), { type: 'program' }));
   });

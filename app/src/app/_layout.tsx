@@ -59,6 +59,7 @@ function Root() {
           <Stack.Screen name="history" />
           <Stack.Screen name="lift" />
           <Stack.Screen name="exercises" />
+          <Stack.Screen name="progress" />
         </Stack.Protected>
         <Stack.Protected guard={needsAuth}>
           <Stack.Screen name="sign-in" options={{ animation: 'fade' }} />
