@@ -4,6 +4,7 @@ import { nutrition, todaysPlan, week, weekLine } from './derive';
 import type { ReiContext } from './rei';
 import { hhmm, longDate } from './time';
 import type { WeekProgram } from './data';
+import { memoryLines, type MemoryItem } from './memory';
 import type { Activity, History, Meal, Profile } from './types';
 
 export interface ContextInput {
@@ -18,6 +19,8 @@ export interface ContextInput {
   /** Wall-clock time in the user's zone. */
   now: Date;
   program?: WeekProgram | null;
+  /** Lasting facts REI has learned about them. */
+  memory?: MemoryItem[];
 }
 
 export function reiContext(i: ContextInput): ReiContext {
@@ -34,5 +37,6 @@ export function reiContext(i: ContextInput): ReiContext {
     disciplines: Object.keys(i.disc).filter(k => i.disc[k]),
     now: hhmm(i.now),
     today: longDate(i.now),
+    memory: memoryLines(i.memory ?? []),
   };
 }

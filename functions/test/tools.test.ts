@@ -1,4 +1,4 @@
-import { parseMeal, parseMealItems, parseVow } from '../src/chat/tools';
+import { parseForget, parseMeal, parseMealItems, parseRemember, parseVow } from '../src/chat/tools';
 
 describe('parseMeal', () => {
   it('accepts a sane estimate and rounds', () => {
@@ -43,5 +43,19 @@ describe('parseMealItems', () => {
     expect(parseMealItems({ name: 'x', items: [{ ...item, qty: -1 }] })).toBeNull();
     expect(parseMealItems({ name: 'x', items: [] })).toBeNull();
     expect(parseMealItems({ items: [item] })).toBeNull();
+  });
+});
+
+describe('memory tools', () => {
+  it('keeps sane facts with known kinds', () => {
+    expect(parseRemember({ facts: [{ text: ' Vegetarian ', kind: 'diet' }, { text: 'x', kind: 'diet' }, { text: 'Bad knee', kind: 'weird' }] })).toEqual([
+      { text: 'Vegetarian', kind: 'diet' },
+      { text: 'Bad knee', kind: 'life' },
+    ]);
+    expect(parseRemember(null)).toEqual([]);
+  });
+  it('takes string ids only', () => {
+    expect(parseForget({ ids: ['a', 2, 'b'] })).toEqual(['a', 'b']);
+    expect(parseForget({})).toEqual([]);
   });
 });

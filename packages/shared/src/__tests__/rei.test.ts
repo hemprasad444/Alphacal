@@ -1,3 +1,4 @@
+import { addMemory, forgetMemory, MAX_MEMORY, memoryLines, readMemory } from '../memory';
 import { DEFAULT_PROFILE } from '../data';
 import { applyUpdate, fuelLine, offlineReply, parseReply, splitLead, takeSentences, toMeal, toTurns } from '../rei';
 import type { Nutrition } from '../types';
@@ -102,5 +103,27 @@ describe('takeSentences', () => {
   it('waits when the text may still be mid-sentence', () => {
     expect(takeSentences('Shoes on.')).toEqual({ sentences: [], rest: 'Shoes on.' });
     expect(takeSentences('Bench 82.5 kg')).toEqual({ sentences: [], rest: 'Bench 82.5 kg' });
+  });
+});
+
+describe('memory', () => {
+  let n = 0;
+  const id = () => `m${++n}`;
+  it('adds new facts, skips repeats, and makes room by dropping REI’s oldest notes', () => {
+    const a = addMemory([], [{ text: ' Vegetarian, eats eggs ', kind: 'diet' }, { text: 'vegetarian eats eggs', kind: 'diet' }], 'rei', 1, id);
+    expect(a.list).toEqual([{ id: 'm1', text: 'Vegetarian, eats eggs', kind: 'diet', createdAt: 1, source: 'rei' }]);
+    expect(a.added).toHaveLength(1);
+    const full = addMemory([], Array.from({ length: MAX_MEMORY }, (_, i) => ({ text: `fact ${i}`, kind: 'life' as const })), 'rei', 2, id).list;
+    const mine = addMemory(full, [{ text: 'Left knee: no deep squats', kind: 'health' }], 'you', 3, id);
+    expect(mine.list).toHaveLength(MAX_MEMORY);
+    expect(mine.list[0].text).toBe('fact 1');
+    expect(mine.added[0]).toMatchObject({ text: 'Left knee: no deep squats', source: 'you' });
+  });
+
+  it('forgets by id and lists facts for the prompt', () => {
+    const list = [{ id: 'a', text: 'Trains at 6 am', kind: 'schedule' as const, createdAt: 1, source: 'rei' as const }, { id: 'b', text: 'Hates running', kind: 'preference' as const, createdAt: 2, source: 'you' as const }];
+    expect(forgetMemory(list, ['a']).list.map(m => m.id)).toEqual(['b']);
+    expect(memoryLines(list)).toBe('[a] (schedule) Trains at 6 am\n[b] (preference) Hates running');
+    expect(readMemory([...list, { nope: 1 }, null, { id: 'c', text: 'x', kind: 'weird', source: 'admin' }])).toEqual([...list, { id: 'c', text: 'x', kind: 'life', source: 'rei', createdAt: 0 }]);
   });
 });

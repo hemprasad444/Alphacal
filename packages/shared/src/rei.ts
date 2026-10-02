@@ -16,6 +16,8 @@ export interface ReiContext {
   disciplines: string[];
   now: string;
   today: string;
+  /** What REI remembers about them, one fact per line; may be empty. */
+  memory?: string;
 }
 
 export interface ChatTurn {
@@ -44,6 +46,7 @@ export function systemRules(o: { tough: boolean; nudge: boolean; tools: boolean 
   const actions = o.tools
     ? `If the user reports eating something, react to how it fits the remaining budget (numbers after this meal), then call log_meal with one item per food. For a food on the Food list, use its id and one of its portions or grams, and take its numbers from the list. For anything else use food_id "none" and estimate realistically for Indian home portions unless they say otherwise.
 If the user explicitly asks to change their goal, deadline, or a stat or target, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it), then call update_vow with only the fields that change.
+When they tell you a lasting fact about themselves (diet or allergies, an injury or health condition, their schedule, the equipment they have, what they love or hate doing, a life constraint), call remember with a short third-person note. Not moods, today's numbers or one-off plans. If something you remember stops being true, call forget with its id. Respect what you remember in every answer: never suggest food they don't eat or a movement their injury rules out.
 Always write your complete reply first; a tool call ends your turn. Never mention the tools.`
     : `If the user reports eating something, estimate its macros realistically, react to how it fits the remaining budget (numbers after this meal), and append a final line exactly: MEAL {"name":"short name","kcal":n,"p":n,"c":n,"f":n}.
 If the user explicitly asks to change their goal, deadline, or a stat/target, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it) and append a final line exactly: UPDATE {json} using only these keys: goal (string), deadline (YYYY-MM-DD), weight, targetWeight, bf, targetBf, kcal, protein, carbs, fat, steps, sleep, sessions (numbers).`;
@@ -56,7 +59,7 @@ ${o.nudge ? '' : 'The user turned off proactive check-ins: do not nag unprompted
 export function systemContext(x: ReiContext): string {
   const p = x.profile, nu = x.nutrition;
   return `Context: now ${x.today}, ${x.now}. Goal (their words): "${p.goal}". Deadline ${p.deadline}. Weight ${p.weight} kg → ${p.targetWeight} kg. Body fat ${p.bf}% → ${p.targetBf}%. Height ${p.height} cm, age ${p.age}. Daily targets: ${p.kcal} kcal, ${p.protein} g protein, ${p.carbs} g carbs, ${p.fat} g fat, ${p.steps} steps, ${p.sleep} h sleep, ${p.sessions} sessions/week. Trains: ${x.disciplines.join(', ').toLowerCase() || 'general fitness'}.
-This week: ${x.weekLine}. Today: ${x.todayLine}${x.todayLine === 'Rest day' ? '' : x.sessionDone ? ' (DONE)' : ' (not done yet)'}. Calories ${nu.kcal}/${p.kcal}, protein ${nu.protein}/${p.protein} g, carbs ${nu.carbs}/${p.carbs} g, fat ${nu.fat}/${p.fat} g, steps ${nu.steps ?? 'unknown'}, sleep last night ${nu.sleep == null ? 'unknown' : nu.sleepL}. Meals today: ${x.meals.map(m => `${m.time} ${m.name} (${m.kcal} kcal, P${m.p} C${m.c} F${m.f})`).join('; ') || 'none yet'}.`;
+${x.memory ? `What you remember about them (lasting):\n${x.memory}\n` : ''}This week: ${x.weekLine}. Today: ${x.todayLine}${x.todayLine === 'Rest day' ? '' : x.sessionDone ? ' (DONE)' : ' (not done yet)'}. Calories ${nu.kcal}/${p.kcal}, protein ${nu.protein}/${p.protein} g, carbs ${nu.carbs}/${p.carbs} g, fat ${nu.fat}/${p.fat} g, steps ${nu.steps ?? 'unknown'}, sleep last night ${nu.sleep == null ? 'unknown' : nu.sleepL}. Meals today: ${x.meals.map(m => `${m.time} ${m.name} (${m.kcal} kcal, P${m.p} C${m.c} F${m.f})`).join('; ') || 'none yet'}.`;
 }
 
 /** Single-string prompt with text control lines, for the on-device path. */

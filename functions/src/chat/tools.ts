@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import { type AiItem, PROFILE_KEYS, type MealEstimate, type ProfileKey } from '@rei/shared';
+import { type AiItem, MEMORY_KINDS, type MemoryKind, PROFILE_KEYS, type MealEstimate, type ProfileKey } from '@rei/shared';
 
 type Tool = Anthropic.Beta.Messages.BetaTool;
 
@@ -93,6 +93,56 @@ export const rebuildProgramTool: Tool = {
     additionalProperties: false,
   },
 };
+
+/** REI keeps a lasting fact about the user. */
+export const rememberTool: Tool = {
+  name: 'remember',
+  description: 'Keep lasting facts about the user (diet, allergies, injuries, schedule, equipment, likes and dislikes, life constraints) for all future conversations. Call it after writing your reply.',
+  strict: true,
+  eager_input_streaming: true,
+  input_schema: {
+    type: 'object',
+    properties: {
+      facts: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            text: { type: 'string', description: 'Short third-person note, e.g. "Vegetarian; eats eggs and dairy"' },
+            kind: { type: 'string', enum: [...MEMORY_KINDS] },
+          },
+          required: ['text', 'kind'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['facts'],
+    additionalProperties: false,
+  },
+};
+
+export const forgetTool: Tool = {
+  name: 'forget',
+  description: 'Drop remembered facts that the user says are no longer true, by their ids.',
+  strict: true,
+  eager_input_streaming: true,
+  input_schema: { type: 'object', properties: { ids: { type: 'array', items: { type: 'string' } } }, required: ['ids'], additionalProperties: false },
+};
+
+export function parseRemember(input: unknown): { text: string; kind: MemoryKind }[] {
+  const facts = (input as { facts?: unknown } | null)?.facts;
+  if (!Array.isArray(facts)) return [];
+  return facts
+    .slice(0, 5)
+    .map(f => f as { text?: unknown; kind?: unknown })
+    .filter(f => typeof f?.text === 'string' && f.text.trim().length > 2)
+    .map(f => ({ text: String(f.text).trim().slice(0, 160), kind: MEMORY_KINDS.includes(f.kind as MemoryKind) ? (f.kind as MemoryKind) : 'life' }));
+}
+
+export function parseForget(input: unknown): string[] {
+  const ids = (input as { ids?: unknown } | null)?.ids;
+  return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string').slice(0, 10) : [];
+}
 
 const int = (v: unknown, max: number) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max ? Math.round(v) : null);
 

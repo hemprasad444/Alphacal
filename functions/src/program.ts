@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {
-  DEFAULT_DISCIPLINES, DEFAULT_PROFILE, isoDate, isoWeek, MODELS, normalizeProgram, PROGRAM_SCHEMA, programPrompt, type Profile, type SessionLog,
+  DEFAULT_DISCIPLINES, DEFAULT_PROFILE, isoDate, memorySummary, readMemory, isoWeek, MODELS, normalizeProgram, PROGRAM_SCHEMA, programPrompt, type Profile, type SessionLog,
   type WeeklyReport, type WeekProgram, zonedNow,
 } from '@rei/shared';
 import { logger } from 'firebase-functions';
@@ -54,6 +54,7 @@ export async function generateProgram(uid: string, opts: { next?: boolean; focus
     adherence: { kept: new Set(logs.map(l => l.date)).size, planned: weeksActive * (parseInt(profile.sessions, 10) || 4) },
     week,
     focus: opts.focus,
+    memory: memorySummary(readMemory(u.memory)) || undefined,
     report: report ? `${report.headline}. Held back by: ${report.fix} Focus: ${report.focus}` : undefined,
   });
 

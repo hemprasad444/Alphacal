@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  type Activity, activityFor, activityFromDay, applyUpdate, catalog, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  type Activity, activityFor, activityFromDay, addMemory, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
@@ -45,6 +45,8 @@ interface Persisted {
   reports: WeeklyReport[];
   measurements: Measurement[];
   photos: ProgressPhoto[];
+  /** Lasting facts REI uses in every answer. */
+  memory: MemoryItem[];
 }
 
 function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
@@ -71,6 +73,7 @@ function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
     reports: [],
     measurements: [],
     photos: [],
+    memory: [],
   };
 }
 
@@ -168,6 +171,9 @@ interface Store extends Persisted {
   /** REI's report on the week so far (on the device in demo mode or offline). */
   writeReport: () => Promise<WeeklyReport>;
   saveMeasurement: (m: Measurement) => void;
+  /** Tell REI something to remember, or drop a fact. */
+  remember: (text: string, kind?: MemoryItem['kind']) => void;
+  forget: (id: string) => void;
   /** Store a progress photo: a resized JPEG, as base64 and its local file. */
   addPhoto: (jpegBase64: string, uri: string, pose: ProgressPhoto['pose']) => Promise<void>;
   removePhoto: (p: ProgressPhoto) => void;
@@ -301,6 +307,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...(doc.settings ? { settings: { ...DEFAULT_SETTINGS, ...doc.settings } } : {}),
           ...(doc.disc ? { disc: doc.disc } : {}),
           startedOn: doc.startedOn ?? cur.startedOn,
+          ...(doc.memory ? { memory: readMemory(doc.memory) } : {}),
           chatClearedAt: doc.chatClearedAt ?? 0,
         }));
       }),
@@ -341,7 +348,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const offline = useCallback((text: string, s: Persisted) => {
     const x = reiContext({
       profile: s.profile, disc: s.disc, meals: s.meals, sessionDone: s.sessionDone, history: history(s), activity: activityOf(s),
-      tough: s.settings.tone === 'Tough love', nudge: s.settings.nudge, now: new Date(), program: s.program,
+      tough: s.settings.tone === 'Tough love', nudge: s.settings.nudge, now: new Date(), program: s.program, memory: s.memory,
     });
     return parseReply(offlineReply(text, x));
   }, [history, activityOf]);
@@ -643,6 +650,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           console.warn('REI: report failed, using the plain one', e);
           return local();
         }
+      },
+      remember: (text, kind = 'life') => {
+        const { list } = addMemory(ref.current.memory, [{ text, kind }], 'you', Date.now(), newId);
+        patch({ memory: list });
+        if (uidRef.current) write.user(uidRef.current, { memory: list });
+      },
+      forget: id => {
+        const { list } = forgetMemory(ref.current.memory, [id]);
+        patch({ memory: list });
+        if (uidRef.current) write.user(uidRef.current, { memory: list });
       },
       saveMeasurement: m => {
         patch(cur => ({ measurements: [...cur.measurements.filter(x => x.date !== m.date), m] }));

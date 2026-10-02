@@ -2,7 +2,7 @@
 // users/{uid}/reports/{week} and posted in the chat. Sunday 20:30, before next week's
 // program is written, or on demand from the Progress screen.
 import {
-  addDays, DEFAULT_PROFILE, DEFAULT_SETTINGS, fallbackReport, isoDate, isoWeek, MODELS, mondayOf, normalizeReport, type Profile, REPORT_SCHEMA, reportPrompt,
+  addDays, DEFAULT_PROFILE, memorySummary, readMemory, DEFAULT_SETTINGS, fallbackReport, isoDate, isoWeek, MODELS, mondayOf, normalizeReport, type Profile, REPORT_SCHEMA, reportPrompt,
   type SessionLog, type Settings, type WeeklyReport, weekStats, type WeekProgram, type WeighIn, zonedNow,
 } from '@rei/shared';
 import { FieldPath, FieldValue } from 'firebase-admin/firestore';
@@ -43,7 +43,7 @@ export async function buildReport(uid: string, opts: { at?: Date } = {}): Promis
   let text = fallbackReport(stats), ai = false, model = '';
   const t0 = Date.now();
   try {
-    const memory = Array.isArray(u.memory) ? (u.memory as { text?: string }[]).map(m => m.text).filter(Boolean).join('; ') : '';
+    const memory = memorySummary(readMemory(u.memory));
     const { system, user: prompt } = reportPrompt(stats, profile, settings.tone === 'Tough love', memory);
     const res = await claude().beta.messages.create({
       model: MODELS.deep,

@@ -1,4 +1,4 @@
-import { activityFromDay, type ContextInput, type Food, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type DayDoc, isoDate, isoWeek, type Message, type Profile, type Settings, type WeekProgram, weekdayIndex, zonedNow } from '@rei/shared';
+import { activityFromDay, type ContextInput, type Food, type MemoryItem, readMemory, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type DayDoc, isoDate, isoWeek, type Message, type Profile, type Settings, type WeekProgram, weekdayIndex, zonedNow } from '@rei/shared';
 import { FieldPath } from 'firebase-admin/firestore';
 import { db } from '../admin';
 
@@ -24,6 +24,7 @@ export interface Loaded {
   nudgesSent: string[];
   /** The user's own foods: saved meals, barcode products, corrected numbers. */
   foods: Food[];
+  memory: MemoryItem[];
 }
 
 /**
@@ -55,6 +56,7 @@ export async function loadUser(uid: string): Promise<Loaded> {
   const sessions = Object.fromEntries(Object.entries(days).filter(([d]) => d >= isoDate(monday) && d < today).map(([d, v]) => [d, !!v.sessionDone]));
   const settings: Settings = { ...DEFAULT_SETTINGS, ...(u.settings as Partial<Settings> | undefined) };
   const clearedAt = typeof u.chatClearedAt === 'number' ? u.chatClearedAt : 0;
+  const memory = readMemory(u.memory);
   const messages = msgSnaps.docs
     .map(d => ({ ...(d.data() as Message), id: d.id }))
     .filter(m => (m.createdAt ?? 0) > clearedAt)
@@ -72,7 +74,9 @@ export async function loadUser(uid: string): Promise<Loaded> {
       nudge: settings.nudge,
       now,
       program: (programSnaps.find(p => p.id === isoWeek(now) && p.exists)?.data() as WeekProgram | undefined) ?? null,
+      memory,
     },
+    memory,
     settings,
     messages: messages.slice(-HISTORY),
     today,

@@ -11,3 +11,4 @@ export * from './food';
 export * from './exercises';
 export * from './strength';
 export * from './progress';
+export * from './memory';
