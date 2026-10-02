@@ -5,7 +5,6 @@ import { Core } from '../../components/Core';
 import { useNow } from '../../components/hooks';
 import { Screen } from '../../components/Screen';
 import { Bar, Blink, Card, Corners, Jp, Label, Tap, Txt } from '../../components/ui';
-import { isOnline } from '../../lib/claude';
 import { CLEARED, dayStamp, hero as calcHero, hhmm, integrity as calcIntegrity, nutrition, programWeek, protocol, sessionCountdown, todaysPlan, trajectory, week as calcWeek, weekdayIndex, weekNote } from '@rei/shared';
 import { alpha, C } from '../../lib/theme';
 import { useStore } from '../../state/store';
@@ -71,8 +70,8 @@ export default function Today() {
 
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Blink color={isOnline() ? accent : C.warn} />
-          <Label color={C.muted}>{isOnline() ? 'REI · ONLINE' : 'REI · OFFLINE MODE'}</Label>
+          <Blink color={s.cloud ? accent : C.warn} />
+          <Label color={C.muted}>{s.cloud ? 'REI · ONLINE · SYNCED' : 'REI · DEMO · ON DEVICE'}</Label>
         </View>
         <Tap onPress={() => router.push('/settings')} style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' }}>
           <Txt size={14} w={500}>H</Txt>

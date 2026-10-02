@@ -118,7 +118,8 @@ export default function Talk() {
               </View>
             );
           })}
-          {s.thinking ? (
+          {/* Dots until REI's streamed reply starts showing. */}
+          {s.thinking && s.messages[s.messages.length - 1]?.role !== 'rei' ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Label size={10} ls={0.14}>REI IS READING YOU</Label>
               <Dots />

@@ -56,3 +56,20 @@ export function minutesUntil(time: string, now: Date = new Date()): number {
 export function longDate(d: Date = new Date()): string {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
+
+/**
+ * The current wall-clock time in an IANA time zone, as a Date whose local fields
+ * (getHours, getDate, ...) read as that zone. For servers running in UTC.
+ */
+export function zonedNow(timeZone: string, now: Date = new Date()): Date {
+  try {
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', { timeZone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
+        .formatToParts(now)
+        .map(p => [p.type, p.value]),
+    );
+    return new Date(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+  } catch {
+    return now;
+  }
+}

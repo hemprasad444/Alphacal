@@ -2,7 +2,7 @@
 
 REI (零, "zero excuses") is a personal AI fitness companion: a tough-love coach that tracks your training, food and goal and calls you out when you slip. This is the iOS app built from the prototype in [`../design/REI.dc.html`](../design/REI.dc.html).
 
-Built with Expo (React Native + TypeScript) and Expo Router. REI's replies come from Claude.
+Built with Expo (React Native + TypeScript) and Expo Router. Data syncs through Firebase, and REI's replies stream from Claude through the backend in [`../functions`](../functions). Setup for the backend is in the [root README](../README.md).
 
 ## Screens
 
@@ -26,14 +26,13 @@ npm start
 
 Install **Expo Go** from the App Store, then scan the QR code from the terminal with the iPhone camera.
 
-## Connect REI to Claude
+With no `.env`, the app runs as an on-device demo with offline replies. To connect it to your Firebase project, copy `.env.example` to `.env` and paste in your web app config. Testers then sign in with email and password, and only emails on the allowlist get in.
 
-Without configuration REI answers from built-in offline replies, so the whole app works with no setup. To get real replies, copy `.env.example` to `.env` and set one of:
+## How it stays fast
 
-- `EXPO_PUBLIC_REI_API_URL`: a small proxy you host that forwards `POST /v1/messages` to the Claude API and adds your API key on the server. Use this for any build that leaves your hands.
-- `EXPO_PUBLIC_ANTHROPIC_API_KEY`: calls Claude directly from the phone. **Development only**: anything prefixed `EXPO_PUBLIC_` is bundled into the app and can be extracted.
-
-Requests use `claude-opus-5-5` at low effort (short, fast chat replies), with server-side refusal fallback enabled. See `src/lib/claude.ts`.
+- **Local-first.** Screens read and write the on-device store, so logging a meal or ticking a set updates within a frame. Firestore syncs in the background and listeners merge changes from other devices.
+- **Streamed replies.** `src/lib/api.ts` streams REI's reply from the `chat` function word by word. Quick chat goes to Claude Haiku 4.5; planning and analysis go to Claude Opus 5.5.
+- **No key in the app.** The Claude API key lives only in Firebase Secret Manager.
 
 ## Build for the App Store
 
@@ -56,20 +55,11 @@ npm test
 
 ## What's real and what's demo data
 
-Real and saved on the device: meals you log, chat history, sessions you complete, your vow, targets and all settings. A new day starts with an empty food log.
+Signed in, everything is real and synced: meals, chat, completed sessions, the vow and targets, weigh-ins and settings. The week grid and integrity score come from the sessions you actually logged, and the trajectory from your weigh-ins.
 
-Demo for now:
+Still to come (see the backend plan): steps and sleep from Apple Health (shown as "no data" until then), the premium voice, AI-written weekly programs, food photos and proactive check-ins.
 
-- **Earlier days this week, steps and sleep** come from the *Week scenario* setting (Slipping or Strong), as in the prototype.
-- **Weigh-in history** is a fixed list of past weights (`WEIGHT_HISTORY` in `src/lib/data.ts`).
-
-Natural next steps:
-
-- Read steps, sleep and weight from Apple Health.
-- Keep a real per-day history so the week grid and integrity score come from what you actually did.
-- Add on-device speech recognition so voice mode hears you directly. Today you dictate with the keyboard mic, and REI speaks its replies.
-- Send proactive check-in notifications.
-- Add a chat portrait for REI. The design has an image slot for one; the app shows the theme's kanji for now.
+In demo mode (no account), past days, steps and sleep come from the *Week scenario* setting, as in the prototype.
 
 ## Layout
 
@@ -77,6 +67,8 @@ Natural next steps:
 src/
   app/          routes (Expo Router)
   components/   Core (animated REI orb), Backdrop, TabBar, Screen, ui primitives
-  lib/          theme, data, derive (all screen numbers and copy), rei (prompt + parsing), claude (API client)
-  state/        store: app state, persisted with AsyncStorage
+  lib/          theme, firebase (setup), sync (Firestore reads/writes), api (streaming chat client)
+  state/        store (local-first state + sync), account (sign-in and tester activation)
+
+../packages/shared   logic shared with the backend: types, data, derive (screen numbers and copy), rei (prompt), route
 ```

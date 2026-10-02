@@ -75,7 +75,8 @@ export default function Voice() {
   const close = () => {
     Speech.stop();
     const t = hhmm();
-    if (turns.length) s.appendMessages([...turns.map(x => ({ ...x, time: t })), ...notes]);
+    // Signed in, each turn was already stored as it happened.
+    if (turns.length && !s.cloud) s.appendMessages([...turns.map(x => ({ ...x, time: t })), ...notes]);
     // Voice is only opened from Talk, so going back lands on the chat with these turns in it.
     router.back();
   };

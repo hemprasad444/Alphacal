@@ -1,12 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  type Activity, activityFor, activityFromDay, applyUpdate, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, fuelLine, type History, hhmm,
-  isoDate, longDate, type Meal, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey,
-  type ReiContext, seedFor, SESSION_TIME, sessionSummary, type Settings, systemPrompt, todaysPlan, toMeal, toTurns, type WeighIn, week as calcWeek,
-  weekdayIndex, weekLine,
+  type Activity, activityFor, activityFromDay, applyUpdate, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, fuelLine, type History, hhmm, isoDate, type Meal, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type Settings, todaysPlan, toMeal, type WeighIn, week as calcWeek, weekdayIndex,
 } from '@rei/shared';
-import { askClaude } from '../lib/claude';
+import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { firebaseEnabled } from '../lib/firebase';
 import { newId, onDays, onMessages, onUser, onWeighIns, write } from '../lib/sync';
 import { DEFAULT_EMBLEM, EMBLEMS, THEMES, type Emblem, type Theme } from '../lib/theme';
@@ -100,7 +97,7 @@ interface Store extends Persisted {
   toggleDisc: (k: string) => void;
   send: (text: string) => Promise<void>;
   /** A reply for the voice screen, which keeps its own turns until it closes. */
-  voiceReply: (turns: Message[]) => Promise<{ text: string; note: string | null }>;
+  voiceReply: (turns: Message[], onDelta?: (text: string) => void) => Promise<{ text: string; note: string | null }>;
   appendMessages: (ms: Message[]) => void;
   logMeal: (text: string) => Promise<void>;
   removeMeal: (i: number) => void;
@@ -130,6 +127,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [thinking, setThinking] = useState(false);
   const [fuelBusy, setFuelBusy] = useState(false);
   const [fuelVerdict, setFuelVerdict] = useState('');
+  /** REI's reply while it streams in, until the stored copy arrives from Firestore. */
+  const [streaming, setStreaming] = useState<Message | null>(null);
   const ref = useRef(p);
   const uidRef = useRef(uid);
   // Local edits not yet written: the listener must not overwrite them with older values.
@@ -253,32 +252,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const history = useCallback((s: Persisted) => historyOf(s, !!uidRef.current), []);
   const activityOf = useCallback((s: Persisted, sessionDone = s.sessionDone) => activityIn(s, !!uidRef.current, sessionDone), []);
 
-  /** Snapshot of what REI knows right now, built from the latest state. */
-  const context = useCallback((s: Persisted): ReiContext => {
-    const plan = todaysPlan();
-    return {
-      profile: s.profile,
-      nutrition: calcNutrition(s.meals, activityOf(s)),
-      meals: s.meals,
-      tough: s.settings.tone === 'Tough love',
-      nudge: s.settings.nudge,
-      sessionDone: s.sessionDone,
-      todayLine: plan ? `${plan.title} session at ${SESSION_TIME}` : 'Rest day',
-      weekLine: weekLine(calcWeek(history(s), s.sessionDone)),
-      disciplines: Object.keys(s.disc).filter(k => s.disc[k]),
-      now: hhmm(),
-      today: longDate(),
-    };
+  /** REI's on-device answer, used in demo mode and when the backend can't be reached. */
+  const offline = useCallback((text: string, s: Persisted) => {
+    const x = reiContext({
+      profile: s.profile, disc: s.disc, meals: s.meals, sessionDone: s.sessionDone, history: history(s), activity: activityOf(s),
+      tough: s.settings.tone === 'Tough love', nudge: s.settings.nudge, now: new Date(),
+    });
+    return parseReply(offlineReply(text, x));
   }, [history, activityOf]);
 
-  /** Ask Claude, falling back to the offline reply. `chat` ends with the user's message. */
-  const complete = useCallback(async (chat: Message[], s: Persisted) => {
-    const x = context(s);
-    const raw = await askClaude(systemPrompt(x), toTurns(chat));
-    const lastUser = chat[chat.length - 1]?.text ?? '';
-    if (raw === null) return { ...parseReply(offlineReply(lastUser, x)), offline: true };
-    return { ...parseReply(raw), offline: false };
-  }, [context]);
+  /**
+   * Signed in: ask the backend, which stores the reply (and any meal or vow change)
+   * itself. Returns null when it can't be reached, so the caller falls back to offline.
+   */
+  const remote = useCallback(async (req: Omit<ChatRequest, 'replyId'>, onDelta?: (text: string) => void): Promise<ChatDone | null> => {
+    if (!uidRef.current) return null;
+    const replyId = newId();
+    try {
+      return await streamChat({ ...req, replyId }, d => {
+        setStreaming(cur => ({ id: replyId, role: 'rei', text: (cur?.id === replyId ? cur.text : '') + d, time: hhmm(), createdAt: Date.now() }));
+        onDelta?.(d);
+      });
+    } catch (e) {
+      console.warn('REI: backend reply failed, answering offline', e);
+      setStreaming(null);
+      return null;
+    }
+  }, []);
 
   const saveProfile = useCallback((profile: Profile, weightChanged: boolean) => {
     patch({ profile });
@@ -299,14 +299,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const send = useCallback(async (text: string) => {
     text = text.trim();
     if (!text || thinking) return;
-    const s = ref.current;
     const userMsg = msg('user', text);
-    const chat = [...visibleMessages(s, cloud), userMsg];
     pushMessages([userMsg]);
     setThinking(true);
     try {
-      const r = await complete(chat, s);
+      const done = await remote({ text, mode: 'chat', userMessageId: userMsg.id });
+      if (done) {
+        setStreaming(cur => (cur ? { ...cur, text: done.text } : null));
+        return;
+      }
       const cur = ref.current;
+      const r = { ...offline(text, cur), offline: true };
       const notes: Message[] = [];
       const upd = applyUpdate(cur.profile, r.upd);
       if (upd) notes.push(msg('sys', upd.note));
@@ -325,39 +328,53 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } finally {
       setThinking(false);
     }
-  }, [thinking, cloud, msg, pushMessages, complete, activityOf, saveProfile, saveMeals]);
+  }, [thinking, cloud, msg, pushMessages, remote, offline, activityOf, saveProfile, saveMeals]);
 
-  const voiceReply = useCallback(async (turns: Message[]) => {
-    const s = ref.current;
-    const r = await complete([...visibleMessages(s, cloud), ...turns], s);
+  const voiceReply = useCallback(async (turns: Message[], onDelta?: (text: string) => void) => {
+    const lastTurn = turns[turns.length - 1];
+    if (uidRef.current && lastTurn) {
+      // Signed in, voice turns are stored as they happen, like chat.
+      const userMsg = msg('user', lastTurn.text);
+      pushMessages([userMsg]);
+      const done = await remote({ text: lastTurn.text, mode: 'chat', userMessageId: userMsg.id }, onDelta);
+      if (done) return { text: done.text, note: done.notes[0] ?? null };
+    }
     const cur = ref.current;
+    const r = offline(lastTurn?.text ?? '', cur);
     const upd = applyUpdate(cur.profile, r.upd);
     const lastUser = turns[turns.length - 1]?.text ?? '';
     const meal = r.meal ? toMeal(r.meal, lastUser, hhmm()) : null;
     if (upd) saveProfile(upd.profile, upd.profile.weight !== cur.profile.weight);
     if (meal) saveMeals([...cur.meals, meal]);
     return { text: r.text, note: upd?.note ?? (meal ? mealNote(meal) : null) };
-  }, [cloud, complete, saveProfile, saveMeals]);
+  }, [msg, pushMessages, remote, offline, saveProfile, saveMeals]);
 
   const logMeal = useCallback(async (text: string) => {
     text = text.trim();
     if (!text || fuelBusy) return;
     setFuelBusy(true);
     try {
-      const s = ref.current;
       const userMsg = msg('user', 'Just ate: ' + text);
-      const r = await complete([...visibleMessages(s, cloud), userMsg], s);
+      if (uidRef.current) {
+        pushMessages([userMsg]);
+        // The backend estimates the macros, stores the meal and writes REI's verdict.
+        const done = await remote({ text, mode: 'meal', userMessageId: userMsg.id });
+        if (done) {
+          setFuelVerdict(done.text);
+          return;
+        }
+      }
       const cur = ref.current;
-      const meal = toMeal(r.meal, text, hhmm());
+      const meal = toMeal(null, text, hhmm());
       const meals = [...cur.meals, meal];
-      const reply = r.offline ? fuelLine(cur.profile, calcNutrition(meals, activityOf(cur))) : r.text;
+      const reply = fuelLine(cur.profile, calcNutrition(meals, activityOf(cur)));
       setFuelVerdict(reply);
       saveMeals(meals);
-      pushMessages([userMsg, msg('rei', reply), msg('sys', mealNote(meal))]);
+      pushMessages([...(uidRef.current ? [] : [userMsg]), msg('rei', reply), msg('sys', mealNote(meal))]);
     } finally {
       setFuelBusy(false);
     }
-  }, [fuelBusy, cloud, msg, complete, activityOf, saveMeals, pushMessages]);
+  }, [fuelBusy, msg, remote, activityOf, saveMeals, pushMessages]);
 
   const finishSession = useCallback((done: number, total: number, seconds: number) => {
     const s = ref.current;
@@ -397,9 +414,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       patch({ settings });
       if (uidRef.current) write.user(uidRef.current, { settings });
     };
+    const shown = visibleMessages(p, cloud);
+    const live = streaming && streaming.text && !shown.some(m => m.id === streaming.id) ? [streaming] : [];
     return {
       ...p,
-      messages: visibleMessages(p, cloud),
+      messages: [...shown, ...live],
       ready,
       account,
       cloud,
@@ -459,7 +478,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
     };
-  }, [p, ready, account, cloud, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg]);
+  }, [p, streaming, ready, account, cloud, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

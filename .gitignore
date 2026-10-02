@@ -3,3 +3,5 @@ node_modules/
 *-debug.log
 functions/lib/
 .env
+functions/.env.local
+functions/.secret.local

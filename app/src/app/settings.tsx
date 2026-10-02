@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { Alert, View } from 'react-native';
 import { Screen, SubHeader } from '../components/Screen';
 import { Card, Label, Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
-import { isOnline, MODEL } from '../lib/claude';
 import { firebaseEnabled, usingEmulators } from '../lib/firebase';
 import { programWeek, trajectory, week } from '@rei/shared';
 import { alpha, C, mix } from '../lib/theme';
@@ -110,7 +109,7 @@ export default function Settings() {
         </Tap>
       </View>
       <Label size={10} ls={0.14} color={C.ghost} style={{ textAlign: 'center', marginTop: 26 }}>
-        {`REI · 零 · BUILD 0.5 · ${isOnline() ? MODEL.toUpperCase() : 'OFFLINE'}`}
+        {`REI · 零 · BUILD 0.6 · ${s.cloud ? 'CLOUD' : 'ON DEVICE'}`}
       </Label>
     </Screen>
   );
