@@ -161,10 +161,8 @@ interface CatalogIndex {
 }
 let catIndex: CatalogIndex | null = null;
 
-function catalogIndex(): CatalogIndex {
-  if (catIndex) return catIndex;
+function buildIndex(all: Food[]): CatalogIndex {
   const byToken = new Map<string, Food[]>();
-  const all = catalog();
   for (const f of all) {
     const x = indexed(f);
     for (const t of new Set([...x.name, ...x.alt])) {
@@ -173,7 +171,11 @@ function catalogIndex(): CatalogIndex {
       else byToken.set(t, [f]);
     }
   }
-  catIndex = { byToken, sorted: [...byToken.keys()].sort(), members: new Set(all) };
+  return { byToken, sorted: [...byToken.keys()].sort(), members: new Set(all) };
+}
+
+function catalogIndex(): CatalogIndex {
+  catIndex ??= buildIndex(catalog());
   return catIndex;
 }
 
@@ -190,14 +192,14 @@ function lookup(ix: CatalogIndex, w: string, into: Set<Food>) {
   for (let i = lo; i < ix.sorted.length && ix.sorted[i].startsWith(w); i++) ix.byToken.get(ix.sorted[i])!.forEach(f => into.add(f));
 }
 
-// Per list passed in: each food's position (results keep the list's order on ties) and the
-// foods that aren't built in. Cached by array identity.
-const views = new WeakMap<Food[], { pos: Map<Food, number>; extras: Food[] }>();
+// Per list passed in: each food's position (results keep the list's order on ties) and a
+// small index of the foods that aren't built in (yours). Cached by array identity.
+const views = new WeakMap<Food[], { pos: Map<Food, number>; extras: CatalogIndex }>();
 function view(foods: Food[]) {
   let v = views.get(foods);
   if (!v) {
     const { members } = catalogIndex();
-    v = { pos: new Map(foods.map((f, i) => [f, i])), extras: foods.filter(f => !members.has(f)) };
+    v = { pos: new Map(foods.map((f, i) => [f, i])), extras: buildIndex(foods.filter(f => !members.has(f))) };
     views.set(foods, v);
   }
   return v;
@@ -214,12 +216,13 @@ export function searchFoods(query: string, foods: Food[], max = 8): Match[] {
   if (!q.length) return [];
   const phrase = q.join(' ');
   const ix = catalogIndex(), v = view(foods);
-  // How many query words each built-in food matches. Results rank by that first, so only
+  // How many query words each food matches. Results rank by that first, so only
   // foods at the top match levels can make the cut; the rest are never scored.
   const hits = new Map<Food, number>();
   for (const w of q) {
     const set = new Set<Food>();
     lookup(ix, w, set);
+    lookup(v.extras, w, set);
     set.forEach(f => v.pos.has(f) && hits.set(f, (hits.get(f) ?? 0) + 1));
   }
   const byLevel = new Map<number, Food[]>();
@@ -227,7 +230,7 @@ export function searchFoods(query: string, foods: Food[], max = 8): Match[] {
   const min = Math.ceil(q.length * 0.5);
   const cand: Food[] = [];
   for (let n = q.length; n >= min && cand.length < max; n--) cand.push(...(byLevel.get(n) ?? []));
-  const pool = [...cand, ...v.extras].sort((a, b) => v.pos.get(a)! - v.pos.get(b)!);
+  const pool = cand.sort((a, b) => v.pos.get(a)! - v.pos.get(b)!);
   const out: Match[] = [];
   for (const f of pool) {
     const m = scoreFood(q, phrase, indexed(f));
