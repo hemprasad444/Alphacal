@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
-  type Activity, activityFor, activityFromDay, addMemory, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  type Activity, activityFor, activityFromDay, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
@@ -179,6 +179,8 @@ interface Store extends Persisted {
   removePhoto: (p: ProgressPhoto) => void;
   /** A run, walk or ride by distance and time. Counts as today's session. */
   logCardio: (km: number, seconds: number, kind?: 'run' | 'walk' | 'cycle') => void;
+  /** A sport or activity by minutes, with its estimated burn. Counts as today's session. */
+  logActivity: (m: Movement, minutes: number) => void;
   /** Ask REI to rewrite this week's training. Resolves with REI's note for the week. */
   rebuildProgram: (focus?: string) => Promise<string>;
   clearChat: () => void;
@@ -597,10 +599,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const logCardio = useCallback((km: number, seconds: number, kind: 'run' | 'walk' | 'cycle' = 'run') => {
     const s = ref.current;
     const title = kind === 'run' ? 'Run' : kind === 'walk' ? 'Walk' : 'Ride';
-    const log: SessionLog = { id: newId(), date: s.day, plan: 'RUN', title, done: 1, total: 1, seconds, cardio: { km, seconds, kind }, createdAt: Date.now() };
+    const kg = parseFloat(s.profile.weight) || 0;
+    const kcal = distanceKcal(kind, km, seconds, kg);
+    const log: SessionLog = { id: newId(), date: s.day, plan: 'RUN', title, done: 1, total: 1, seconds, cardio: { km, seconds, kind, ...(kcal ? { kcal } : {}) }, createdAt: Date.now() };
     const min = Math.max(1, Math.round(seconds / 60));
     patch({ sessionDone: true, loggedMin: s.loggedMin + min, sessions: [...s.sessions, log] });
-    pushMessages([msg('rei', `Logged: ${title.toLowerCase()}, ${+km.toFixed(2)} km in ${clock(seconds)}${kind === 'cycle' ? '' : `, ${pace(km, seconds)}`}. That counts. Now refuel with protein.`)]);
+    pushMessages([msg('rei', `Logged: ${title.toLowerCase()}, ${+km.toFixed(2)} km in ${clock(seconds)}${kind === 'cycle' ? '' : `, ${pace(km, seconds)}`}${kcal ? `, about ${kcal} kcal` : ''}. That counts. Now refuel with protein.`)]);
     const u = uidRef.current;
     if (u) {
       write.day(u, s.day, { sessionDone: true, loggedMin: s.loggedMin + min });
@@ -689,6 +693,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       findBarcode: async code => ref.current.foods.find(f => f.barcode === code) ?? lookupBarcode(code),
       finishSession,
       logCardio,
+      logActivity: (m, minutes) => {
+        const s = ref.current;
+        const kcal = movementKcal(m.met, parseFloat(s.profile.weight) || 0, minutes);
+        const log: SessionLog = { id: newId(), date: s.day, plan: 'ACTIVITY', title: m.name, done: 1, total: 1, seconds: Math.round(minutes * 60), activity: { id: m.id, name: m.name, minutes, kcal }, createdAt: Date.now() };
+        patch({ sessionDone: true, loggedMin: s.loggedMin + Math.round(minutes), sessions: [...s.sessions, log] });
+        pushMessages([msg('rei', `Logged: ${m.name.toLowerCase()}, ${Math.round(minutes)} min${kcal ? `, about ${kcal} kcal` : ''}. Moving counts. Don't eat it back.`)]);
+        const u = uidRef.current;
+        if (u) {
+          write.day(u, s.day, { sessionDone: true, loggedMin: s.loggedMin + Math.round(minutes) });
+          write.session(u, log);
+        }
+      },
       writeReport: async () => {
         // The plain report from what's on this device, used in demo mode or if REI can't be reached.
         const local = (): WeeklyReport => {

@@ -27,11 +27,13 @@ REI, a personal AI fitness companion for iPhone.
 The food list and exercise library ship inside the app, so searching and logging from it is instant and works offline.
 
 - **Indian ingredients:** 542 foods from the Indian Food Composition Tables 2017 (T. Longvah et al., National Institute of Nutrition), via [`@ifct2017/compositions`](https://www.npmjs.com/package/@ifct2017/compositions). Values are per 100 g, mostly raw. Regenerate with `npm --workspace @rei/shared run build:ifct`.
-- **Dishes:** about 120 common Indian and everyday dishes in typical home portions (`packages/shared/src/food/dishes.ts`). These are typical estimates. A tester who corrects one saves it as their own food.
+- **Dishes:** 400 Indian (by region) and everyday dishes in typical home portions (`packages/shared/src/food/dishes.ts`). These are typical estimates. A tester who corrects one saves it as their own food.
 - **Packaged foods:** looked up by barcode in [Open Food Facts](https://world.openfoodfacts.org) (open data, ODbL), straight from the phone. Products it lacks are typed in once from the label.
 - **Your foods:** favourites, scanned products and saved meals are stored in `users/{uid}/foods`.
 
-- **Exercises:** 876 exercises with muscles, equipment, form steps and photos from [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain). The data ships in the app; the photos load from GitHub. Regenerate it with `npm --workspace @rei/shared run build:exercises -- <exercises.json>`.
+- **More foods:** 5,937 foods from USDA FoodData Central SR Legacy (public domain), as packaged in [`tempo-food-db`](https://www.npmjs.com/package/tempo-food-db) by TempoLife (CC-BY-4.0: "Food nutrition data from TempoLife, tempolife.app"). Ranked below the Indian lists. Regenerate with `npm --workspace @rei/shared run build:usda`.
+- **Sports and activities:** about 70 with MET values from the Compendium of Physical Activities (Ainsworth et al.); calories ≈ MET × weight × hours.
+- **Exercises:** 876 exercises with muscles, equipment, form steps and photos from [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain). The data ships in the app. `npm run deploy` also builds 360 px WebP thumbnails into `hosting/exercises/` and serves them from Firebase Hosting with a one-year cache; set `EXPO_PUBLIC_IMAGES_BASE_URL=https://<project-id>.web.app/exercises` in `app/.env` to use them (otherwise photos load from GitHub). Regenerate it with `npm --workspace @rei/shared run build:exercises -- <exercises.json>`.
 
 When you type a meal, the app first matches it against the list ("2 rotis and dal"). If everything matches, it logs immediately with the list's numbers. Anything it can't place goes to REI, which gets the closest list entries and uses their numbers; it only estimates foods that aren't on the list.
 

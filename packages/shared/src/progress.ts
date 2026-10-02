@@ -213,6 +213,8 @@ export interface WeekStats {
   sleepH: number | null;
   weight: { start: number | null; end: number | null; change: number | null };
   runs: { count: number; km: number; best: string | null };
+  /** Sports and activities logged by minutes. */
+  activities: { count: number; minutes: number; kcal: number };
 }
 
 export interface WeekStatsInput {
@@ -266,6 +268,11 @@ export function weekStats(i: WeekStatsInput): WeekStats {
     steps: avg(steps),
     sleepH: sleep.length ? +(sleep.reduce((a, b) => a + b, 0) / sleep.length / 60).toFixed(1) : null,
     weight: { start: start?.kg ?? null, end: end?.kg ?? null, change: start && end && start !== end ? +(end.kg - start.kg).toFixed(1) : null },
+    activities: {
+      count: inWeek.filter(s => s.activity).length,
+      minutes: Math.round(inWeek.reduce((a, s) => a + (s.activity?.minutes ?? 0), 0)),
+      kcal: Math.round(inWeek.reduce((a, s) => a + (s.activity?.kcal ?? 0) + (s.cardio?.kcal ?? 0), 0)),
+    },
     runs: { count: runs.length, km: +runs.reduce((a, s) => a + s.cardio!.km, 0).toFixed(1), best: longest ? `${longest.cardio!.km} km${longest.cardio!.kind === 'cycle' ? '' : ` at ${pace(longest.cardio!.km, longest.cardio!.seconds)}`}` : null },
   };
 }
@@ -309,6 +316,8 @@ export function statsLines(s: WeekStats): string {
     `Food logged ${f.daysLogged} days. Average ${f.avgKcal ?? '?'} kcal (target ${f.kcalTarget}) and ${f.avgProtein ?? '?'} g protein (target ${f.proteinTarget}). Protein hit on ${f.proteinDays} days; over calories on ${f.overDays}.`,
     s.weight.change != null ? `Weight ${s.weight.start} → ${s.weight.end} kg (${s.weight.change > 0 ? '+' : ''}${s.weight.change}).` : s.weight.end != null ? `Weight ${s.weight.end} kg, no change measured.` : 'No weigh-ins.',
     s.runs.count ? `Cardio: ${s.runs.count} sessions, ${s.runs.km} km; longest ${s.runs.best}.` : '',
+    s.activities?.count ? `Sports and activities: ${s.activities.count}, ${s.activities.minutes} min.` : '',
+    s.activities?.kcal ? `Estimated burn from logged cardio and sport: about ${s.activities.kcal} kcal.` : '',
     s.steps != null ? `Average steps ${s.steps}.` : '',
     s.sleepH != null ? `Average sleep ${s.sleepH} h.` : '',
   ].filter(Boolean).join('\n');

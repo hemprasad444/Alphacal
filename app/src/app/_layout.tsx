@@ -17,6 +17,7 @@ import { ZenKakuGothicNew_300Light } from '@expo-google-fonts/zen-kaku-gothic-ne
 import { ZenKakuGothicNew_400Regular } from '@expo-google-fonts/zen-kaku-gothic-new/400Regular';
 import { ZenKakuGothicNew_500Medium } from '@expo-google-fonts/zen-kaku-gothic-new/500Medium';
 import * as Font from 'expo-font';
+import { configureExerciseImages } from '@rei/shared';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -27,6 +28,8 @@ import { useWarmup } from '../components/hooks';
 import { StoreProvider, useStore } from '../state/store';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+// Exercise thumbnails from your Firebase Hosting when set (see app/.env.example).
+configureExerciseImages(process.env.EXPO_PUBLIC_IMAGES_BASE_URL);
 
 const BASE_FONTS = {
   Geist_300Light, Geist_400Regular, Geist_500Medium, Geist_600SemiBold,

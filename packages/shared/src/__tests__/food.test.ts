@@ -1,4 +1,4 @@
-import { catalog, DISHES, foodCandidates, searchFoodsLinear, foodFromMeal, IFCT, itemFor, matchMealText, mealFromItems, offToFood, resolveAiItems, searchFoods, splitMealText, unitFor, validFood, type Food } from '../food';
+import { catalog, DISHES, USDA, foodCandidates, searchFoodsLinear, foodFromMeal, IFCT, itemFor, matchMealText, mealFromItems, offToFood, resolveAiItems, searchFoods, splitMealText, unitFor, validFood, type Food } from '../food';
 
 const cat = catalog();
 const byId = (id: string) => cat.find(f => f.id === id)!;
@@ -7,13 +7,14 @@ const top = (q: string, foods: Food[] = cat) => searchFoods(q, foods, 1)[0]?.foo
 describe('the food list', () => {
   it('has the IFCT tables and the dishes, with unique ids', () => {
     expect(IFCT.length).toBe(542);
-    expect(cat.length).toBe(IFCT.length + DISHES.length);
+    expect(cat.length).toBe(IFCT.length + DISHES.length + USDA.length);
+    expect(USDA.length).toBeGreaterThan(5000);
     expect(new Set(cat.map(f => f.id)).size).toBe(cat.length);
   });
 
   it('keeps every dish’s calories consistent with its macros', () => {
-    // Beer's calories are mostly alcohol, which isn't a macro here.
-    for (const [id, , , units, kcal, p, c, f] of DISHES.filter(d => d[0] !== 'beer')) {
+    // Drinks whose calories are mostly alcohol, which isn't a macro here.
+    for (const [id, , , units, kcal, p, c, f] of DISHES.filter(d => !['beer', 'wine', 'whisky'].includes(d[0]))) {
       const est = 4 * p + 4 * c + 9 * f;
       expect({ id, off: Math.abs(kcal - est) / Math.max(kcal, 20) < 0.2 }).toEqual({ id, off: true });
       expect(units[0][1]).toBeGreaterThan(0);
@@ -87,7 +88,12 @@ describe('typed meals', () => {
   });
 
   it('separates two foods written without "and"', () => {
-    expect(matchMealText('2 idli sambar', cat).items.map(i => `${i.qty} ${i.name}`)).toEqual(['2 Idli', '1 Sambar']);
+    expect(matchMealText('3 idli chutney', cat).items.map(i => `${i.qty} ${i.name}`)).toEqual(['3 Idli', '1 Coconut chutney']);
+  });
+
+  it('knows combined dishes, counted per piece', () => {
+    const [i] = matchMealText('2 idli sambar', cat).items;
+    expect(i).toMatchObject({ name: 'Idli sambar', qty: 2, g: 230 });
   });
 
   it('offers REI the close candidates', () => {

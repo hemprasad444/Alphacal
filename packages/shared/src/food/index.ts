@@ -4,9 +4,11 @@
 import type { Meal, MealItem } from '../types';
 import { DISHES } from './dishes';
 import { IFCT } from './ifct';
+import { USDA } from './usda';
 
 export { DISHES } from './dishes';
 export { IFCT } from './ifct';
+export { USDA } from './usda';
 
 export interface Unit {
   /** e.g. "roti", "katori", "100 g". */
@@ -14,7 +16,7 @@ export interface Unit {
   g: number;
 }
 
-export type FoodSource = 'ifct' | 'dish' | 'barcode' | 'mine';
+export type FoodSource = 'ifct' | 'dish' | 'usda' | 'barcode' | 'mine';
 
 export interface Food {
   /** "i:A003" (IFCT), "d:roti" (dish), "b:8901063010147" (barcode), "m:…" (yours). */
@@ -65,8 +67,9 @@ hint(['I001'], [['piece', 10]]);
 hint(['K002'], [['glass', 250]]);
 
 let built: Food[] | null = null;
+const HUNDRED: Unit[] = [{ n: '100 g', g: 100 }];
 
-/** Every built-in food: dishes first (what people usually mean), then IFCT ingredients. */
+/** Every built-in food: dishes first (what people usually mean), then IFCT ingredients, then USDA. */
 export function catalog(): Food[] {
   built ??= [
     ...DISHES.map(([id, name, alt, units, kcal, p, c, f]): Food => ({
@@ -75,6 +78,8 @@ export function catalog(): Food[] {
     ...IFCT.map(([code, name, alt, p, c, f, fib]): Food => ({
       id: `i:${code}`, name, alt, per: 100, kcal: kcalOf(p, c, f, fib), p, c, f, units: IFCT_UNITS[code] ?? [{ n: '100 g', g: 100 }], src: 'ifct',
     })),
+    // Everything else, from USDA: ranked below the Indian lists when both match.
+    ...USDA.map(([id, name, kcal, p, c, f]): Food => ({ id: `u:${id}`, name, per: 100, kcal, p, c, f, units: HUNDRED, src: 'usda' })),
   ];
   return built;
 }
@@ -116,7 +121,7 @@ function indexed(food: Food): Indexed {
   return x;
 }
 
-const SOURCE_BONUS: Record<FoodSource, number> = { mine: 4, barcode: 4, dish: 0.6, ifct: 0 };
+const SOURCE_BONUS: Record<FoodSource, number> = { mine: 4, barcode: 4, dish: 0.6, ifct: 0, usda: -0.5 };
 
 export interface Match {
   food: Food;
@@ -138,6 +143,8 @@ function scoreFood(q: string[], phrase: string, x: Indexed): Match | null {
   const coverage = hit / q.length;
   if (x.phrases.includes(phrase)) total += 4;
   else if (x.phrases.some(p => p.startsWith(phrase + ' ') || p.startsWith(phrase))) total += 1.5;
+  // The words together and in order ("almond milk" in "Beverages, almond milk, …").
+  else if (q.length > 1 && x.phrases.some(p => (' ' + p + ' ').includes(' ' + phrase + ' '))) total += 2;
   // Prefer the plainest match: "Rice, cooked" over "Rice, raw, milled" for "rice".
   total -= 0.15 * Math.max(0, x.name.length - hit);
   total += SOURCE_BONUS[x.food.src] + (x.food.fav ? 0.5 : 0);
@@ -207,9 +214,20 @@ export function searchFoods(query: string, foods: Food[], max = 8): Match[] {
   if (!q.length) return [];
   const phrase = q.join(' ');
   const ix = catalogIndex(), v = view(foods);
-  const cand = new Set<Food>();
-  for (const w of q) lookup(ix, w, cand);
-  const pool = [...[...cand].filter(f => v.pos.has(f)), ...v.extras].sort((a, b) => v.pos.get(a)! - v.pos.get(b)!);
+  // How many query words each built-in food matches. Results rank by that first, so only
+  // foods at the top match levels can make the cut; the rest are never scored.
+  const hits = new Map<Food, number>();
+  for (const w of q) {
+    const set = new Set<Food>();
+    lookup(ix, w, set);
+    set.forEach(f => v.pos.has(f) && hits.set(f, (hits.get(f) ?? 0) + 1));
+  }
+  const byLevel = new Map<number, Food[]>();
+  hits.forEach((n, f) => (byLevel.get(n) ?? byLevel.set(n, []).get(n)!).push(f));
+  const min = Math.ceil(q.length * 0.5);
+  const cand: Food[] = [];
+  for (let n = q.length; n >= min && cand.length < max; n--) cand.push(...(byLevel.get(n) ?? []));
+  const pool = [...cand, ...v.extras].sort((a, b) => v.pos.get(a)! - v.pos.get(b)!);
   const out: Match[] = [];
   for (const f of pool) {
     const m = scoreFood(q, phrase, indexed(f));

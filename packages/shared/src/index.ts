@@ -13,3 +13,4 @@ export * from './strength';
 export * from './progress';
 export * from './memory';
 export * from './chart';
+export * from './activities';
