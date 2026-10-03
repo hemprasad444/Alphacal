@@ -7,7 +7,6 @@ export type SessionKey = 'PUSH' | 'RUN' | 'PULL' | 'REST' | 'LEGS' | 'CALI';
 export interface SessionPlan {
   key: SessionKey;
   title: string;
-  jp: string;
   sub: string;
   minutes: number;
   why: { strong: string; slipping: string };
@@ -16,7 +15,7 @@ export interface SessionPlan {
 
 export const SESSIONS: Record<Exclude<SessionKey, 'REST'>, SessionPlan> = {
   PUSH: {
-    key: 'PUSH', title: 'Push', jp: '押', sub: 'Chest · Shoulders · Triceps · 52 min, 6 lifts', minutes: 52,
+    key: 'PUSH', title: 'Push', sub: 'Chest · Shoulders · Triceps · 52 min, 6 lifts', minutes: 52,
     why: {
       strong: 'Bench moved 2.5 kg last week. Go for 85 × 5 on the top set.',
       slipping: 'Bench is your slowest lift toward 100 kg. Skip push again and it stalls another week.',
@@ -31,7 +30,7 @@ export const SESSIONS: Record<Exclude<SessionKey, 'REST'>, SessionPlan> = {
     ],
   },
   PULL: {
-    key: 'PULL', title: 'Pull', jp: '引', sub: 'Back · Biceps · Rear delts · 50 min, 5 lifts', minutes: 50,
+    key: 'PULL', title: 'Pull', sub: 'Back · Biceps · Rear delts · 50 min, 5 lifts', minutes: 50,
     why: {
       strong: 'Pull-ups went 8 to 9 last month. Add a rep on the first set.',
       slipping: 'Fifteen pull-ups needs volume you keep skipping. This is where it comes from.',
@@ -45,7 +44,7 @@ export const SESSIONS: Record<Exclude<SessionKey, 'REST'>, SessionPlan> = {
     ],
   },
   LEGS: {
-    key: 'LEGS', title: 'Legs', jp: '脚', sub: 'Quads · Hamstrings · Glutes · 55 min, 5 lifts', minutes: 55,
+    key: 'LEGS', title: 'Legs', sub: 'Quads · Hamstrings · Glutes · 55 min, 5 lifts', minutes: 55,
     why: {
       strong: 'Squat is 20 kg from 140. Two clean top sets today.',
       slipping: 'Legs is the day you used to skip. That habit ends this week.',
@@ -59,7 +58,7 @@ export const SESSIONS: Record<Exclude<SessionKey, 'REST'>, SessionPlan> = {
     ],
   },
   RUN: {
-    key: 'RUN', title: 'Run', jp: '走', sub: 'Intervals · 6 km total · 40 min', minutes: 40,
+    key: 'RUN', title: 'Run', sub: 'Intervals · 6 km total · 40 min', minutes: 40,
     why: {
       strong: '5K is at 27:40. Intervals at 4:45 per km pull it toward 24:00.',
       slipping: 'Sub-24 does not happen without speed work. This is the session that moves it.',
@@ -71,7 +70,7 @@ export const SESSIONS: Record<Exclude<SessionKey, 'REST'>, SessionPlan> = {
     ],
   },
   CALI: {
-    key: 'CALI', title: 'Calisthenics', jp: '体', sub: 'Skills · Core · Bodyweight · 45 min, 5 moves', minutes: 45,
+    key: 'CALI', title: 'Calisthenics', sub: 'Skills · Core · Bodyweight · 45 min, 5 moves', minutes: 45,
     why: {
       strong: 'Skill work while fresh. Hold quality, not just reps.',
       slipping: 'Bodyweight days are the easiest to skip and the easiest to do. No excuse fits here.',

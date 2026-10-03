@@ -4,7 +4,6 @@ import { pace, records } from './strength';
 import type { Profile, SessionLog } from './types';
 
 const TRAINING: Exclude<SessionKey, 'REST'>[] = ['PUSH', 'PULL', 'LEGS', 'RUN', 'CALI'];
-const JP: Record<Exclude<SessionKey, 'REST'>, string> = { PUSH: '押', PULL: '引', LEGS: '脚', RUN: '走', CALI: '体' };
 
 /** Structured-output schema: seven days, Monday first. */
 export const PROGRAM_SCHEMA = {
@@ -90,7 +89,6 @@ export function normalizeProgram(raw: unknown, week: string, logs: SessionLog[] 
     return {
       key,
       title: str(x.title, 30) ?? key.charAt(0) + key.slice(1).toLowerCase(),
-      jp: JP[key],
       sub: str(x.sub, 80) ?? '',
       minutes: clampInt(x.minutes, 10, 150) ?? 45,
       why: { strong: why, slipping: why },

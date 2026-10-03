@@ -6,6 +6,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
 import { Wave } from '../components/Core';
+import { Icon } from '../components/icons';
 import { Dots, IconButton, Label, Tap, Txt } from '../components/ui';
 import { hhmm, type Message, splitLead, stripTags } from '@rei/shared';
 import { alpha, C, fontFamily, mix } from '../lib/theme';
@@ -160,7 +161,7 @@ export default function Voice() {
       <View style={{ paddingTop: insets.top + 4, paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: C.line }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Txt size={14} w={600}>Voice</Txt>
-          <Txt face="jp" size={11} color={C.label}>声</Txt>
+          <Icon name="voice" size={14} color={C.label} />
           <Label size={9} ls={0.14} color={accent}>{`· ${label}`}</Label>
         </View>
         <IconButton size={30} onPress={close}>✕</IconButton>

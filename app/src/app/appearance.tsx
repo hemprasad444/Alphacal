@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { Image, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { Screen, SubHeader } from '../components/Screen';
+import { Icon } from '../components/icons';
 import { Card, Label, Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
 import { ACCENT_EXTRAS, alpha, C, DEFAULT_EMBLEM, EMBLEMS, FONT_KEYS, fontFamily, THEMES, type Theme } from '../lib/theme';
 import { useStore } from '../state/store';
@@ -47,7 +48,7 @@ export default function Appearance() {
               <Tap key={t.id} onPress={() => s.pickTheme(t.id)} style={{ width: '48.5%', flexGrow: 1, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: on ? t.acc : C.line3, backgroundColor: on ? 'rgba(255,255,255,0.05)' : C.card2 }}>
                 <View style={{ height: 64, alignItems: 'center', justifyContent: 'center' }}>
                   <Swatch t={t} height={64} />
-                  <Txt face="jp" w={500} size={30} color="#fff" style={{ textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 12 }}>{t.kanji}</Txt>
+                  <Icon name={t.icon} size={34} color="#fff" tint={0.35} strokeWidth={1.6} />
                 </View>
                 <View style={{ paddingTop: 10, paddingHorizontal: 12, paddingBottom: 12, gap: 3 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
@@ -79,7 +80,7 @@ export default function Appearance() {
             const on = settings.font === k;
             return (
               <Tap key={k} onPress={() => s.setOpt('font', k)} style={{ width: '48.5%', flexGrow: 1, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 16, gap: 6, backgroundColor: on ? alpha(accent, 0.12) : C.card2, borderWidth: 1, borderColor: on ? alpha(accent, 0.5) : C.line3 }}>
-                <Txt size={26} ls={-0.03} style={{ fontFamily: fontFamily(k, 400) }}>Aa 零</Txt>
+                <Txt size={26} ls={-0.03} style={{ fontFamily: fontFamily(k, 400) }}>Aa 01</Txt>
                 <Txt size={13} color={on ? C.text : C.muted} style={{ fontFamily: fontFamily(k, 400) }}>{k}</Txt>
               </Tap>
             );
@@ -101,7 +102,7 @@ export default function Appearance() {
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
           <Tap onPress={() => s.setEmblem(null)} style={{ flex: 1, gap: 6 }}>
             <View style={{ aspectRatio: 1, borderRadius: 14, borderWidth: 1.5, borderColor: !selected ? accent : 'rgba(255,255,255,0.1)', backgroundColor: theme.bg, alignItems: 'center', justifyContent: 'center' }}>
-              <Txt face="jp" size={22} color={C.ghost}>無</Txt>
+              <Icon name="close" size={22} color={C.ghost} />
             </View>
             <Label size={10} ls={0.12} color={!selected ? accent : C.label} style={{ textAlign: 'center' }}>{!selected ? 'IN USE' : 'NONE'}</Label>
           </Tap>
@@ -117,7 +118,7 @@ export default function Appearance() {
                 <View style={{ aspectRatio: 1, borderRadius: 14, borderWidth: 1.5, borderColor: on ? accent : C.line3, backgroundColor: 'rgba(255,255,255,0.04)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', shadowColor: accent, shadowOpacity: on ? 0.35 : 0, shadowRadius: 9, shadowOffset: { width: 0, height: 0 } }}>
                   <Image source={e.source} style={{ width: '78%', height: '78%' }} resizeMode="contain" />
                 </View>
-                <Label size={10} ls={0.12} color={on ? accent : C.label} style={{ textAlign: 'center' }}>{on ? 'IN USE' : `${theme.kanji} ${String(i + 1).padStart(2, '0')}`}</Label>
+                <Label size={10} ls={0.12} color={on ? accent : C.label} style={{ textAlign: 'center' }}>{on ? 'IN USE' : `NO. ${String(i + 1).padStart(2, '0')}`}</Label>
               </Tap>
             );
           })}

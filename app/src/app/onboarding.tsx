@@ -11,6 +11,7 @@ import {
   ARCHETYPES, bondLine, CHAPTERS, clockOf, deadlineOf, DEFAULT_INTAKE, fuel, goalOf, GOALS, type Intake, mmss, nameOf, pactRows, reiLine, shortDate,
   sleepHours, STEPS, suggestedTarget, TONES, toneSample, trainTime, vowSentence, weeklyRate,
 } from '@rei/shared';
+import { Icon } from '../components/icons';
 import { Core } from '../components/Core';
 import { ChapterCard, EnterFx, Flash, HoldSeal, markArrival } from '../components/onboarding/fx';
 import { Bubble, Chips, comic, Cta, Field, FieldLabel, Halftone, Nums, Outline, pick, Rise, Scrub, Seg, SpeedLines, ToggleRow } from '../components/onboarding/kit';
@@ -668,7 +669,9 @@ function WorldStep({ d, set }: { d: Intake; set: SetFn }) {
         return (
           <Rise key={t.id} delay={200 + i * 60} style={{ width: '48.4%', flexGrow: 1 }}>
             <Tap onPress={() => set('theme', t.id)} style={{ height: 146, padding: 13, borderRadius: 10, borderWidth: 1.5, borderColor: sel ? t.acc : 'rgba(255,255,255,0.1)', backgroundColor: sel ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)', justifyContent: 'space-between', overflow: 'hidden', ...(sel ? comic(t.acc, 3) : null) }}>
-              <Outline text={t.kanji} size={116} color={sel ? t.acc : 'rgba(255,255,255,0.12)'} width={1.5} style={{ position: 'absolute', right: -10, bottom: -24 }} />
+              <View style={{ position: 'absolute', right: -14, bottom: -18 }}>
+                <Icon name={t.icon} size={112} color={sel ? t.acc : 'rgba(255,255,255,0.14)'} tint={sel ? 0.16 : 0} strokeWidth={1.1} />
+              </View>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View style={{ flexDirection: 'row', gap: 4 }}>
                   <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.acc, shadowColor: t.acc, shadowOpacity: 1, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } }} />

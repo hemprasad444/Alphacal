@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
 import { Core } from '../components/Core';
+import { Icon } from '../components/icons';
 import { Dots, IconButton, Label, Tap, Txt, VoiceGlyph } from '../components/ui';
 import { integrity, type Message, nutrition, todaysPlan, trajectory, week } from '@rei/shared';
 import { liveVoiceAvailable, prepareVoiceSession } from '../lib/live';
@@ -66,7 +67,7 @@ export default function Talk() {
           {settings.avatar === 'Character in chat' ? (
             <View style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: accent, alignItems: 'center', justifyContent: 'center', shadowColor: accent, shadowOpacity: 0.4, shadowRadius: 7, shadowOffset: { width: 0, height: 0 } }}>
               <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: mix(accent, '#0A0C0F', 0.16), alignItems: 'center', justifyContent: 'center' }}>
-                <Txt face="jp" size={18} color={accent}>{s.theme.kanji}</Txt>
+                <Icon name={s.theme.icon} size={24} color={accent} />
               </View>
             </View>
           ) : (
@@ -76,7 +77,6 @@ export default function Talk() {
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
             <Txt size={18} w={600} ls={-0.01}>REI</Txt>
-            <Txt face="jp" size={13} color={C.label}>零</Txt>
           </View>
           <Label size={10} ls={0.14} color={accent} style={{ marginTop: 3 }}>{s.thinking ? 'READING YOU…' : tough ? 'TOUGH LOVE · 10/10' : 'COACH · 6/10'}</Label>
         </View>

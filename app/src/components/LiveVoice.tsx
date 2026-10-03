@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { hhmm, mealIndex, memoryKind, type Message, parseWorkout, splitLead, stripTags, todayLine, vowChange } from '@rei/shared';
 import { Backdrop } from './Backdrop';
 import { Core, Wave } from './Core';
+import { Icon } from './icons';
 import { IconButton, Label, Tap, Txt } from './ui';
 import { takeVoiceSession, type VoiceSession } from '../lib/live';
 import { newId } from '../lib/sync';
@@ -298,7 +299,7 @@ function Live() {
       <View style={{ paddingTop: insets.top + 4, paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: C.line }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Txt size={14} w={600}>Live</Txt>
-          <Txt face="jp" size={11} color={C.label}>声</Txt>
+          <Icon name="voice" size={14} color={C.label} />
           <Label size={9} ls={0.14} color={accent}>{`· ${label}`}</Label>
         </View>
         <IconButton size={30} onPress={() => router.back()}>✕</IconButton>

@@ -32,7 +32,7 @@ export default function Settings() {
 
   return (
     <Screen tabs={false}>
-      <SubHeader title={settings.hud ? 'SETTINGS · 設定' : 'SETTINGS'} onBack={() => router.back()} />
+      <SubHeader title="SETTINGS" onBack={() => router.back()} />
 
       <Tap onPress={() => router.navigate('/vow')} style={{ marginTop: 24, padding: 16, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: C.line3, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
         <View style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: mix(accent, '#0A0C0F', 0.16), borderWidth: 1, borderColor: alpha(accent, 0.45) }}>
@@ -84,7 +84,7 @@ export default function Settings() {
         <Row title="What REI remembers" sub={s.memory.length ? `${s.memory.length} fact${s.memory.length > 1 ? 's' : ''}: diet, health, schedule…` : 'Diet, injuries, schedule, equipment'} onPress={() => router.push('/memory')} right={<Txt size={18} color={C.dim}>›</Txt>} last />
       </Card>
 
-      <Label style={{ marginTop: 30 }}>{settings.hud ? 'REI’S VOICE · 声' : 'REI’S VOICE'}</Label>
+      <Label style={{ marginTop: 30 }}>REI’S VOICE</Label>
       <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
         {VOICES.map((v, i) => {
           const on = (isVoice(settings.voice) ? settings.voice : DEFAULT_VOICE) === v.id;
@@ -155,7 +155,7 @@ export default function Settings() {
         Indian Food Composition Tables 2017, National Institute of Nutrition (ICMR-NIN). Food nutrition data from TempoLife (tempolife.app), CC-BY-4.0, based on USDA FoodData Central. Packaged foods from Open Food Facts (ODbL). Exercises from free-exercise-db (public domain). Activity estimates from the Compendium of Physical Activities. Dish values are typical estimates.
       </Txt>
       <Label size={10} ls={0.14} color={C.ghost} style={{ textAlign: 'center', marginTop: 26 }}>
-        {`REI · 零 · BUILD 0.6 · ${s.cloud ? 'CLOUD' : 'ON DEVICE'}`}
+        {`REI · BUILD 0.7 · ${s.cloud ? 'CLOUD' : 'ON DEVICE'}`}
       </Label>
     </Screen>
   );

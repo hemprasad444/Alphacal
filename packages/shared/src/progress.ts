@@ -163,28 +163,28 @@ export function badges(i: { days: DaySummary[]; sessions: SessionLog[]; weighIns
 
   return [
     ...reach(count, [
-      { id: 'sessions-1', title: 'Day one', desc: 'Log your first session', need: 1 },
-      { id: 'sessions-10', title: 'Ten deep', desc: 'Log 10 sessions', need: 10 },
-      { id: 'sessions-50', title: 'Fifty', desc: 'Log 50 sessions', need: 50 },
-      { id: 'sessions-100', title: 'Century', desc: 'Log 100 sessions', need: 100 },
+      { id: 'sessions-1', title: 'First Blood', desc: 'Log your first session', need: 1 },
+      { id: 'sessions-10', title: 'Ten Battles', desc: 'Log 10 sessions', need: 10 },
+      { id: 'sessions-50', title: 'Veteran', desc: 'Log 50 sessions', need: 50 },
+      { id: 'sessions-100', title: 'Hundred Battles', desc: 'Log 100 sessions', need: 100 },
     ]),
     ...reach(prEvents, [
-      { id: 'pr-1', title: 'First PR', desc: 'Beat a personal record', need: 1 },
-      { id: 'pr-10', title: 'Record breaker', desc: 'Set 10 personal records', need: 10 },
+      { id: 'pr-1', title: 'Limit Break', desc: 'Beat a personal record', need: 1 },
+      { id: 'pr-10', title: 'Ten Limit Breaks', desc: 'Set 10 personal records', need: 10 },
     ]),
-    ...reach(weeks, [{ id: 'perfect-week', title: 'Perfect week', desc: `Hit ${target} sessions in one week`, need: 1 }]),
+    ...reach(weeks, [{ id: 'perfect-week', title: 'Clean Sweep', desc: `Hit ${target} sessions in one week`, need: 1 }]),
     ...reach(streakEvents(i.days, d => d.meals > 0), [
-      { id: 'log-7', title: 'Seven days logged', desc: 'Log food 7 days in a row', need: 7 },
-      { id: 'log-30', title: 'Thirty days logged', desc: 'Log food 30 days in a row', need: 30 },
+      { id: 'log-7', title: 'Unbroken', desc: 'Log food 7 days in a row', need: 7 },
+      { id: 'log-30', title: 'Thirty Suns', desc: 'Log food 30 days in a row', need: 30 },
     ]),
-    ...reach(streakEvents(i.days, d => proteinT > 0 && d.protein >= proteinT * 0.9), [{ id: 'protein-7', title: 'Protein week', desc: 'Hit protein 7 days in a row', need: 7 }]),
+    ...reach(streakEvents(i.days, d => proteinT > 0 && d.protein >= proteinT * 0.9), [{ id: 'protein-7', title: 'Iron Stomach', desc: 'Hit protein 7 days in a row', need: 7 }]),
     ...reach(runs, [
-      { id: 'run-5k', title: '5K', desc: 'Run 5 km in one go', need: 5 },
-      { id: 'run-10k', title: '10K', desc: 'Run 10 km in one go', need: 10 },
+      { id: 'run-5k', title: 'Wind Runner', desc: 'Run 5 km in one go', need: 5 },
+      { id: 'run-10k', title: 'Storm Runner', desc: 'Run 10 km in one go', need: 10 },
     ]),
     ...reach(lost, [
-      { id: 'down-1', title: 'First kilo', desc: 'Down 1 kg from your first weigh-in', need: 1 },
-      { id: 'down-5', title: 'Five down', desc: 'Down 5 kg from your first weigh-in', need: 5 },
+      { id: 'down-1', title: 'First Kilo Down', desc: 'Down 1 kg from your first weigh-in', need: 1 },
+      { id: 'down-5', title: 'Five Down', desc: 'Down 5 kg from your first weigh-in', need: 5 },
     ]),
   ];
 }

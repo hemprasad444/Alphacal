@@ -60,7 +60,6 @@ export default function SignIn() {
             <View style={{ alignItems: 'center', gap: 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
                 <Txt size={34} w={500} ls={-0.03}>REI</Txt>
-                <Txt face="jp" size={20} color={C.label}>零</Txt>
               </View>
               <Label color={C.dim}>ZERO EXCUSES · TESTER ACCESS</Label>
             </View>

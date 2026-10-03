@@ -4,14 +4,17 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { Core } from '../../components/Core';
 import { useNow } from '../../components/hooks';
 import { Screen } from '../../components/Screen';
-import { Bar, Blink, Card, Corners, Jp, Label, Tap, Txt } from '../../components/ui';
-import { CLEARED, dayStamp, hero as calcHero, hhmm, integrity as calcIntegrity, nutrition, programWeek, protocol, sessionCountdown, todaysPlan, trajectory, week as calcWeek, weekdayIndex, weekNote } from '@rei/shared';
+import { Icon } from '../../components/icons';
+import { Bar, Blink, Corners, Label, Tap, Txt } from '../../components/ui';
+import { CLEARED, dayStamp, hero as calcHero, hhmm, integrity as calcIntegrity, nutrition, programWeek, protocol, sessionCountdown, todaysPlan, trajectory, week as calcWeek, weekdayIndex } from '@rei/shared';
 import { alpha, C } from '../../lib/theme';
+import { useGame } from '../../state/game';
 import { useStore } from '../../state/store';
 
 export default function Today() {
   const s = useStore();
   const now = useNow();
+  const g = useGame();
   const { settings, profile, sessionDone, accent } = s;
   const strong = settings.scenario === 'Strong week';
   const tough = settings.tone !== 'Coach';
@@ -62,19 +65,13 @@ export default function Today() {
 
   return (
     <Screen>
-      {settings.hud ? (
-        <View pointerEvents="none" style={{ position: 'absolute', right: -92, top: 260, transform: [{ rotate: '90deg' }] }}>
-          <Txt face="jp" size={10} ls={0.5} color="rgba(255,255,255,0.16)">{s.theme.motto}</Txt>
-        </View>
-      ) : null}
-
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Blink color={s.cloud ? accent : C.warn} />
           <Label color={C.muted}>{s.cloud ? 'REI · ONLINE · SYNCED' : 'REI · DEMO · ON DEVICE'}</Label>
         </View>
-        <Tap onPress={() => router.push('/settings')} style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' }}>
-          <Txt size={14} w={500}>H</Txt>
+        <Tap onPress={() => router.push('/settings')} style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 1.5, borderColor: alpha(accent, 0.4), alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' }}>
+          {profile.name ? <Txt size={15} w={600} color={accent}>{profile.name.trim().charAt(0).toUpperCase()}</Txt> : <Icon name="profile" size={20} color={accent} />}
         </Tap>
       </View>
       <Label color={C.dim} style={{ marginTop: 6 }}>{`${dayStamp(now)} · WEEK ${programWeek(s.startedOn, now)} · DAY ${weekdayIndex(now) + 1}`}</Label>
@@ -90,6 +87,12 @@ export default function Today() {
             <Txt size={20} w={300} color={C.dim}>%</Txt>
           </View>
           <Txt size={13} color={C.muted}>{wk.due ? `${wk.done} of ${wk.due} sessions kept` : 'No sessions due yet'}</Txt>
+          <Tap onPress={() => router.navigate('/dojo')} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <Icon name="streak" size={14} color={g.stats.streak >= 3 ? C.warn : C.muted} />
+            <Txt face="mono" size={11} color={C.body}>{`${g.stats.streak}D`}</Txt>
+            <Icon name="rank" size={14} color={accent} />
+            <Txt face="mono" size={11} color={C.body}>{`${g.rank.name.toUpperCase()} · +${g.today} XP`}</Txt>
+          </Tap>
         </View>
       </View>
 
@@ -140,9 +143,9 @@ export default function Today() {
           {rows.map(r => (
             <Tap key={r.label} onPress={r.fuel ? () => router.navigate('/fuel') : undefined} style={{ paddingTop: 15, paddingBottom: 14, borderTopWidth: 1, borderTopColor: C.line }}>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Icon name={r.icon} size={18} color={tone(r.tone)} />
                   <Txt size={16} w={500} ls={-0.01}>{r.label}</Txt>
-                  <Jp>{r.jp}</Jp>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
                   <Txt face="mono" size={13} color={C.value}>{r.value}</Txt>
@@ -157,47 +160,7 @@ export default function Today() {
         </View>
       </View>
 
-      <Card style={{ marginTop: 24, padding: 18, borderRadius: 22, backgroundColor: C.card2 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Label>{`WEEK ${programWeek(s.startedOn, now)}`}</Label>
-          <Label ls={0.12} color={wk.missed ? C.alert : accent}>{`${wk.done} DONE · ${wk.missed} MISSED`}</Label>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 6, marginTop: 16 }}>
-          {wk.days.map((d, i) => {
-            const look = {
-              done: { mark: '✓', bg: alpha(accent, 0.18), border: alpha(accent, 0.5), fg: accent, label: C.sub },
-              missed: { mark: '✕', bg: 'rgba(255,90,60,0.1)', border: 'rgba(255,90,60,0.55)', fg: C.alert, label: C.alert },
-              rest: { mark: '·', bg: 'transparent', border: C.line, fg: C.faint, label: C.faint },
-              today: { mark: '', bg: 'transparent', border: accent, fg: accent, label: accent },
-              future: { mark: '', bg: C.card2, border: C.line3, fg: C.muted, label: C.faint },
-              none: { mark: '\u2013', bg: 'transparent', border: C.line, fg: C.ghost, label: C.ghost },
-            }[d.status];
-            return (
-              <View key={i} style={{ flex: 1, alignItems: 'center', gap: 8 }}>
-                <Txt face="mono" size={10} color={C.dim}>{d.day}</Txt>
-                <View style={{ width: '100%', maxWidth: 40, aspectRatio: 1, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: look.bg, borderWidth: 1, borderColor: look.border, ...(d.status === 'today' ? { shadowColor: accent, shadowOpacity: 0.35, shadowRadius: 7, shadowOffset: { width: 0, height: 0 } } : null) }}>
-                  <Txt size={13} w={600} color={look.fg}>{look.mark}</Txt>
-                </View>
-                <Txt face="mono" size={8.5} ls={0.08} color={look.label}>{d.type}</Txt>
-              </View>
-            );
-          })}
-        </View>
-        <Txt size={14} lh={1.45} color={C.sub} style={{ marginTop: 16 }}>{weekNote(wk, sessionDone)}</Txt>
-      </Card>
-
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-        <Tap onPress={() => router.push('/history')} style={{ flex: 1, paddingVertical: 16, paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderColor: C.line2, backgroundColor: C.card2, gap: 6 }}>
-          <Label>TRAINING LOG</Label>
-          <Label ls={0.12} color={accent}>{`${s.sessions.length} LOGGED ›`}</Label>
-        </Tap>
-        <Tap onPress={() => router.push('/progress')} style={{ flex: 1, paddingVertical: 16, paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderColor: C.line2, backgroundColor: C.card2, gap: 6 }}>
-          <Label>PROGRESS</Label>
-          <Label ls={0.12} color={accent}>{'REPORT · STREAKS ›'}</Label>
-        </Tap>
-      </View>
-
-      <Tap onPress={() => router.navigate('/vow')} style={{ marginTop: 12, padding: 18, borderRadius: 22, borderWidth: 1, borderColor: C.line2, backgroundColor: C.card2 }}>
+      <Tap onPress={() => router.navigate('/vow')} style={{ marginTop: 24, padding: 18, borderRadius: 22, borderWidth: 1, borderColor: C.line2, backgroundColor: C.card2 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Label>TRAJECTORY</Label>
           <Label ls={0.12} color={traj.etaAlert ? C.alert : accent}>{traj.eta}</Label>

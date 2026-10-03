@@ -106,3 +106,29 @@ export const write = {
   deletePhoto: (uid: string, id: string) => deleteDoc(doc(sub(uid, 'photos'), id)).catch(warn('photo delete')),
   deleteFood: (uid: string, id: string) => deleteDoc(doc(sub(uid, 'foods'), id)).catch(warn('food delete')),
 };
+
+/** One row of the weekly leaderboard: leaderboard/{week}/players/{uid}. */
+export interface Player {
+  uid: string;
+  name: string;
+  /** XP earned this week. */
+  xp: number;
+  /** Rank id (game.ts RANKS). */
+  rank: string;
+  /** Theme id, for their colour. */
+  theme: string;
+  updatedAt: number;
+}
+
+const players = (week: string) => collection(fb().db, 'leaderboard', week, 'players');
+
+/** Post your week's XP; only your own row, and only when it changed. */
+export function postScore(uid: string, week: string, p: Omit<Player, 'uid' | 'updatedAt'>): Promise<void> {
+  return setDoc(doc(players(week), uid), { ...p, name: p.name.slice(0, 24) || 'Anonymous', updatedAt: Date.now() }).catch(warn('leaderboard write'));
+}
+
+/** The week's top players, best first. */
+export function onBoard(week: string, cb: (rows: Player[]) => void, top = 50): Unsubscribe {
+  const q = query(players(week), orderBy('xp', 'desc'), limit(top));
+  return onSnapshot(q, s => cb(s.docs.map(d => ({ ...(d.data() as Omit<Player, 'uid'>), uid: d.id }))), warn('leaderboard listener'));
+}

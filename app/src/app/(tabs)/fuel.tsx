@@ -7,7 +7,8 @@ import Svg, { Circle } from 'react-native-svg';
 import { Core } from '../../components/Core';
 import { FoodSheet, MealSheet } from '../../components/FoodSheet';
 import { Screen } from '../../components/Screen';
-import { Card, Jp, Label, Tap, Txt } from '../../components/ui';
+import { Icon } from '../../components/icons';
+import { Card, Label, Tap, Txt } from '../../components/ui';
 import { amountLabel, dayStamp, type Food, fuelLine, itemFor, nutrition, searchFoods, splitMealText } from '@rei/shared';
 import { C, fontFamily } from '../../lib/theme';
 import { useStore } from '../../state/store';
@@ -65,7 +66,7 @@ export default function Fuel() {
     s.logMeal(t);
   };
 
-  const macros = ([['Protein', '蛋白', 'p', nu.protein, protT], ['Carbs', '炭水', 'c', nu.carbs, n('carbs')], ['Fat', '脂質', 'f', nu.fat, n('fat')]] as const).map(([label, jp, k, a, t]) => {
+  const macros = ([['Protein', 'protein', 'p', nu.protein, protT], ['Carbs', 'carbs', 'c', nu.carbs, n('carbs')], ['Fat', 'fat', 'f', nu.fat, n('fat')]] as const).map(([label, icon, k, a, t]) => {
     const left = t - a;
     let status: string, statusColor: string, color: string = MCOL[k];
     if (k === 'p') {
@@ -76,7 +77,7 @@ export default function Fuel() {
       statusColor = left < 0 ? C.alert : C.muted;
       if (left < 0) color = C.alert;
     }
-    return { label, jp, eaten: a, target: t, color, frac: Math.min(1, t ? a / t : 0), status, statusColor };
+    return { label, icon, eaten: a, target: t, color, frac: Math.min(1, t ? a / t : 0), status, statusColor };
   });
 
   return (
@@ -124,9 +125,9 @@ export default function Fuel() {
                 <Txt face="mono" size={10} color={C.dim} style={{ marginTop: 3 }}>{`/ ${m.target}g`}</Txt>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Icon name={m.icon} size={16} color={m.color} />
               <Txt size={14} w={500}>{m.label}</Txt>
-              <Jp size={10}>{m.jp}</Jp>
             </View>
             <Label size={10} ls={0.12} color={m.statusColor}>{m.status}</Label>
           </Card>

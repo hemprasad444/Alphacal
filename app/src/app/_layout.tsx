@@ -95,6 +95,9 @@ function Root() {
           <Stack.Screen name="exercises" />
           <Stack.Screen name="progress" />
           <Stack.Screen name="memory" />
+          <Stack.Screen name="badges" />
+          <Stack.Screen name="board" />
+          <Stack.Screen name="log-training" options={{ presentation: 'modal' }} />
         </Stack.Protected>
         <Stack.Protected guard={needsAuth}>
           <Stack.Screen name="sign-in" options={{ animation: 'fade' }} />

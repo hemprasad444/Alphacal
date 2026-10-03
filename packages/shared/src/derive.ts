@@ -3,6 +3,7 @@
 import { demoWeighIns, SESSION_TIME, SESSIONS, WEEK_PLAN, type SessionKey, type SessionPlan, type WeekProgram } from './data';
 import { daysBetween, isoDate, minutesUntil, monthDay, parseIsoDate, weekdayIndex } from './time';
 import type { Activity, History, Meal, Nutrition, Profile, WeighIn } from './types';
+import type { IconKey } from './icons';
 
 const num = (s: string) => parseFloat(s) || 0;
 
@@ -218,7 +219,7 @@ export function trajectory(profile: Profile, missed: number, now: Date = new Dat
 
 export interface ProtocolRow {
   label: string;
-  jp: string;
+  icon: IconKey;
   value: string;
   status: string;
   tone: 'acc' | 'warn' | 'alert';
@@ -233,20 +234,20 @@ export function protocol(plan: SessionPlan | null, nu: Nutrition, profile: Profi
   const pp = protT ? nu.protein / protT : 0;
   const fmt = (n: number) => n.toLocaleString('en-US');
   const training: ProtocolRow = !plan
-    ? { label: 'Training', jp: '鍛錬', value: 'Rest day', status: 'REST', tone: 'acc', pct: 1 }
+    ? { label: 'Training', icon: 'train', value: 'Rest day', status: 'REST', tone: 'acc', pct: 1 }
     : sessionDone
-      ? { label: 'Training', jp: '鍛錬', value: `${plan.title} · ${loggedMin} min`, status: 'DONE', tone: 'acc', pct: 1 }
-      : { label: 'Training', jp: '鍛錬', value: `${plan.title} · ${profile.sessionTime || SESSION_TIME}`, status: 'PENDING', tone: strong ? 'warn' : 'alert', pct: 0 };
+      ? { label: 'Training', icon: 'train', value: `${plan.title} · ${loggedMin} min`, status: 'DONE', tone: 'acc', pct: 1 }
+      : { label: 'Training', icon: 'train', value: `${plan.title} · ${profile.sessionTime || SESSION_TIME}`, status: 'PENDING', tone: strong ? 'warn' : 'alert', pct: 0 };
   return [
     training,
-    { label: 'Protein', jp: '蛋白', value: `${nu.protein} / ${protT} g`, status: pp < 0.7 ? 'BEHIND' : 'ON TRACK', tone: pp < 0.7 ? 'alert' : 'acc', pct: frac(nu.protein, protT), fuel: true },
-    { label: 'Calories', jp: '熱量', value: `${fmt(nu.kcal)} / ${fmt(kcalT)}`, status: kp > 0.95 ? 'AT LIMIT' : kp > 0.78 ? 'WATCH' : 'OK', tone: kp > 0.95 ? 'alert' : kp > 0.78 ? 'warn' : 'acc', pct: frac(nu.kcal, kcalT), fuel: true },
+    { label: 'Protein', icon: 'protein', value: `${nu.protein} / ${protT} g`, status: pp < 0.7 ? 'BEHIND' : 'ON TRACK', tone: pp < 0.7 ? 'alert' : 'acc', pct: frac(nu.protein, protT), fuel: true },
+    { label: 'Calories', icon: 'kcal', value: `${fmt(nu.kcal)} / ${fmt(kcalT)}`, status: kp > 0.95 ? 'AT LIMIT' : kp > 0.78 ? 'WATCH' : 'OK', tone: kp > 0.95 ? 'alert' : kp > 0.78 ? 'warn' : 'acc', pct: frac(nu.kcal, kcalT), fuel: true },
     nu.steps == null
-      ? { label: 'Steps', jp: '歩数', value: `\u2014 / ${fmt(stepsT)}`, status: 'NO DATA', tone: 'warn', pct: 0 }
-      : { label: 'Steps', jp: '歩数', value: `${fmt(nu.steps)} / ${fmt(stepsT)}`, status: nu.steps / stepsT < 0.5 ? 'BEHIND' : nu.steps >= stepsT ? 'DONE' : 'ON TRACK', tone: nu.steps / stepsT < 0.5 ? 'alert' : 'acc', pct: frac(nu.steps, stepsT) },
+      ? { label: 'Steps', icon: 'steps', value: `\u2014 / ${fmt(stepsT)}`, status: 'NO DATA', tone: 'warn', pct: 0 }
+      : { label: 'Steps', icon: 'steps', value: `${fmt(nu.steps)} / ${fmt(stepsT)}`, status: nu.steps / stepsT < 0.5 ? 'BEHIND' : nu.steps >= stepsT ? 'DONE' : 'ON TRACK', tone: nu.steps / stepsT < 0.5 ? 'alert' : 'acc', pct: frac(nu.steps, stepsT) },
     nu.sleep == null
-      ? { label: 'Sleep', jp: '睡眠', value: '\u2014', status: 'NO DATA', tone: 'warn', pct: 0 }
-      : { label: 'Sleep', jp: '睡眠', value: nu.sleepL, status: nu.sleep < sleepT - 0.25 ? 'SHORT' : 'DONE', tone: nu.sleep < sleepT - 0.25 ? 'warn' : 'acc', pct: frac(nu.sleep, sleepT) },
+      ? { label: 'Sleep', icon: 'sleep', value: '\u2014', status: 'NO DATA', tone: 'warn', pct: 0 }
+      : { label: 'Sleep', icon: 'sleep', value: nu.sleepL, status: nu.sleep < sleepT - 0.25 ? 'SHORT' : 'DONE', tone: nu.sleep < sleepT - 0.25 ? 'warn' : 'acc', pct: frac(nu.sleep, sleepT) },
   ];
 }
 

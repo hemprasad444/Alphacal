@@ -1,4 +1,4 @@
-import type { FontKey, ThemeId } from '@rei/shared';
+import type { FontKey, IconKey, ThemeId } from '@rei/shared';
 import type { ImageSourcePropType } from 'react-native';
 
 export const C = {
@@ -30,7 +30,8 @@ export type { FontKey, ThemeId };
 export interface Theme {
   id: ThemeId;
   name: string;
-  kanji: string;
+  /** The theme's crest, drawn from REI's icon set. */
+  icon: IconKey;
   vibe: string;
   acc: string;
   acc2: string;
@@ -39,12 +40,12 @@ export interface Theme {
 }
 
 export const THEMES: Theme[] = [
-  { id: 'zero', name: 'REI Zero', kanji: '零', vibe: 'Ice cyan · cobalt', acc: '#9BE7F2', acc2: '#3A6FF2', bg: '#050608', motto: '自己規律プロトコル · 零' },
-  { id: 'shinobi', name: 'Naruto', kanji: '忍', vibe: 'Blaze orange · night indigo', acc: '#FF7A1A', acc2: '#2B4CC9', bg: '#07060A', motto: '決して諦めない · 忍の道' },
-  { id: 'voyager', name: 'One Piece', kanji: '航', vibe: 'Straw gold · captain red', acc: '#F5C542', acc2: '#D7263D', bg: '#06070A', motto: '自由への航海 · 夢を追え' },
-  { id: 'hero', name: 'My Hero Academia', kanji: '英', vibe: 'Hero green · signal red', acc: '#2FE08A', acc2: '#E8463B', bg: '#050807', motto: '限界を超えろ · 英雄の道' },
-  { id: 'cursed', name: 'Jujutsu Kaisen', kanji: '呪', vibe: 'Void blue · cursed violet', acc: '#6E8BFF', acc2: '#9B3CF5', bg: '#05040B', motto: '己を超えろ · 呪の領域' },
-  { id: 'slayer', name: 'Demon Slayer', kanji: '刃', vibe: 'Water teal · flame crimson', acc: '#2FC4A5', acc2: '#E0303F', bg: '#070506', motto: '刃を研げ · 夜明けまで' },
+  { id: 'zero', name: 'REI Zero', icon: 'rei', vibe: 'Ice cyan · cobalt', acc: '#9BE7F2', acc2: '#3A6FF2', bg: '#050608', motto: 'ZERO EXCUSES · SELF-DISCIPLINE PROTOCOL' },
+  { id: 'shinobi', name: 'Naruto', icon: 'kunai', vibe: 'Blaze orange · night indigo', acc: '#FF7A1A', acc2: '#2B4CC9', bg: '#07060A', motto: 'NEVER GIVE UP · THAT IS THE WAY' },
+  { id: 'voyager', name: 'One Piece', icon: 'strawhat', vibe: 'Straw gold · captain red', acc: '#F5C542', acc2: '#D7263D', bg: '#06070A', motto: 'SET SAIL · CHASE THE DREAM' },
+  { id: 'hero', name: 'My Hero Academia', icon: 'fist', vibe: 'Hero green · signal red', acc: '#2FE08A', acc2: '#E8463B', bg: '#050807', motto: 'GO BEYOND · PLUS ULTRA' },
+  { id: 'cursed', name: 'Jujutsu Kaisen', icon: 'eye', vibe: 'Void blue · cursed violet', acc: '#6E8BFF', acc2: '#9B3CF5', bg: '#05040B', motto: 'SURPASS YOURSELF · DOMAIN EXPANSION' },
+  { id: 'slayer', name: 'Demon Slayer', icon: 'strength', vibe: 'Water teal · flame crimson', acc: '#2FC4A5', acc2: '#E0303F', bg: '#070506', motto: 'SHARPEN THE BLADE · UNTIL DAWN' },
 ];
 
 export const ACCENT_EXTRAS = ['#FF6A4D', '#B8A6FF', '#9EF2B5', '#E9E3D3'];

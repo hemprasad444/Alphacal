@@ -18,7 +18,7 @@ interface Rest {
 
 export default function Session() {
   const s = useStore();
-  const { accent, settings } = s;
+  const { accent } = s;
   const insets = useSafeAreaInsets();
   // Rest days can still open a session from a link; fall back to push day.
   const plan = useMemo(() => todaysPlan(new Date(), s.program) ?? SESSIONS.PUSH, [s.program]);
@@ -103,7 +103,7 @@ export default function Session() {
       <View style={{ paddingTop: insets.top + 6, paddingHorizontal: 20 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <IconButton size={40} onPress={() => router.back()}>✕</IconButton>
-          <Label color={C.muted}>{`SESSION · ${plan.title.toUpperCase()}${settings.hud ? ` · ${plan.jp}` : ''}`}</Label>
+          <Label color={C.muted}>{`SESSION · ${plan.title.toUpperCase()}`}</Label>
           <View style={{ width: 40 }} />
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 22 }}>

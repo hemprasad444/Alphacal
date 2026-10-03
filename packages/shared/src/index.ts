@@ -18,3 +18,5 @@ export * from './voices';
 export * from './agent';
 export * from './workout';
 export * from './onboarding';
+export * from './icons';
+export * from './game';
