@@ -54,7 +54,7 @@ export default function Today() {
           secondary: 'Ask REI', onSecondary: () => ask("What's left today?"),
         }
       : {
-          time: sessionCountdown(now), title: plan.title, sub: plan.sub,
+          time: sessionCountdown(now, profile.sessionTime), title: plan.title, sub: plan.sub,
           why: strong ? plan.why.strong : plan.why.slipping,
           primary: 'Begin session', onPrimary: () => router.push('/session'),
           secondary: 'Reschedule', onSecondary: () => ask("Can I move tonight's workout to tomorrow?"),

@@ -16,3 +16,5 @@ export * from './chart';
 export * from './activities';
 export * from './voices';
 export * from './agent';
+export * from './workout';
+export * from './onboarding';

@@ -24,8 +24,8 @@ export default function Talk() {
   const input = useRef<TextInput>(null);
   // Get a live voice session ready now, so tapping the voice button connects straight away.
   useEffect(() => {
-    if (s.cloud && liveVoiceAvailable) prepareVoiceSession();
-  }, [s.cloud]);
+    if (s.cloud && liveVoiceAvailable) prepareVoiceSession(s.settings.liveEngine);
+  }, [s.cloud, s.settings.liveEngine]);
   const list = useRef<FlashListRef<Message>>(null);
 
   const tough = settings.tone !== 'Coach';

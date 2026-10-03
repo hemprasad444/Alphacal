@@ -1,14 +1,28 @@
-// The live voice agent (ElevenLabs): REI's prompt for a session, and the actions it can take.
+// The live voice agent (ElevenLabs or our LiveKit + Fish agent): REI's prompt for a session, and the actions it can take.
 // The tool names here must match the client tools the app registers (app/src/components/LiveVoice.tsx).
+import { nutrition } from './derive';
 import { MEMORY_KINDS, type MemoryKind } from './memory';
 import { PROFILE_KEYS, systemContext, systemRules, type ReiContext } from './rei';
-import type { ProfileKey } from './types';
+import type { Meal, Message, Profile, ProfileKey } from './types';
+import { WORKOUT_KINDS } from './workout';
 
-const ACTIONS = `If they tell you they ate something, react to how it fits what's left today, then call log_meal with your realistic estimate for the whole meal (Indian home portions unless they say otherwise). If they explicitly ask to change their goal, deadline, a body stat or a daily target, call update_vow once per value. When they tell you a lasting fact about themselves (diet, allergy, injury, schedule, equipment, likes, life constraints), call remember with a short third-person note. If they ask for a new or changed training plan, call rebuild_program and tell them the new week is on its way. Keep the conversation flowing around these actions and never mention tools.`;
+/**
+ * Calorie anchors for the live model. Fast models guess Indian meals 30-50% low without them
+ * (3 rotis with paneer butter masala at 350 kcal); with them they match the big models.
+ */
+const ANCHORS = `Calorie anchors (scale for amounts; restaurant food runs about 30% higher): masala dosa 380 kcal each, plain dosa 170, idli 60 each, sambar bowl 130, coconut chutney 2 tbsp 90, roti or chapati 110, plain paratha 260, aloo paratha 330, cup of cooked rice 210, dal bowl 180, paneer butter masala bowl 480, chicken curry bowl 350, restaurant chicken biryani plate 850, chicken fried rice plate 750, Maggi pack 360, egg 75, poha plate 300, samosa 260, filter coffee with sugar 110, chai with sugar 90, cola 330 ml 140. Never round a full meal down; when unsure, estimate higher. Protein×4 + carbs×4 + fat×9 must come out close to the calories. Say numbers as plain digits (1250, not 1 250 or one-two-fifty) and never mix digits with number words.`;
+
+const ACTIONS = `If they tell you they ate something, react to how it fits what's left today, then call log_meal with your realistic estimate for the whole meal (Indian home portions unless they say otherwise). ${ANCHORS} Only log a meal they clearly say they ate or are eating; if the food you heard sounds odd (speech recognition mishears food names) or might be one already logged today, ask before logging. If they say a logged meal is wrong or ask to remove it, call remove_meal with its name, then log the right one if they gave it. If they tell you they trained, played a sport, ran, walked or cycled today, react, then call log_workout once per activity with their minutes (and distance if they gave one). If they explicitly ask to change their goal, deadline, a body stat, a daily target, their usual training time or their bedtime, call update_vow once per value. When they tell you a lasting fact about themselves (diet, allergy, injury, schedule, equipment, likes, life constraints), call remember with a short third-person note. If they ask for a new or changed training plan, call rebuild_program and tell them the new week is on its way. Keep the conversation flowing around these actions and never mention tools. Always speak English, even if they ask for another language; tell them other languages are coming soon.`;
+
+/**
+ * Where a live call stays. On a call the fast model read Python code aloud for 30 seconds when asked,
+ * and invented its own setup ("GPT-4", "running inside your iPhone").
+ */
+const SCOPE = `This is a live voice call: everything you write is spoken aloud. Never write code, markdown, lists, links, emoji or symbols; only short spoken sentences. You're their fitness and life coach: if they ask for something outside that (writing code, homework, essays, long stories, news, anything that needs a screen), say in one line that's not your thing and steer back to them. You are REI. Never say which AI model, company, server or technology you run on, or who built or manages you; laugh it off in character ("I'm REI, that's all you need to know") and move on. Don't make up facts about yourself or the app.`;
 
 /** The whole system prompt for one live session: personality, voice rules, actions and today's numbers. */
 export function agentPrompt(x: ReiContext): string {
-  return `${systemRules({ tough: x.tough, bro: x.bro, nudge: x.nudge, tools: false, voice: true, actions: ACTIONS })}\n\n${systemContext(x)}`;
+  return `${systemRules({ tough: x.tough, bro: x.bro, nudge: x.nudge, tools: false, voice: true, actions: ACTIONS })}\n\n${SCOPE}\n\n${systemContext(x)}`;
 }
 
 export function agentGreeting(x: Pick<ReiContext, 'bro' | 'tough'>): string {
@@ -35,9 +49,18 @@ export const AGENT_TOOLS = [
     carbs: num('Carbohydrates, grams'),
     fat: num('Fat, grams'),
   }),
+  tool('remove_meal', 'Remove a meal logged today, when the user says it is wrong or asks to delete it.', {
+    name: str('Name of the logged meal to remove, as it appears in today’s meals'),
+  }),
+  tool('log_workout', 'Log a workout, sport or activity the user says they did today.', {
+    kind: str('session for gym or home training, run/walk/cycle for distance cardio, activity for a sport or anything else', { enum: [...WORKOUT_KINDS] }),
+    name: str('What they did, in a few words, e.g. "leg day", "football", "yoga"'),
+    minutes: num('How long, in minutes'),
+    km: num('Distance in km for a run, walk or ride; 0 if not given'),
+  }),
   tool('update_vow', 'Change one of the user’s goal, deadline, body stats or daily targets, only when they explicitly ask.', {
     field: str('Which value to change', { enum: [...PROFILE_KEYS] }),
-    value: str('New value. Numbers as plain digits; deadline as YYYY-MM-DD.'),
+    value: str('New value. Numbers as plain digits; deadline as YYYY-MM-DD; sessionTime and bedtime as HH:MM (24-hour).'),
   }),
   tool('remember', 'Keep a lasting fact about the user for all future conversations.', {
     fact: str('Short third-person note, e.g. "Vegetarian; eats eggs"'),
@@ -48,6 +71,27 @@ export const AGENT_TOOLS = [
   }),
 ];
 
+/** Recent chat, oldest first, so a live call picks up where the conversation left off. */
+export function recentTurns(messages: Message[], n = 12): { role: 'user' | 'assistant'; content: string }[] {
+  return messages
+    .filter(m => m.role !== 'sys' && !m.alert && m.text.trim())
+    .slice(-n)
+    .map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text.trim().slice(0, 400) }));
+}
+
+/** The same recent chat as a prompt block, for an engine that only takes a prompt (ElevenLabs). */
+export function historyBlock(turns: { role: 'user' | 'assistant'; content: string }[]): string {
+  if (!turns.length) return '';
+  const lines = turns.map(t => `${t.role === 'user' ? 'THEM' : 'YOU'}: ${t.content.replace(/\s+/g, ' ')}`);
+  return `\n\nRECENT CONVERSATION (text and voice, oldest first; continue from it, don't repeat it; anything asked in it was already handled, so act only on what they ask now):\n${lines.join('\n')}`;
+}
+
+/** The same tools as OpenAI-style function schemas, for the LiveKit agent (voice-agent/agent.py). */
+export const LIVEKIT_TOOLS = AGENT_TOOLS.map(({ name, description, parameters }) => ({ name, description, parameters }));
+
+/** "07:00" or "7:00" style 24-hour time. */
+export const isClock = (v: string) => /^([01]?\d|2[0-3]):[0-5]\d$/.test(v);
+
 const NUMERIC: ProfileKey[] = ['weight', 'targetWeight', 'bf', 'targetBf', 'kcal', 'protein', 'carbs', 'fat', 'steps', 'sleep', 'sessions'];
 
 /** One update_vow call → a safe profile change, or null when it isn't one. */
@@ -57,10 +101,30 @@ export function vowChange(field: unknown, value: unknown): [ProfileKey, string] 
   const k = field as ProfileKey;
   if (NUMERIC.includes(k) && !(parseFloat(v) > 0)) return null;
   if (k === 'deadline' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  if ((k === 'sessionTime' || k === 'bedtime') && !isClock(v)) return null;
   if (!v || v.length > 400) return null;
   return [k, v];
 }
 
 export function memoryKind(kind: unknown): MemoryKind {
   return MEMORY_KINDS.includes(kind as MemoryKind) ? (kind as MemoryKind) : 'life';
+}
+
+/** The latest of today's meals matching a spoken name ("the chicken bread"), or -1. */
+export function mealIndex(meals: Meal[], name: string): number {
+  const want = name.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\b(the|a|an|that|my)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!want) return -1;
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  for (let i = meals.length - 1; i >= 0; i--) if (norm(meals[i].name) === want) return i;
+  for (let i = meals.length - 1; i >= 0; i--) {
+    const have = norm(meals[i].name);
+    if (have.includes(want) || want.includes(have)) return i;
+  }
+  return -1;
+}
+
+/** Today's totals against targets, told to the live agent after it logs something so it never works from stale numbers. */
+export function todayLine(profile: Profile, meals: Meal[]): string {
+  const nu = nutrition(meals, { steps: null, sleep: null, sleepL: '' });
+  return `Today now: ${nu.kcal} of ${profile.kcal} kcal, protein ${nu.protein} of ${profile.protein} g, carbs ${nu.carbs} of ${profile.carbs} g, fat ${nu.fat} of ${profile.fat} g.`;
 }

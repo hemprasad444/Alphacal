@@ -1,4 +1,4 @@
-import { addMemory, applyUpdate, catalog, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, stripTags, systemContext, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
+import { addMemory, applyUpdate, catalog, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, stripTags, systemContext, type SessionLog, todaysPlan, parseWorkout, workoutLog, workoutNote, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineInt } from 'firebase-functions/params';
@@ -7,7 +7,7 @@ import { db } from '../admin';
 import { complete, LlmError, OPENROUTER_API_KEY, type Msg } from '../llm';
 import { verify } from '../http';
 import { DAILY_LIMIT, loadUser, usageDay } from './load';
-import { forgetTool, logMealTool, logMealWithVerdictTool, parseForget, parseMealItems, parseRemember, parseVow, rebuildProgramTool, rememberTool, updateVowTool } from './tools';
+import { forgetTool, logMealTool, logWorkoutTool, logMealWithVerdictTool, parseForget, parseMealItems, parseRemember, parseVow, rebuildProgramTool, rememberTool, updateVowTool } from './tools';
 
 // Index the food list when the instance starts, not on the first message.
 warmFoodSearch();
@@ -95,6 +95,7 @@ export const chat = onRequest(
     let meal: Meal | null = null;
     let vow: ReturnType<typeof parseVow> = null;
     let rebuild: string | null = null;
+    const workouts: SessionLog[] = [];
     const memory: Memory = { remember: [], forget: [] };
     try {
       const final = await (body.mode === 'meal' ? mealCall(system, turns) : chatCall(tier, canRebuild, system, turns, d => {
@@ -117,6 +118,9 @@ export const chat = onRequest(
               meal = mealFromItems(resolveAiItems(m.items, foods), hhmm(data.input.now), 'ai', m.name);
               if (m.verdict) text = m.verdict;
             }
+          } else if (b.name === 'log_workout') {
+            const w = parseWorkout(b.input);
+            if (w) workouts.push(workoutLog(w, { date: data.today, plan: todaysPlan(data.input.now, data.input.program), kg: parseFloat(data.input.profile.weight) || 0, now: Date.now() }));
           } else if (b.name === 'update_vow') {
             vow = parseVow(b.input);
           } else if (b.name === 'remember') {
@@ -133,13 +137,13 @@ export const chat = onRequest(
       if (!text && meal) text = fuelLine(data.input.profile, nutrition([...data.input.meals, meal], data.input.activity));
       if (!text) text = 'Noted.';
 
-      const notes = await save(uid, data, body.replyId, text, meal, vow, rebuild, memory);
+      const notes = await save(uid, data, body.replyId, text, meal, vow, rebuild, memory, workouts);
       const total = Date.now() - t0;
       send({ type: 'done', id: body.replyId, text, notes, model: final.model, tier, ttftMs: ttft, totalMs: total });
       logger.info('chat', {
         uid, tier, voice: body.voice, loadMs, model: final.model, mode: body.mode, ttftMs: ttft, totalMs: total, stop: final.stop_reason,
         inTokens: final.usage.input_tokens, outTokens: final.usage.output_tokens, cacheRead: final.usage.cache_read_input_tokens ?? 0,
-        meal: !!meal, vow: !!vow, remembered: memory.remember.length, forgot: memory.forget.length, foods: candidates.length, matched: meal?.items?.filter(i => i.food).length ?? 0,
+        meal: !!meal, vow: !!vow, workouts: workouts.length, remembered: memory.remember.length, forgot: memory.forget.length, foods: candidates.length, matched: meal?.items?.filter(i => i.food).length ?? 0,
       });
     } catch (e) {
       const status = e instanceof LlmError ? e.status : undefined;
@@ -157,7 +161,7 @@ function chatCall(tier: Tier, canRebuild: boolean, system: string, turns: Msg[],
     system,
     messages: turns,
     maxTokens: tier === 'deep' ? 16000 : 2048,
-    tools: canRebuild ? [logMealTool, updateVowTool, rememberTool, forgetTool, rebuildProgramTool] : [logMealTool, updateVowTool, rememberTool, forgetTool],
+    tools: canRebuild ? [logMealTool, logWorkoutTool, updateVowTool, rememberTool, forgetTool, rebuildProgramTool] : [logMealTool, logWorkoutTool, updateVowTool, rememberTool, forgetTool],
     onText,
   });
 }
@@ -173,7 +177,7 @@ interface Memory {
 }
 
 /** Store REI's reply and any meal, vow or memory change in one batch. Returns the system notes shown in chat. */
-export async function save(uid: string, data: Awaited<ReturnType<typeof loadUser>>, replyId: string, text: string, meal: Meal | null, vow: ReturnType<typeof parseVow>, rebuild: string | null, memory: Memory = { remember: [], forget: [] }) {
+export async function save(uid: string, data: Awaited<ReturnType<typeof loadUser>>, replyId: string, text: string, meal: Meal | null, vow: ReturnType<typeof parseVow>, rebuild: string | null, memory: Memory = { remember: [], forget: [] }, workouts: SessionLog[] = []) {
   const user = db.doc(`users/${uid}`);
   const batch = db.batch();
   const now = Date.now();
@@ -200,6 +204,15 @@ export async function save(uid: string, data: Awaited<ReturnType<typeof loadUser
       batch.set(user, { memory: kept.list }, { merge: true });
       if (kept.added.length) notes.push(`REMEMBERED · ${kept.added.map(m => m.text.toUpperCase()).join(' · ')}`.slice(0, 200));
       if (gone.removed.length) notes.push(`FORGOT · ${gone.removed.map(m => m.text.toUpperCase()).join(' · ')}`.slice(0, 200));
+    }
+  }
+  if (workouts.length) {
+    // Same records as logging it in the app: the day counts as trained, and each one is a session.
+    const minutes = workouts.reduce((n, w) => n + Math.round(w.seconds / 60), 0);
+    batch.set(user.collection('days').doc(data.today), { sessionDone: true, loggedMin: FieldValue.increment(minutes) }, { merge: true });
+    for (const w of workouts) {
+      batch.set(user.collection('sessions').doc(), w);
+      notes.push(workoutNote(w));
     }
   }
   if (rebuild !== null) {

@@ -1,5 +1,5 @@
 import type { LlmTool } from '../llm';
-import { type AiItem, MEMORY_KINDS, type MemoryKind, PROFILE_KEYS, type MealEstimate, type ProfileKey } from '@rei/shared';
+import { type AiItem, isClock, MEMORY_KINDS, WORKOUT_KINDS, type MemoryKind, PROFILE_KEYS, type MealEstimate, type ProfileKey } from '@rei/shared';
 
 type Tool = LlmTool;
 
@@ -51,6 +51,23 @@ export const logMealWithVerdictTool: Tool = {
   },
 };
 
+/** A workout, sport or cardio they did today; the server records it as a session. */
+export const logWorkoutTool: Tool = {
+  name: 'log_workout',
+  description: 'Log a workout, sport or activity the user says they did today. Call it after writing your reply, once per activity.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      kind: { type: 'string', enum: [...WORKOUT_KINDS], description: 'session for gym or home training, run/walk/cycle for distance cardio, activity for a sport or anything else' },
+      name: { type: 'string', description: 'What they did, in a few words, e.g. "leg day", "football", "yoga"' },
+      minutes: { type: 'number', description: 'How long, in minutes' },
+      km: { type: 'number', description: 'Distance in km for a run, walk or ride; 0 if not given' },
+    },
+    required: ['kind', 'name', 'minutes', 'km'],
+    additionalProperties: false,
+  },
+};
+
 export const updateVowTool: Tool = {
   name: 'update_vow',
   description: 'Change the user’s goal, deadline, body stats or daily targets when they explicitly ask. Include only fields that change.',
@@ -63,7 +80,7 @@ export const updateVowTool: Tool = {
           type: 'object',
           properties: {
             field: { type: 'string', enum: [...PROFILE_KEYS] },
-            value: { type: 'string', description: 'New value. Numbers as plain digits; deadline as YYYY-MM-DD.' },
+            value: { type: 'string', description: 'New value. Numbers as plain digits; deadline as YYYY-MM-DD; sessionTime and bedtime as HH:MM (24-hour).' },
           },
           required: ['field', 'value'],
           additionalProperties: false,
@@ -182,6 +199,7 @@ export function parseVow(input: unknown): Partial<Record<ProfileKey, string>> | 
     const k = field as ProfileKey, v = value.trim();
     if (NUMERIC.includes(k) && !(parseFloat(v) > 0)) continue;
     if (k === 'deadline' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) continue;
+    if ((k === 'sessionTime' || k === 'bedtime') && !isClock(v)) continue;
     if (k === 'goal' && (!v || v.length > 400)) continue;
     out[k] = v;
   }

@@ -51,11 +51,12 @@ const BRO = `You are REI (零, "zero", as in zero excuses), living in one person
 export function systemRules(o: { tough: boolean; nudge: boolean; tools: boolean; voice?: boolean; bro?: boolean; actions?: string }): string {
   const actions = o.actions ?? (o.tools
     ? `If the user reports eating something, react to how it fits the remaining budget (numbers after this meal), then call log_meal with one item per food. For a food on the Food list, use its id and one of its portions or grams, and take its numbers from the list. For anything else use food_id "none" and estimate realistically for Indian home portions unless they say otherwise.
-If the user explicitly asks to change their goal, deadline, or a stat or target, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it), then call update_vow with only the fields that change.
+If the user explicitly asks to change their goal, deadline, a stat or target, or their usual training time or bedtime, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it), then call update_vow with only the fields that change.
+If the user says they trained, played a sport, ran, walked or cycled today, react to it, then call log_workout once per activity with their minutes (and distance when they give one). Don't log plans or past days, only what they did today.
 When they tell you a lasting fact about themselves (diet or allergies, an injury or health condition, their schedule, the equipment they have, what they love or hate doing, a life constraint), call remember with a short third-person note. Not moods, today's numbers or one-off plans. If something you remember stops being true, call forget with its id. Respect what you remember in every answer: never suggest food they don't eat or a movement their injury rules out.
 Always write your complete reply first; a tool call ends your turn. Never mention the tools.`
     : `If the user reports eating something, estimate its macros realistically, react to how it fits the remaining budget (numbers after this meal), and append a final line exactly: MEAL {"name":"short name","kcal":n,"p":n,"c":n,"f":n}.
-If the user explicitly asks to change their goal, deadline, or a stat/target, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it) and append a final line exactly: UPDATE {json} using only these keys: goal (string), deadline (YYYY-MM-DD), weight, targetWeight, bf, targetBf, kcal, protein, carbs, fat, steps, sleep, sessions (numbers).`);
+If the user explicitly asks to change their goal, deadline, or a stat/target, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it) and append a final line exactly: UPDATE {json} using only these keys: goal (string), deadline (YYYY-MM-DD), weight, targetWeight, bf, targetBf, kcal, protein, carbs, fat, steps, sleep, sessions (numbers), sessionTime, bedtime (HH:MM).`);
   const persona = o.bro
     ? BRO
     : `You are REI (零, "zero", as in zero excuses), a personal AI fitness companion living inside one person's iPhone. You are their tough-love best friend and elite coach in one. Intensity: ${o.tough ? '10/10: blunt, direct, refuses excuses' : '6/10: firm but warmer'}.
@@ -67,7 +68,7 @@ ${o.nudge ? '' : 'The user turned off proactive check-ins: do not nag unprompted
 /** Today's numbers. Changes every request, so it goes after the cached rules. */
 export function systemContext(x: ReiContext): string {
   const p = x.profile, nu = x.nutrition;
-  return `Context: now ${x.today}, ${x.now}. Goal (their words): "${p.goal}". Deadline ${p.deadline}. Weight ${p.weight} kg → ${p.targetWeight} kg. Body fat ${p.bf}% → ${p.targetBf}%. Height ${p.height} cm, age ${p.age}. Daily targets: ${p.kcal} kcal, ${p.protein} g protein, ${p.carbs} g carbs, ${p.fat} g fat, ${p.steps} steps, ${p.sleep} h sleep, ${p.sessions} sessions/week. Trains: ${x.disciplines.join(', ').toLowerCase() || 'general fitness'}.
+  return `Context: now ${x.today}, ${x.now}.${p.name ? ` Their name is ${p.name}.` : ''} Goal (their words): "${p.goal}". Deadline ${p.deadline}. Weight ${p.weight} kg → ${p.targetWeight} kg. Body fat ${p.bf}% → ${p.targetBf}%. Height ${p.height} cm, age ${p.age}. Daily targets: ${p.kcal} kcal, ${p.protein} g protein, ${p.carbs} g carbs, ${p.fat} g fat, ${p.steps} steps, ${p.sleep} h sleep, ${p.sessions} sessions/week. Usually trains at ${p.sessionTime || SESSION_TIME}, bedtime ${p.bedtime || '23:00'}. Trains: ${x.disciplines.join(', ').toLowerCase() || 'general fitness'}.
 ${x.memory ? `What you remember about them (lasting):\n${x.memory}\n` : ''}This week: ${x.weekLine}. Today: ${x.todayLine}${x.todayLine === 'Rest day' ? '' : x.sessionDone ? ' (DONE)' : ' (not done yet)'}. Calories ${nu.kcal}/${p.kcal}, protein ${nu.protein}/${p.protein} g, carbs ${nu.carbs}/${p.carbs} g, fat ${nu.fat}/${p.fat} g, steps ${nu.steps ?? 'unknown'}, sleep last night ${nu.sleep == null ? 'unknown' : nu.sleepL}. Meals today: ${x.meals.map(m => `${m.time} ${m.name} (${m.kcal} kcal, P${m.p} C${m.c} F${m.f})`).join('; ') || 'none yet'}.`;
 }
 
@@ -118,11 +119,11 @@ export function parseReply(raw: string): ParsedReply {
   return { text, upd, meal };
 }
 
-export const PROFILE_KEYS: ProfileKey[] = ['goal', 'deadline', 'weight', 'targetWeight', 'bf', 'targetBf', 'kcal', 'protein', 'carbs', 'fat', 'steps', 'sleep', 'sessions'];
+export const PROFILE_KEYS: ProfileKey[] = ['name', 'goal', 'deadline', 'weight', 'targetWeight', 'bf', 'targetBf', 'kcal', 'protein', 'carbs', 'fat', 'steps', 'sleep', 'sessions', 'sessionTime', 'bedtime'];
 
 const PROFILE_LABELS: Record<ProfileKey, string> = {
-  goal: 'GOAL', deadline: 'DEADLINE', weight: 'WEIGHT', targetWeight: 'TARGET', bf: 'BODY FAT', targetBf: 'TARGET BF',
-  height: 'HEIGHT', age: 'AGE', kcal: 'CALORIES', protein: 'PROTEIN', carbs: 'CARBS', fat: 'FAT', steps: 'STEPS', sleep: 'SLEEP', sessions: 'SESSIONS',
+  name: 'NAME', goal: 'GOAL', deadline: 'DEADLINE', weight: 'WEIGHT', targetWeight: 'TARGET', bf: 'BODY FAT', targetBf: 'TARGET BF',
+  height: 'HEIGHT', age: 'AGE', kcal: 'CALORIES', protein: 'PROTEIN', carbs: 'CARBS', fat: 'FAT', steps: 'STEPS', sleep: 'SLEEP', sessions: 'SESSIONS', sessionTime: 'TRAINING TIME', bedtime: 'BEDTIME',
 };
 
 /** Apply an UPDATE payload to the profile. Returns null when nothing allowed changed. */
@@ -195,7 +196,7 @@ export function offlineReply(text: string, x: Pick<ReiContext, 'profile' | 'nutr
   }
   return tough
     ? 'Noted. Now stop talking to me and go do the thing you already know you need to do.'
-    : `Got it. Keep it simple: the next action is ${x.todayLine === 'Rest day' ? 'a long walk and an early night' : `the session at ${SESSION_TIME}`}.`;
+    : `Got it. Keep it simple: the next action is ${x.todayLine === 'Rest day' ? 'a long walk and an early night' : `the session at ${x.profile.sessionTime || SESSION_TIME}`}.`;
 }
 
 /** Split a reply into a bold lead sentence and the rest, for the voice screen. */

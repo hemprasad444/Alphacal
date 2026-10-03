@@ -10,6 +10,8 @@ import { alpha, C, fontFamily } from '../../lib/theme';
 import { useStore } from '../../state/store';
 
 const BODY: [string, ProfileKey, string][] = [['WEIGHT', 'weight', 'kg'], ['TARGET', 'targetWeight', 'kg'], ['BODY FAT', 'bf', '%'], ['TARGET BF', 'targetBf', '%'], ['HEIGHT', 'height', 'cm'], ['AGE', 'age', 'yrs']];
+/** When REI expects you to train and to sleep: check-ins and "late" labels follow these. */
+const ROUTINE: [string, ProfileKey, string][] = [['Training time', 'sessionTime', 'When you usually train'], ['Bedtime', 'bedtime', 'Quiet hours start 30 min after']];
 const TARGETS: [string, ProfileKey, string][] = [['Calories', 'kcal', 'kcal'], ['Protein', 'protein', 'g'], ['Carbs', 'carbs', 'g'], ['Fat', 'fat', 'g'], ['Steps', 'steps', 'steps'], ['Sleep', 'sleep', 'h'], ['Sessions', 'sessions', '/ wk']];
 
 export default function Vow() {
@@ -97,6 +99,28 @@ export default function Vow() {
               />
               <Txt size={13} color={C.dim} style={{ width: 42 }}>{unit}</Txt>
             </View>
+          </View>
+        ))}
+      </View>
+
+      <Label style={{ marginTop: 30 }}>ROUTINE</Label>
+      <View style={{ marginTop: 8 }}>
+        {ROUTINE.map(([label, k, hint]) => (
+          <View key={k} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingVertical: 13, borderTopWidth: 1, borderTopColor: C.line }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Txt size={16}>{label}</Txt>
+              <Txt size={12} color={C.dim}>{hint}</Txt>
+            </View>
+            <TextInput
+              value={profile[k]}
+              onChangeText={v => s.setProfileField(k, v)}
+              placeholder="HH:MM"
+              placeholderTextColor={C.dim}
+              keyboardType="numbers-and-punctuation"
+              keyboardAppearance="dark"
+              maxLength={5}
+              style={{ width: 90, padding: 0, textAlign: 'right', fontFamily: fontFamily('mono', 400), fontSize: 16 * settings.textSize, color: accent }}
+            />
           </View>
         ))}
       </View>

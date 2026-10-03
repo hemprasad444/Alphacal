@@ -158,11 +158,11 @@ export function weekNote(w: Week, sessionDone: boolean): string {
     : `${misses}. Tonight is the last session this week. Miss it and the week doesn’t count.`;
 }
 
-export function sessionCountdown(now: Date = new Date()): string {
-  const m = minutesUntil(SESSION_TIME, now);
-  if (m > 0) return `${SESSION_TIME} · IN ${m >= 120 ? Math.round(m / 60) + ' H' : m + ' MIN'}`;
-  if (m > -15) return `${SESSION_TIME} · NOW`;
-  return `${SESSION_TIME} · ${-m >= 120 ? Math.round(-m / 60) + ' H' : -m + ' MIN'} LATE`;
+export function sessionCountdown(now: Date = new Date(), time: string = SESSION_TIME): string {
+  const m = minutesUntil(time, now);
+  if (m > 0) return `${time} · IN ${m >= 120 ? Math.round(m / 60) + ' H' : m + ' MIN'}`;
+  if (m > -15) return `${time} · NOW`;
+  return `${time} · ${-m >= 120 ? Math.round(-m / 60) + ' H' : -m + ' MIN'} LATE`;
 }
 
 export interface Trajectory {
@@ -236,7 +236,7 @@ export function protocol(plan: SessionPlan | null, nu: Nutrition, profile: Profi
     ? { label: 'Training', jp: '鍛錬', value: 'Rest day', status: 'REST', tone: 'acc', pct: 1 }
     : sessionDone
       ? { label: 'Training', jp: '鍛錬', value: `${plan.title} · ${loggedMin} min`, status: 'DONE', tone: 'acc', pct: 1 }
-      : { label: 'Training', jp: '鍛錬', value: `${plan.title} · ${SESSION_TIME}`, status: 'PENDING', tone: strong ? 'warn' : 'alert', pct: 0 };
+      : { label: 'Training', jp: '鍛錬', value: `${plan.title} · ${profile.sessionTime || SESSION_TIME}`, status: 'PENDING', tone: strong ? 'warn' : 'alert', pct: 0 };
   return [
     training,
     { label: 'Protein', jp: '蛋白', value: `${nu.protein} / ${protT} g`, status: pp < 0.7 ? 'BEHIND' : 'ON TRACK', tone: pp < 0.7 ? 'alert' : 'acc', pct: frac(nu.protein, protT), fuel: true },

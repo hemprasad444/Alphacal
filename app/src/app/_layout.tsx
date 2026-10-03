@@ -44,6 +44,7 @@ const EXTRA_FONTS: Partial<Record<string, Record<string, number>>> = {
 
 function Root() {
   const ready = useStore(s => s.ready), theme = useStore(s => s.theme), account = useStore(s => s.account), program = useStore(s => s.program);
+  const userLoaded = useStore(s => s.userLoaded), onboarded = useStore(s => s.onboarded), obActive = useStore(s => s.obActive);
   // Only the default faces block the splash; another chosen font loads alongside.
   const [fontsLoaded, fontError] = useFonts(BASE_FONTS);
   const font = useStore(s => s.settings.font);
@@ -68,13 +69,19 @@ function Root() {
   }, [done]);
 
   if (!done) return null;
-  // With a Firebase project configured, testers sign in; "Try the demo" skips it.
+  // With a Firebase project configured, new people start with onboarding (which can switch to
+  // signing in); "Try the demo" skips it. Signed-in accounts that never onboarded do it once.
   const needsAuth = (account.status === 'signedOut' || account.status === 'denied') && !account.demo;
+  const needsOnboarding = account.status === 'signedIn' && userLoaded && !onboarded;
+  const onboarding = needsAuth || needsOnboarding || obActive;
   return (
     <>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.bg }, animation: 'slide_from_right' }}>
-        <Stack.Protected guard={!needsAuth}>
+        <Stack.Protected guard={onboarding}>
+          <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
+        </Stack.Protected>
+        <Stack.Protected guard={!onboarding}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="talk" />
           <Stack.Screen name="settings" />

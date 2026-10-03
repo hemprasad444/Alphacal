@@ -1,4 +1,4 @@
-import { AGENT_TOOLS, agentGreeting, agentPrompt, memoryKind, vowChange } from '../agent';
+import { AGENT_TOOLS, agentGreeting, agentPrompt, historyBlock, LIVEKIT_TOOLS, mealIndex, memoryKind, recentTurns, vowChange } from '../agent';
 import { reiContext } from '../context';
 import { DEFAULT_DISCIPLINES, DEFAULT_PROFILE } from '../data';
 
@@ -21,7 +21,7 @@ describe('live voice agent', () => {
   });
 
   it('defines every tool the app handles, with all parameters required', () => {
-    expect(AGENT_TOOLS.map(t => t.name).sort()).toEqual(['log_meal', 'rebuild_program', 'remember', 'update_vow']);
+    expect(AGENT_TOOLS.map(t => t.name).sort()).toEqual(['log_meal', 'log_workout', 'rebuild_program', 'remember', 'remove_meal', 'update_vow']);
     for (const t of AGENT_TOOLS) expect(t.parameters.required).toEqual(Object.keys(t.parameters.properties));
   });
 
@@ -37,5 +37,36 @@ describe('live voice agent', () => {
   it('falls back to "life" for unknown memory kinds', () => {
     expect(memoryKind('diet')).toBe('diet');
     expect(memoryKind('random')).toBe('life');
+  });
+
+  it('carries recent chat into a live call, skipping system notes and alerts', () => {
+    const turns = recentTurns([
+      { role: 'sys', text: 'Synced', time: '09:00' },
+      { role: 'user', text: 'Doing legs tonight', time: '09:01' },
+      { role: 'rei', text: 'Check-in: you slipped', time: '09:02', alert: true },
+      { role: 'rei', text: 'Good. Squats first.', time: '09:03' },
+    ]);
+    expect(turns).toEqual([
+      { role: 'user', content: 'Doing legs tonight' },
+      { role: 'assistant', content: 'Good. Squats first.' },
+    ]);
+    expect(historyBlock(turns)).toContain('THEM: Doing legs tonight\nYOU: Good. Squats first.');
+    expect(historyBlock([])).toBe('');
+  });
+
+  it('gives the LiveKit agent the same tools as the ElevenLabs agent', () => {
+    expect(LIVEKIT_TOOLS.map(t => t.name)).toEqual(AGENT_TOOLS.map(t => t.name));
+    expect(LIVEKIT_TOOLS[0]).not.toHaveProperty('type');
+  });
+
+  it('finds the meal to remove by its spoken name, latest first', () => {
+    const m = (name: string) => ({ time: '20:00', name, kcal: 500, p: 20, c: 60, f: 15 });
+    const meals = [m('Chicken fried rice'), m('Chicken bread'), m('Chai')];
+    expect(mealIndex(meals, 'the chicken bread')).toBe(1);
+    expect(mealIndex(meals, 'Chicken Fried Rice')).toBe(0);
+    expect(mealIndex(meals, 'chai')).toBe(2);
+    expect(mealIndex(meals, 'pizza')).toBe(-1);
+    expect(mealIndex(meals, '')).toBe(-1);
+    expect(mealIndex([m('Chai'), m('Chai')], 'chai')).toBe(1);
   });
 });

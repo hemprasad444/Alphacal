@@ -31,6 +31,9 @@ const EFFORT: Record<Task, 'none' | 'low' | 'medium'> = { fast: 'none', deep: 'l
 
 const SETTING = Object.fromEntries(Object.entries(DEFAULTS).map(([k, d]) => [k, defineString(d.env, { default: d.models })])) as Record<Task, ReturnType<typeof defineString>>;
 
+/** The OpenRouter models for a job, first choice first. */
+export const modelsFor = (task: Task) => (SETTING[task].value() || DEFAULTS[task].models).split(',').map(s => s.trim()).filter(Boolean);
+
 export interface LlmTool {
   name: string;
   description: string;
@@ -85,7 +88,7 @@ interface Chunk {
 }
 
 export async function complete(o: CompleteOpts): Promise<LlmResult> {
-  const models = (SETTING[o.task].value() || DEFAULTS[o.task].models).split(',').map(s => s.trim()).filter(Boolean);
+  const models = modelsFor(o.task);
   const last = o.messages.length - 1;
   const body = {
     model: models[0],

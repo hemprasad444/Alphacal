@@ -14,9 +14,11 @@ const base = (over: Partial<CoachState> = {}): CoachState => ({
 const t = (h: number, m = 0) => new Date(2026, 9, 2, h, m);
 
 describe('nudgeDue', () => {
-  it('stays quiet at night', () => {
-    expect(nudgeDue(base({ nutrition: { ...base().nutrition, kcal: 9000 } }), t(23, 45))).toBeNull();
-    expect(nudgeDue(base({ nutrition: { ...base().nutrition, kcal: 9000 } }), t(6, 30))).toBeNull();
+  it('stays quiet from 30 minutes after bedtime until they wake (bedtime plus their sleep target)', () => {
+    const over = base({ nutrition: { ...base().nutrition, kcal: 9000 } });
+    expect(nudgeDue(over, t(23, 45))).toBeNull();
+    expect(nudgeDue(over, t(6, 15))).toBeNull();
+    expect(nudgeDue(over, t(6, 30))?.id).toBe('over-kcal');
   });
 
   it('calls out a late session 30 minutes after it was due', () => {

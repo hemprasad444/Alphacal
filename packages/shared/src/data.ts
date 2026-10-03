@@ -104,6 +104,7 @@ export const SESSION_TIME = '18:30';
 export const WEIGHT_HISTORY = [86.0, 85.4, 85.1, 84.3, 84.0, 83.6, 83.1, 82.7, 82.2, 81.9, 81.4];
 
 export const DEFAULT_PROFILE: Profile = {
+  name: '',
   goal: 'Get lean to 74 kg with visible abs, bench 100 kg, and run a sub-24 5K by March 1st.',
   deadline: '2027-03-01',
   weight: '81.6',
@@ -119,6 +120,8 @@ export const DEFAULT_PROFILE: Profile = {
   steps: '10000',
   sleep: '7.5',
   sessions: '5',
+  sessionTime: '18:30',
+  bedtime: '23:00',
 };
 
 export const DEFAULT_DISCIPLINES: Record<string, boolean> = {
@@ -137,6 +140,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fx: true,
   speak: true,
   voice: DEFAULT_VOICE,
+  liveEngine: 'elevenlabs',
   nudge: true,
   tone: 'Tough love',
   avatar: 'Character in chat',

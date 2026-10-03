@@ -1,7 +1,7 @@
 // Firestore reads and writes for one signed-in user. Writes are fire-and-forget: the
 // store has already updated the screen, and Firestore queues writes while offline.
 import { collection, deleteDoc, doc, documentId, limit, onSnapshot, orderBy, query, setDoc, where, type Unsubscribe } from 'firebase/firestore';
-import type { DayDoc, Food, Measurement, MemoryItem, Message, ProgressPhoto, WeeklyReport, Profile, SessionLog, Settings, WeekProgram, WeighIn } from '@rei/shared';
+import type { DayDoc, Food, Measurement, MemoryItem, Message, ProgressPhoto, WeeklyReport, Profile, SessionLog, Settings, WeekProgram, WeighIn, Intake } from '@rei/shared';
 import { fb } from './firebase';
 
 export interface UserDoc {
@@ -14,6 +14,10 @@ export interface UserDoc {
   timezone: string;
   /** What REI remembers about them. */
   memory: MemoryItem[];
+  /** Finished first-run onboarding. */
+  onboarded: boolean;
+  /** Their onboarding answers, kept for later (current bests, intensity, preferences). */
+  intake: Intake;
 }
 
 const userRef = (uid: string) => doc(fb().db, 'users', uid);

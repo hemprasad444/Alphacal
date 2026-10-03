@@ -42,6 +42,8 @@ export interface MealItem {
 }
 
 export interface Profile {
+  /** What REI calls them. */
+  name: string;
   goal: string;
   deadline: string;
   weight: string;
@@ -57,6 +59,10 @@ export interface Profile {
   steps: string;
   sleep: string;
   sessions: string;
+  /** Usual training time, HH:MM in the user's zone. */
+  sessionTime: string;
+  /** Bedtime, HH:MM. */
+  bedtime: string;
 }
 
 export type ProfileKey = keyof Profile;
@@ -68,6 +74,8 @@ export type BgStrength = 'Subtle' | 'Medium' | 'Bold';
 export type EmblemSize = 'S' | 'M' | 'L';
 export type EmblemPos = 'Top' | 'Center' | 'Bottom';
 
+export type LiveEngine = 'elevenlabs' | 'livekit';
+
 export interface Settings {
   theme: ThemeId;
   accent: string | null;
@@ -78,6 +86,8 @@ export interface Settings {
   speak: boolean;
   /** ElevenLabs voice id, from VOICES. */
   voice: string;
+  /** Live voice engine: the ElevenLabs agent, or our LiveKit agent with a Fish voice. */
+  liveEngine: LiveEngine;
   nudge: boolean;
   tone: Tone;
   avatar: Avatar;

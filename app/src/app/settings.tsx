@@ -100,6 +100,14 @@ export default function Settings() {
           );
         })}
       </Card>
+      <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
+        <Row
+          title="Live voice engine"
+          sub={settings.liveEngine === 'livekit' ? 'Fish voice on our own agent · cheaper' : 'ElevenLabs agent'}
+          right={<Segmented value={settings.liveEngine} options={[['elevenlabs', 'ElevenLabs'], ['livekit', 'Fish']]} onChange={v => s.setOpt('liveEngine', v)} />}
+          last
+        />
+      </Card>
       {iphoneOnly ? <Txt size={12} color={C.dim} style={{ marginTop: 8, paddingHorizontal: 4 }}>Premium voice is off right now, so this preview used the iPhone’s voice. Open Voice to see why.</Txt> : null}
 
       <Label style={{ marginTop: 30 }}>ACCOUNT</Label>

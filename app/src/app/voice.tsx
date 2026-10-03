@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
-import { Core } from '../components/Core';
+import { Wave } from '../components/Core';
 import { Dots, IconButton, Label, Tap, Txt } from '../components/ui';
 import { hhmm, type Message, splitLead, stripTags } from '@rei/shared';
 import { alpha, C, fontFamily, mix } from '../lib/theme';
@@ -255,7 +255,7 @@ export default function Voice() {
             </IconButton>
             <View style={{ alignItems: 'center', gap: 4 }}>
               <Tap onPress={() => void listen()} haptic style={{ width: 76, height: 76, alignItems: 'center', justifyContent: 'center' }}>
-                <Core size={phase === 'listening' ? 68 : 58} speaking={phase === 'speaking' || phase === 'listening'} />
+                <Wave size={phase === 'listening' ? 68 : 58} active={phase === 'speaking' || phase === 'listening'} />
               </Tap>
               <Label size={9} color={phase === 'listening' ? accent : C.label}>{hint}</Label>
             </View>

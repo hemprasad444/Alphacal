@@ -35,7 +35,7 @@ export function reiContext(i: ContextInput): ReiContext {
     bro: !!i.bro,
     nudge: i.nudge,
     sessionDone: i.sessionDone,
-    todayLine: plan ? `${plan.title} session at ${SESSION_TIME}` : 'Rest day',
+    todayLine: plan ? `${plan.title} session at ${i.profile.sessionTime || SESSION_TIME}` : 'Rest day',
     weekLine: weekLine(week(i.history, i.sessionDone, i.now, i.program)),
     disciplines: Object.keys(i.disc).filter(k => i.disc[k]),
     now: hhmm(i.now),

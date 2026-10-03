@@ -3,7 +3,7 @@ import { loadState, saveSlices } from '../lib/persist';
 import { sliceStore } from '../lib/sliceStore';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
-  type Activity, activityFor, activityFromDay, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  type Activity, activityFor, activityFromDay, type Intake, intakeDisciplines, intakeMemory, intakeProfile, type Workout, workoutLog, workoutNote, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
@@ -15,6 +15,7 @@ import { DEFAULT_EMBLEM, EMBLEMS, THEMES, type Emblem, type Theme } from '../lib
 import { type Account, useAccount } from './account';
 
 const LOCAL_KEY = 'rei-state-v1';
+const PENDING_KEY = 'rei-onboarding-pending';
 const cloudKey = (uid: string) => `rei-cloud-v1-${uid}`;
 
 interface Persisted {
@@ -49,6 +50,8 @@ interface Persisted {
   photos: ProgressPhoto[];
   /** Lasting facts REI uses in every answer. */
   memory: MemoryItem[];
+  /** Went through first-run onboarding (demo mode counts as done). */
+  onboarded: boolean;
 }
 
 /** The old format kept everything in one AsyncStorage key per mode; moved over on first load. */
@@ -79,6 +82,7 @@ function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
     measurements: [],
     photos: [],
     memory: [],
+    onboarded: demo,
   };
 }
 
@@ -137,6 +141,15 @@ function daysAgoIso(n: number): string {
 export interface Store extends Persisted {
   ready: boolean;
   account: Account;
+  /** The signed-in user's record has arrived from the cloud at least once. */
+  userLoaded: boolean;
+  /** The onboarding flow is on screen (kept reachable until it finishes its entry animation). */
+  obActive: boolean;
+  setObActive: (on: boolean) => void;
+  /** Onboarding answers waiting for a brand-new account to be created. */
+  pendingOnboarding: Intake | null;
+  /** Turn onboarding answers into the profile, settings, disciplines and memory. Before sign-up, holds them until the account exists. */
+  completeOnboarding: (d: Intake) => void;
   /** Signed in: data lives in Firestore and syncs across devices. */
   cloud: boolean;
   theme: Theme;
@@ -194,6 +207,8 @@ export interface Store extends Persisted {
   logCardio: (km: number, seconds: number, kind?: 'run' | 'walk' | 'cycle') => void;
   /** A sport or activity by minutes, with its estimated burn. Counts as today's session. */
   logActivity: (m: Movement, minutes: number) => void;
+  /** A workout REI was told about (live voice): recorded exactly as the server records it from chat. */
+  logWorkout: (w: Workout) => void;
   /** Ask REI to rewrite this week's training. Resolves with REI's note for the week. */
   rebuildProgram: (focus?: string) => Promise<string>;
   clearChat: () => void;
@@ -278,6 +293,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [today, setToday] = useState(isoDate);
   const [thinking, setThinking] = useState(false);
+  const [userLoaded, setUserLoaded] = useState(false);
+  const [obActive, setObActive] = useState(false);
+  const [pendingOnboarding, setPendingOnboarding] = useState<Intake | null>(null);
+  const pendingOb = useRef<Intake | null>(null);
   const [fuelBusy, setFuelBusy] = useState(false);
   const [fuelVerdict, setFuelVerdict] = useState('');
   /** REI's reply while it streams in, until the stored copy arrives from Firestore. */
@@ -380,11 +399,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!uid || loadedKey !== cloudKey(uid)) return;
     const unsubs = [
       onUser(uid, doc => {
+        setUserLoaded(true);
         if (!doc) {
-          // First sign-in: start the account from what's on this device.
           const s = ref.current;
           const startedOn = isoDate();
-          write.user(uid, { profile: s.profile, settings: s.settings, disc: s.disc, startedOn, chatClearedAt: 0, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+          const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          // First sign-in. Fresh from onboarding, its answers are written separately (below);
+          // otherwise start the account from what's on this device.
+          write.user(uid, pendingOb.current ? { startedOn, chatClearedAt: 0, timezone } : { profile: s.profile, settings: s.settings, disc: s.disc, startedOn, chatClearedAt: 0, timezone, onboarded: s.onboarded });
           patch({ startedOn });
           pushMessages([msg('rei', 'You’re in. I have your vow. Now we find out if you meant it. What’s first today?')]);
           return;
@@ -395,6 +417,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...(doc.settings ? { settings: same(cur.settings, { ...DEFAULT_SETTINGS, ...doc.settings }) } : {}),
           ...(doc.disc ? { disc: same(cur.disc, doc.disc) } : {}),
           startedOn: doc.startedOn ?? cur.startedOn,
+          onboarded: doc.onboarded === true,
           ...(doc.memory ? { memory: same(cur.memory, readMemory(doc.memory)) } : {}),
           chatClearedAt: doc.chatClearedAt ?? 0,
         }));
@@ -426,8 +449,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       onMeasurements(uid, measurements => patch({ measurements })),
       onPhotos(uid, photos => patch({ photos })),
     ];
-    return () => unsubs.forEach(u => u());
+    return () => {
+      unsubs.forEach(u => u());
+      setUserLoaded(false);
+    };
   }, [uid, loadedKey, today, patch, pushMessages, msg]);
+
+  // Onboarding answers saved before the account existed: restore them after a restart.
+  useEffect(() => {
+    AsyncStorage.getItem(PENDING_KEY)
+      .then(raw => {
+        if (!raw || pendingOb.current) return;
+        const d = JSON.parse(raw) as Intake;
+        pendingOb.current = d;
+        setPendingOnboarding(d);
+      })
+      .catch(() => {});
+  }, []);
+
+  const applyOnboarding = useCallback((d: Intake) => {
+    const cur = ref.current;
+    const profile = intakeProfile(d, new Date());
+    const settings: Settings = { ...cur.settings, theme: d.theme, accent: null, tone: d.tone, nudge: d.nudge, speak: d.speak };
+    const disc = intakeDisciplines(d);
+    const memory = addMemory(cur.memory, intakeMemory(d), 'you', Date.now(), newId).list;
+    patch({ profile, settings, disc, memory, onboarded: true });
+    const u = uidRef.current;
+    if (u) {
+      write.user(u, { profile, settings, disc, memory, onboarded: true, intake: d, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+      write.weighIn(u, cur.day, d.weight);
+    }
+  }, [patch]);
+
+  // Signed up at the end of onboarding: write the held answers into the new account.
+  useEffect(() => {
+    if (!uid || loadedKey !== cloudKey(uid) || !pendingOnboarding) return;
+    const t = setTimeout(() => {
+      applyOnboarding(pendingOnboarding);
+      pendingOb.current = null;
+      setPendingOnboarding(null);
+      AsyncStorage.removeItem(PENDING_KEY).catch(() => {});
+    }, 0);
+    return () => clearTimeout(t);
+  }, [uid, loadedKey, pendingOnboarding, applyOnboarding]);
 
   const history = useCallback((s: Persisted) => historyOf(s, !!uidRef.current), []);
   const activityOf = useCallback((s: Persisted, sessionDone = s.sessionDone) => activityIn(s, !!uidRef.current, sessionDone), []);
@@ -665,6 +729,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ready,
       account,
       cloud,
+      userLoaded,
+      obActive,
+      setObActive,
+      pendingOnboarding,
+      completeOnboarding: d => {
+        if (uidRef.current) {
+          applyOnboarding(d);
+          return;
+        }
+        pendingOb.current = d;
+        setPendingOnboarding(d);
+        AsyncStorage.setItem(PENDING_KEY, JSON.stringify(d)).catch(() => {});
+      },
       theme,
       accent: p.settings.accent ?? theme.acc,
       emblem: items.find(e => e.id === sel) ?? null,
@@ -719,6 +796,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       findBarcode: async code => ref.current.foods.find(f => f.barcode === code) ?? lookupBarcode(code),
       finishSession,
       logCardio,
+      logWorkout: w => {
+        const s = ref.current;
+        const log = workoutLog(w, { date: s.day, plan: todaysPlan(new Date(), s.program), kg: parseFloat(s.profile.weight) || 0, now: Date.now() });
+        const loggedMin = s.loggedMin + w.minutes;
+        patch({ sessionDone: true, loggedMin, sessions: [...s.sessions, { ...log, id: newId() }] });
+        pushMessages([msg('sys', workoutNote(log))]);
+        const u = uidRef.current;
+        if (u) {
+          write.day(u, s.day, { sessionDone: true, loggedMin });
+          write.session(u, log);
+        }
+      },
       logActivity: (m, minutes) => {
         const s = ref.current;
         const kcal = movementKcal(m.met, parseFloat(s.profile.weight) || 0, minutes);
@@ -825,7 +914,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
     };
-  }, [p, ready, account, cloud, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
+  }, [p, ready, account, cloud, userLoaded, obActive, pendingOnboarding, applyOnboarding, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
 
   // Subscribers read the new value during this render pass; those that didn't render (their
   // slice is unchanged, or they sit outside this subtree) are told after commit.

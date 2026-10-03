@@ -42,11 +42,14 @@ const body = {
       prompt: { prompt: 'You are REI, a personal fitness coach and friend.', llm, reasoning_effort: 'none', temperature: 0.8, tools: AGENT_TOOLS },
     },
     tts: { model_id: 'eleven_v4_turbo', voice_id: voice, expressive_mode: true },
-    conversation: { max_duration_seconds: 900 },
+    // One conversation is at most 10 minutes.
+    conversation: { max_duration_seconds: 600 },
   },
   platform_settings: {
     // Private: sessions need a token from our backend.
     auth: { enable_auth: true },
+    // A budget guard across all users. Bursting off: above the limit ElevenLabs bills double.
+    call_limits: { daily_limit: 200, agent_concurrency_limit: 5, bursting_enabled: false },
     overrides: {
       conversation_config_override: {
         agent: { prompt: { prompt: true }, first_message: true },
