@@ -20,5 +20,10 @@ export const VOICE_TAGS = ['firm', 'serious', 'encouraging', 'excited', 'warmly'
 
 /** Removes [audio tags] from text meant to be read, including one still arriving at the end. */
 export function stripTags(text: string): string {
-  return text.replace(/\[[a-z][a-z '-]{0,24}\]\s*/gi, '').replace(/\[[a-z '-]{0,24}$/i, '').replace(/\s{2,}/g, ' ').trim();
+  return text.replace(/\[\s*[a-z][a-z '?-]{0,24}\]\s*/gi, '').replace(/\[\s*[a-z '?-]{0,24}$/i, '').replace(/\s{2,}/g, ' ').trim();
+}
+
+/** Fast models write tags loosely ("[ warm? ]"); the voice needs "[warm]" or it reads them out. */
+export function tidyTags(text: string): string {
+  return text.replace(/\[\s*([a-z][a-z '-]{0,24}?)[\s?]*\]/gi, '[$1]').replace(/\[\s*[?\s]*\]\s*/g, '');
 }

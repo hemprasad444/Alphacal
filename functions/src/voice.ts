@@ -5,7 +5,7 @@
 import { logger } from 'firebase-functions';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { onRequest } from 'firebase-functions/v2/https';
-import { characterOf, DEFAULT_VOICE, hasVoice, isVoice, stripTags } from '@rei/shared';
+import { characterOf, DEFAULT_VOICE, hasVoice, isVoice, stripTags, tidyTags } from '@rei/shared';
 import { speak, TtsError } from './elevenlabs';
 import { verify } from './http';
 
@@ -60,7 +60,7 @@ export const tts = onRequest({ secrets: [TTS_API_KEY, FISH_API_KEY], timeoutSeco
     return;
   }
   const model = TTS_MODEL.value() || 'eleven_v4_turbo';
-  const raw = typeof req.query.t === 'string' ? req.query.t.trim().slice(0, 600) : '';
+  const raw = typeof req.query.t === 'string' ? tidyTags(req.query.t.trim().slice(0, 600)) : '';
   // Other models would read a tag out loud.
   const text = TAG_MODELS.includes(model) ? raw : stripTags(raw);
   if (!text) {
@@ -94,7 +94,7 @@ export const tts = onRequest({ secrets: [TTS_API_KEY, FISH_API_KEY], timeoutSeco
 
 /** Streams one sentence from Fish Audio as MP3. Fish S2 performs [tags] itself, so they stay in. */
 async function fishSpeak(t: unknown, voice: string, apiKey: string, res: Parameters<Parameters<typeof onRequest>[0]>[1], uid: string) {
-  const text = typeof t === 'string' ? t.trim().slice(0, 600) : '';
+  const text = typeof t === 'string' ? tidyTags(t.trim().slice(0, 600)) : '';
   if (!text) {
     res.status(400).json({ error: 'Missing text.' });
     return;

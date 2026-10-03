@@ -1,4 +1,4 @@
-import { addMemory, applyUpdate, catalog, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, stripTags, systemContext, type SessionLog, todaysPlan, parseWorkout, workoutLog, workoutNote, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
+import { addMemory, applyUpdate, catalog, continuityNote, thread, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, stripTags, systemContext, type SessionLog, todaysPlan, parseWorkout, workoutLog, workoutNote, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineInt } from 'firebase-functions/params';
@@ -82,9 +82,11 @@ export const chat = onRequest(
     // The foods this message might mean, so REI logs the list's numbers instead of guessing.
     const foods = [...data.foods, ...catalog()];
     const candidates = foodCandidates(body.text, foods);
-    const system = [systemRules({ tough: ctx.tough, bro: ctx.bro, nudge: ctx.nudge, tools: true, voice: body.voice }), systemContext(ctx), ...(candidates.length ? [foodListPrompt(candidates)] : [])].join('\n\n');
-    const userText = body.mode === 'meal' ? `Just ate: ${body.text}` : body.text;
     const history = data.messages.filter(m => m.id !== body.userMessageId);
+    // Where the conversation stands, so REI picks the thread up instead of greeting every time.
+    const flow = body.mode === 'chat' ? [continuityNote(thread(history))] : [];
+    const system = [systemRules({ tough: ctx.tough, bro: ctx.bro, nudge: ctx.nudge, tools: true, voice: body.voice }), systemContext(ctx), ...flow, ...(candidates.length ? [foodListPrompt(candidates)] : [])].join('\n\n');
+    const userText = body.mode === 'meal' ? `Just ate: ${body.text}` : body.text;
     const turns = toTurns([...history, { role: 'user', text: userText, time: '' }]);
     // Voice can't wait on the slow model: always the quick one, which can still queue a rebuild.
     const tier: Tier = body.mode === 'meal' || body.voice ? 'fast' : route(body.text);

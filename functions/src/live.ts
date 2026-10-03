@@ -1,4 +1,4 @@
-import { agentGreeting, agentPrompt, characterOf, hasVoice, historyBlock, isVoice, LIVEKIT_TOOLS, recentTurns, reiContext } from '@rei/shared';
+import { agentPrompt, characterOf, continuityNote, fallbackOpener, hasVoice, historyBlock, isVoice, LIVEKIT_TOOLS, recentTurns, reiContext, type ReiContext, thread, type Thread } from '@rei/shared';
 import { logger } from 'firebase-functions';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
@@ -7,6 +7,7 @@ import { AccessToken, RoomAgentDispatch, RoomConfiguration } from 'livekit-serve
 import { gzipSync } from 'node:zlib';
 import { db } from './admin';
 import { loadUser, usageDay } from './chat/load';
+import { OPENROUTER_API_KEY } from './llm';
 import { BASE, key, TTS_API_KEY, VOICE_ID } from './voice';
 
 /** Set by scripts/agent-setup.mjs in functions/.env.<project-id>. */
@@ -41,7 +42,7 @@ export type Engine = 'elevenlabs' | 'livekit';
  * - livekit: a token for a fresh room; joining it dispatches the REI agent with the session baked in.
  * The app may ask for an engine (for side-by-side testing); otherwise LIVE_ENGINE decides.
  */
-export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET], timeoutSeconds: 30 }, async req => {
+export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET, OPENROUTER_API_KEY], timeoutSeconds: 30 }, async req => {
   if (!req.auth || req.auth.token.tester !== true) throw new HttpsError('permission-denied', 'Not on the tester list.');
   const uid = req.auth.uid;
   const asked = (req.data as { engine?: unknown } | undefined)?.engine;
@@ -59,10 +60,12 @@ export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET],
     usage.set({ voice: FieldValue.increment(1) }, { merge: true }).catch(e => logger.warn('usage write failed', e));
     const data = await loadUser(uid);
     const ctx = reiContext(data.input);
+    const flow = thread(data.messages);
+    const prompt = `${agentPrompt(ctx)}\n\n${continuityNote(flow)}`;
     const session = {
-      prompt: agentPrompt(ctx),
+      prompt,
       history: recentTurns(data.messages),
-      greeting: agentGreeting(ctx),
+      greeting: await opener(prompt, flow, ctx, historyBlock(recentTurns(data.messages, 8))),
       // The character's own voice once it's added; REI's Fish voice until then.
       voice: (hasVoice(characterOf(data.settings.character)) ? characterOf(data.settings.character).fish : '') || FISH_VOICE_ID.value(),
       models: LLM_LIVE.value().split(',').map(s => s.trim()).filter(Boolean),
@@ -94,12 +97,51 @@ export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET],
   const { token } = (await res.json()) as { token?: string };
   if (!token) throw new HttpsError('unavailable', 'Live voice is unavailable right now.');
   const ctx = reiContext(data.input);
-  logger.info('voiceSession', { uid, engine, ms: Date.now() - t0, used: used + 1 });
+  const flow = thread(data.messages);
+  const prompt = `${agentPrompt(ctx)}\n\n${continuityNote(flow)}${historyBlock(recentTurns(data.messages))}`;
+  const firstMessage = await opener(prompt, flow, ctx, '');
+  logger.info('voiceSession', { uid, engine, ms: Date.now() - t0, used: used + 1, gap: flow.gap });
   return {
     engine,
     token,
-    prompt: agentPrompt(ctx) + historyBlock(recentTurns(data.messages)),
-    firstMessage: agentGreeting(ctx),
+    prompt,
+    firstMessage,
     voiceId: isVoice(data.settings.voice) ? data.settings.voice : VOICE_ID.value(),
   };
 });
+
+const OPENER = `They just opened a live voice call with you. Write ONLY your first spoken line: 4 to 16 words, in your personality. Follow the CONVERSATION note first: if it's your first conversation, start by introducing yourself as REI; if they've been away for days, call out the gap first; if it's the same conversation, carry on mid-thread. Then mention one concrete thing: what they said last, or what's open today (protein left, tonight's session, a meal not logged). Never "how are you", "what's up" or "what's good". Plain words, at most one audio tag like [laughs].`;
+
+/**
+ * REI's first line for a call, written for this moment by the fast live model (~0.5 s, while the
+ * app prepares the session in the background). Falls back to a scripted line that still follows on.
+ */
+async function opener(prompt: string, flow: Thread, ctx: ReiContext, recent: string): Promise<string> {
+  const fallback = fallbackOpener(flow, { name: ctx.profile.name, bro: ctx.bro, tough: ctx.tough, seed: Date.now() });
+  const models = LLM_LIVE.value().split(',').map(s => s.trim()).filter(Boolean);
+  const t0 = Date.now();
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${OPENROUTER_API_KEY.value()}`, 'Content-Type': 'application/json', 'X-Title': 'REI opener' },
+      body: JSON.stringify({
+        model: models[0],
+        models,
+        max_tokens: 400,
+        temperature: 0.9,
+        reasoning: { effort: 'low', exclude: true },
+        provider: { order: ['groq', 'cerebras'], allow_fallbacks: true },
+        messages: [{ role: 'system', content: `${prompt}${recent}` }, { role: 'user', content: OPENER }],
+      }),
+      signal: AbortSignal.timeout(2500),
+    });
+    const out = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const line = (out.choices?.[0]?.message?.content ?? '').replace(/^["“]|["”]$/g, '').replace(/\s+/g, ' ').trim();
+    const ok = line.length >= 4 && line.length <= 160 && !/how are you|how[’']?s (it going|your)|what[’']?s (up|good|going on)/i.test(line);
+    logger.info('opener', { ms: Date.now() - t0, gap: flow.gap, used: ok ? 'model' : 'fallback' });
+    return ok ? line : fallback;
+  } catch (e) {
+    logger.warn('opener failed', { ms: Date.now() - t0, error: e instanceof Error ? e.message : String(e) });
+    return fallback;
+  }
+}
