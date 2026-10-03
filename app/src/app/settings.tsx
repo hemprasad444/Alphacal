@@ -14,7 +14,7 @@ const TEXT_SIZES: [number, string, number][] = [[0.82, 'SMALLEST', 11], [0.9, 'S
 export default function Settings() {
   const s = useStore();
   const { settings, accent, theme } = s;
-  const tough = settings.tone === 'Tough love';
+  const tough = settings.tone !== 'Coach';
   const [playing, setPlaying] = useState<string | null>(null);
   const [iphoneOnly, setIphoneOnly] = useState(false);
   const preview = useRef<Speaker | null>(null);
@@ -77,7 +77,7 @@ export default function Settings() {
 
       <Label style={{ marginTop: 30 }}>REI</Label>
       <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
-        <Row title="Intensity" sub={tough ? '10 / 10 · no excuses accepted' : '6 / 10 · firm, warmer'} right={<Segmented value={settings.tone} options={[['Tough love', 'Tough'], ['Coach', 'Coach']]} onChange={v => s.setOpt('tone', v)} />} />
+        <Row title="Personality" sub={settings.tone === 'Bro' ? 'Your gym bro · casual, swears back, banter' : tough ? '10 / 10 · no excuses accepted' : '6 / 10 · firm, warmer'} right={<Segmented value={settings.tone} options={[['Tough love', 'Tough'], ['Coach', 'Coach'], ['Bro', 'Bro']]} onChange={v => s.setOpt('tone', v)} />} />
         <Row title="In conversation" sub="Show her portrait or the core" right={<Segmented value={settings.avatar} options={[['Character in chat', 'Portrait'], ['Core only', 'Core']]} onChange={v => s.setOpt('avatar', v)} />} />
         <Row title="Speak replies aloud" sub="In voice mode" right={<Toggle on={settings.speak} onPress={() => s.setOpt('speak', !settings.speak)} />} />
         <Row title="Proactive check-ins" sub="REI messages you when you slip" right={<Toggle on={settings.nudge} onPress={() => s.setOpt('nudge', !settings.nudge)} />} />

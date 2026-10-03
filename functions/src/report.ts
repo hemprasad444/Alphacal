@@ -44,7 +44,7 @@ export async function buildReport(uid: string, opts: { at?: Date } = {}): Promis
   const t0 = Date.now();
   try {
     const memory = memorySummary(readMemory(u.memory));
-    const { system, user: prompt } = reportPrompt(stats, profile, settings.tone === 'Tough love', memory);
+    const { system, user: prompt } = reportPrompt(stats, profile, settings.tone !== 'Coach', memory);
     const res = await complete({ task: 'report', system, messages: [{ role: 'user', content: prompt }], maxTokens: 4000, json: REPORT_SCHEMA });
     const out = res.stop_reason === 'end_turn' ? normalizeReport(JSON.parse(jsonText(res))) : null;
     if (out) (text = out), (ai = true), (model = res.model);

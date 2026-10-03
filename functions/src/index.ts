@@ -5,3 +5,4 @@ export { mealFromPhoto } from './photo';
 export { coach } from './coach';
 export { weeklyReport, weeklyReports } from './report';
 export { stt, tts } from './voice';
+export { voiceSession } from './live';

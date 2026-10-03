@@ -23,6 +23,12 @@ const DEFAULTS: Record<Task, { env: string; models: string }> = {
   report: { env: 'LLM_REPORT', models: 'openai/gpt-6-luna,google/gemini-3.8-flash' },
 };
 
+/**
+ * How long each job may think before answering. Reasoning tokens arrive before any text,
+ * so quick chat skips it (it added 2-8 s to every reply); planning keeps a little.
+ */
+const EFFORT: Record<Task, 'none' | 'low' | 'medium'> = { fast: 'none', deep: 'low', photo: 'low', program: 'medium', report: 'low' };
+
 const SETTING = Object.fromEntries(Object.entries(DEFAULTS).map(([k, d]) => [k, defineString(d.env, { default: d.models })])) as Record<Task, ReturnType<typeof defineString>>;
 
 export interface LlmTool {
@@ -89,6 +95,7 @@ export async function complete(o: CompleteOpts): Promise<LlmResult> {
     usage: { include: true },
     // Only providers that support the tools / JSON schema asked for.
     provider: { require_parameters: true },
+    reasoning: { effort: EFFORT[o.task] as string, exclude: true },
     messages: [
       { role: 'system', content: o.system },
       ...o.messages.map((m, i) =>
@@ -103,14 +110,20 @@ export async function complete(o: CompleteOpts): Promise<LlmResult> {
   };
 
   let res: Response | null = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     res = await fetch(URL, {
       method: 'POST',
       headers: { Authorization: `Bearer ${OPENROUTER_API_KEY.value()}`, 'Content-Type': 'application/json', 'X-Title': 'REI' },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(110_000),
     });
-    if (res.ok || (res.status !== 429 && res.status < 500)) break;
+    if (res.ok) break;
+    // Some models must think; they reject effort "none". Ask for the least instead.
+    if (res.status === 400 && body.reasoning.effort === 'none') {
+      body.reasoning.effort = 'minimal';
+      continue;
+    }
+    if (res.status !== 429 && res.status < 500) break;
     await new Promise(r => setTimeout(r, 400));
   }
   if (!res || !res.ok) throw new LlmError(`OpenRouter ${res?.status}: ${(await res?.text())?.slice(0, 300)}`, res?.status);

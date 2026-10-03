@@ -14,7 +14,7 @@ export default function Today() {
   const now = useNow();
   const { settings, profile, sessionDone, accent } = s;
   const strong = settings.scenario === 'Strong week';
-  const tough = settings.tone === 'Tough love';
+  const tough = settings.tone !== 'Coach';
   const plan = todaysPlan(now, s.program);
   const nu = nutrition(s.meals, s.activity);
   const wk = calcWeek(s.history, sessionDone, now, s.program);

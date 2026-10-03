@@ -1,4 +1,4 @@
-import { addMemory, applyUpdate, catalog, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, systemContext, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
+import { addMemory, applyUpdate, catalog, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, stripTags, systemContext, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineInt } from 'firebase-functions/params';
@@ -24,6 +24,8 @@ interface Body {
   replyId: string;
   /** The user's message, already written by the app; excluded from history and sent as the last turn. */
   userMessageId?: string;
+  /** Spoken aloud: REI writes for the ear and may add audio tags. */
+  voice: boolean;
 }
 
 const ID = /^[a-z0-9]{6,40}$/;
@@ -35,7 +37,7 @@ function parseBody(raw: unknown): Body | null {
   if (typeof b.replyId !== 'string' || !ID.test(b.replyId)) return null;
   const mode: Mode = b.mode === 'meal' ? 'meal' : 'chat';
   const userMessageId = typeof b.userMessageId === 'string' && ID.test(b.userMessageId) ? b.userMessageId : undefined;
-  return { text, mode, replyId: b.replyId, userMessageId };
+  return { text, mode, replyId: b.replyId, userMessageId, voice: b.voice === true && mode === 'chat' };
 }
 
 /**
@@ -65,6 +67,7 @@ export const chat = onRequest(
     }
     const { uid } = who;
     const data = await loadUser(uid);
+    const loadMs = Date.now() - t0;
     if (data.usedToday >= DAILY_LIMIT) {
       res.status(429).json({ error: 'Daily message limit reached.' });
       return;
@@ -79,11 +82,13 @@ export const chat = onRequest(
     // The foods this message might mean, so REI logs the list's numbers instead of guessing.
     const foods = [...data.foods, ...catalog()];
     const candidates = foodCandidates(body.text, foods);
-    const system = [systemRules({ tough: ctx.tough, nudge: ctx.nudge, tools: true }), systemContext(ctx), ...(candidates.length ? [foodListPrompt(candidates)] : [])].join('\n\n');
+    const system = [systemRules({ tough: ctx.tough, bro: ctx.bro, nudge: ctx.nudge, tools: true, voice: body.voice }), systemContext(ctx), ...(candidates.length ? [foodListPrompt(candidates)] : [])].join('\n\n');
     const userText = body.mode === 'meal' ? `Just ate: ${body.text}` : body.text;
     const history = data.messages.filter(m => m.id !== body.userMessageId);
     const turns = toTurns([...history, { role: 'user', text: userText, time: '' }]);
-    const tier: Tier = body.mode === 'meal' ? 'fast' : route(body.text);
+    // Voice can't wait on the slow model: always the quick one, which can still queue a rebuild.
+    const tier: Tier = body.mode === 'meal' || body.voice ? 'fast' : route(body.text);
+    const canRebuild = tier === 'deep' || body.voice;
 
     let ttft = 0;
     let text = '';
@@ -92,7 +97,7 @@ export const chat = onRequest(
     let rebuild: string | null = null;
     const memory: Memory = { remember: [], forget: [] };
     try {
-      const final = await (body.mode === 'meal' ? mealCall(system, turns) : chatCall(tier, system, turns, d => {
+      const final = await (body.mode === 'meal' ? mealCall(system, turns) : chatCall(tier, canRebuild, system, turns, d => {
         if (!ttft) ttft = Date.now() - t0;
         send({ type: 'delta', text: d });
       }));
@@ -118,13 +123,13 @@ export const chat = onRequest(
             memory.remember.push(...parseRemember(b.input));
           } else if (b.name === 'forget') {
             memory.forget.push(...parseForget(b.input));
-          } else if (b.name === 'rebuild_program' && tier === 'deep') {
+          } else if (b.name === 'rebuild_program' && canRebuild) {
             const f = (b.input as { focus?: unknown } | null)?.focus;
             rebuild = typeof f === 'string' ? f.slice(0, 200) : '';
           }
         }
       }
-      text = parseReply(text).text;
+      text = stripTags(parseReply(text).text);
       if (!text && meal) text = fuelLine(data.input.profile, nutrition([...data.input.meals, meal], data.input.activity));
       if (!text) text = 'Noted.';
 
@@ -132,7 +137,7 @@ export const chat = onRequest(
       const total = Date.now() - t0;
       send({ type: 'done', id: body.replyId, text, notes, model: final.model, tier, ttftMs: ttft, totalMs: total });
       logger.info('chat', {
-        uid, tier, model: final.model, mode: body.mode, ttftMs: ttft, totalMs: total, stop: final.stop_reason,
+        uid, tier, voice: body.voice, loadMs, model: final.model, mode: body.mode, ttftMs: ttft, totalMs: total, stop: final.stop_reason,
         inTokens: final.usage.input_tokens, outTokens: final.usage.output_tokens, cacheRead: final.usage.cache_read_input_tokens ?? 0,
         meal: !!meal, vow: !!vow, remembered: memory.remember.length, forgot: memory.forget.length, foods: candidates.length, matched: meal?.items?.filter(i => i.food).length ?? 0,
       });
@@ -146,13 +151,13 @@ export const chat = onRequest(
 );
 
 /** Streamed reply that may end with log_meal / update_vow. */
-function chatCall(tier: Tier, system: string, turns: Msg[], onText: (d: string) => void) {
+function chatCall(tier: Tier, canRebuild: boolean, system: string, turns: Msg[], onText: (d: string) => void) {
   return complete({
     task: tier,
     system,
     messages: turns,
     maxTokens: tier === 'deep' ? 16000 : 2048,
-    tools: tier === 'deep' ? [logMealTool, updateVowTool, rememberTool, forgetTool, rebuildProgramTool] : [logMealTool, updateVowTool, rememberTool, forgetTool],
+    tools: canRebuild ? [logMealTool, updateVowTool, rememberTool, forgetTool, rebuildProgramTool] : [logMealTool, updateVowTool, rememberTool, forgetTool],
     onText,
   });
 }

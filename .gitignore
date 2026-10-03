@@ -7,3 +7,6 @@ functions/.env.local
 functions/.secret.local
 # Built at deploy time by scripts/build-images.mjs.
 hosting/exercises/
+
+# Local voice check output (functions/scripts/tts-check.mjs).
+rei-tts-check.mp3

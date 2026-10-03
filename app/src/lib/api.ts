@@ -8,6 +8,8 @@ export interface ChatRequest {
   mode: 'chat' | 'meal';
   replyId: string;
   userMessageId?: string;
+  /** Voice mode: REI writes for the ear and may add [audio tags]. */
+  voice?: boolean;
 }
 
 export interface ChatDone {

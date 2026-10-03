@@ -15,6 +15,8 @@ export interface ContextInput {
   history: History;
   activity: Activity;
   tough: boolean;
+  /** Casual best-friend voice that matches their energy and language. */
+  bro?: boolean;
   nudge: boolean;
   /** Wall-clock time in the user's zone. */
   now: Date;
@@ -30,6 +32,7 @@ export function reiContext(i: ContextInput): ReiContext {
     nutrition: nutrition(i.meals, i.activity),
     meals: i.meals,
     tough: i.tough,
+    bro: !!i.bro,
     nudge: i.nudge,
     sessionDone: i.sessionDone,
     todayLine: plan ? `${plan.title} session at ${SESSION_TIME}` : 'Rest day',

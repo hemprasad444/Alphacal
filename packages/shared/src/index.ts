@@ -15,3 +15,4 @@ export * from './memory';
 export * from './chart';
 export * from './activities';
 export * from './voices';
+export * from './agent';

@@ -7,6 +7,7 @@ import { Backdrop } from '../components/Backdrop';
 import { Core } from '../components/Core';
 import { Dots, IconButton, Label, Tap, Txt, VoiceGlyph } from '../components/ui';
 import { integrity, type Message, nutrition, todaysPlan, trajectory, week } from '@rei/shared';
+import { liveVoiceAvailable, prepareVoiceSession } from '../lib/live';
 import { alpha, C, fontFamily, mix } from '../lib/theme';
 import { useLiveReply, useStore } from '../state/store';
 
@@ -21,9 +22,13 @@ export default function Talk() {
   const params = useLocalSearchParams<{ draft?: string }>();
   const [draft, setDraft] = useState(params.draft ?? '');
   const input = useRef<TextInput>(null);
+  // Get a live voice session ready now, so tapping the voice button connects straight away.
+  useEffect(() => {
+    if (s.cloud && liveVoiceAvailable) prepareVoiceSession();
+  }, [s.cloud]);
   const list = useRef<FlashListRef<Message>>(null);
 
-  const tough = settings.tone === 'Tough love';
+  const tough = settings.tone !== 'Coach';
   const strong = settings.scenario === 'Strong week';
   const wk = week(s.history, s.sessionDone, new Date(), s.program);
   const nu = nutrition(s.meals, s.activity);
@@ -75,7 +80,7 @@ export default function Talk() {
           </View>
           <Label size={10} ls={0.14} color={accent} style={{ marginTop: 3 }}>{s.thinking ? 'READING YOU…' : tough ? 'TOUGH LOVE · 10/10' : 'COACH · 6/10'}</Label>
         </View>
-        <IconButton size={40} onPress={() => router.push('/voice')}><VoiceGlyph color={C.body} /></IconButton>
+        <IconButton size={40} onPress={() => router.push(s.cloud && liveVoiceAvailable ? '/live' : '/voice')}><VoiceGlyph color={C.body} /></IconButton>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)' }} contentContainerStyle={{ gap: 6, paddingVertical: 10, paddingHorizontal: 16 }}>
@@ -138,7 +143,7 @@ export default function Talk() {
                 <Txt size={20} w={600} color={C.ink}>↑</Txt>
               </Tap>
             ) : (
-              <Tap onPress={() => router.push('/voice')} style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', shadowColor: accent, shadowOpacity: 0.35, shadowRadius: 11, shadowOffset: { width: 0, height: 0 } }}>
+              <Tap onPress={() => router.push(s.cloud && liveVoiceAvailable ? '/live' : '/voice')} style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', shadowColor: accent, shadowOpacity: 0.35, shadowRadius: 11, shadowOffset: { width: 0, height: 0 } }}>
                 <VoiceGlyph color={C.ink} big />
               </Tap>
             )}

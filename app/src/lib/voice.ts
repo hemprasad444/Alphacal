@@ -1,10 +1,10 @@
 // Premium voice: REI's replies spoken sentence by sentence as they stream in, and your
 // speech transcribed by the backend. Falls back to the iPhone's voice (expo-speech) and
 // keyboard dictation when the backend voice isn't configured or can't be reached.
-import { DEFAULT_VOICE, isVoice, takeSentences, VOICE_PREVIEW } from '@rei/shared';
+import { DEFAULT_VOICE, isVoice, stripTags, takeSentences, VOICE_PREVIEW } from '@rei/shared';
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import { fetch } from 'expo/fetch';
-import { File } from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as Speech from 'expo-speech';
 import { fb, functionsUrl } from './firebase';
 
@@ -57,18 +57,81 @@ export async function transcribe(uri: string): Promise<string> {
   return ((await res.json()) as { text?: string }).text?.trim() ?? '';
 }
 
+/** Times one voice turn, from tapping to send until REI is heard. Logs to the dev server console. */
+export const stopwatch = {
+  t0: 0,
+  lag: null as ReturnType<typeof setInterval> | null,
+  start() {
+    this.t0 = Date.now();
+    if (!__DEV__) return;
+    // Logs any stretch where JavaScript was too busy to run: responses can't be picked up then.
+    if (this.lag) clearInterval(this.lag);
+    let last = Date.now();
+    const tick = setInterval(() => {
+      const now = Date.now();
+      if (now - last > 250) console.log(`REI⏱ +${now - this.t0}ms JS was blocked for ${now - last - 50}ms`);
+      last = now;
+      if (now - this.t0 > 40_000) clearInterval(tick);
+    }, 50);
+    this.lag = tick;
+  },
+  mark(label: string) {
+    if (__DEV__ && this.t0) console.log(`REI⏱ +${Date.now() - this.t0}ms ${label}`);
+  },
+};
+
+/** Characters per spoken piece after the first: long enough for a natural flow. */
+const CHUNK = 180;
+
+let seq = 0;
+
+function deleteQuietly(file: File) {
+  try {
+    file.delete();
+  } catch {
+    // already gone
+  }
+}
+
+/** Wakes the voice servers while the user is still talking, so the reply doesn't wait on a cold start. */
+export async function warmVoice() {
+  try {
+    const token = await fb().auth.currentUser?.getIdToken();
+    if (!token) return;
+    const headers = { Authorization: `Bearer ${token}` };
+    void fetch(`${functionsUrl('tts')}?probe=1`, { headers }).catch(() => {});
+    void fetch(functionsUrl('stt'), { headers }).catch(() => {});
+  } catch {
+    // best effort
+  }
+}
+
+interface Piece {
+  text: string;
+  /** The downloaded clip; null for the iPhone's voice. Resolves to null if the download failed. */
+  audio: Promise<File | null> | null;
+}
+
 /**
- * Speaks streamed text one sentence at a time. Feed it with push(), then end().
- * Each sentence's audio starts downloading as soon as the sentence is complete, so
- * playback runs back to back.
+ * Speaks streamed text. Feed it with push(), then end(). The first sentence is sent
+ * alone so REI starts talking fast; later sentences are grouped so the delivery flows
+ * instead of restarting every sentence.
+ *
+ * Each piece is downloaded once, as soon as its text is ready, and played from disk.
+ * (Streaming a URL into the iOS player made it fetch every clip twice, seconds apart.)
+ * A piece that fails is skipped; its words are already on screen. The iPhone's voice is
+ * only used when premium voice isn't available at all, so the two never mix.
  */
 export class Speaker {
   private buffer = '';
-  private queue: { text: string; player: AudioPlayer | null }[] = [];
+  private pending = '';
+  private sentAny = false;
+  private queue: Piece[] = [];
   private playing = false;
   private stopped = false;
   private ended = false;
-  private premiumBroken = false;
+  private current: AudioPlayer | null = null;
+  private files: File[] = [];
 
   constructor(
     private readonly premium: boolean,
@@ -82,38 +145,84 @@ export class Speaker {
     this.buffer += delta;
     const { sentences, rest } = takeSentences(this.buffer);
     this.buffer = rest;
-    sentences.forEach(s => this.enqueue(s));
+    sentences.forEach(s => this.add(s));
+  }
+
+  private add(sentence: string) {
+    if (!this.sentAny) {
+      this.sentAny = true;
+      // Start on the first clause of a long first sentence: a short clip is ready sooner.
+      const cut = sentence.length > 50 ? sentence.indexOf(', ', 12) : -1;
+      if (cut > 0 && cut < sentence.length - 10) {
+        this.enqueue(sentence.slice(0, cut + 1));
+        this.pending = sentence.slice(cut + 2);
+      } else {
+        this.enqueue(sentence);
+      }
+      return;
+    }
+    this.pending = this.pending ? `${this.pending} ${sentence}` : sentence;
+    if (this.pending.length >= CHUNK || !this.playing) this.flush();
+  }
+
+  private flush() {
+    if (!this.pending) return;
+    const text = this.pending;
+    this.pending = '';
+    this.enqueue(text);
   }
 
   /** The reply is complete: speak whatever is left. */
   end() {
     if (this.stopped) return;
-    if (this.buffer.trim()) this.enqueue(this.buffer.trim());
+    const tail = this.buffer.trim();
     this.buffer = '';
+    if (tail) this.pending = this.pending ? `${this.pending} ${tail}` : tail;
+    this.flush();
     this.ended = true;
     if (!this.playing && !this.queue.length) this.onIdle();
   }
 
   stop() {
     this.stopped = true;
-    this.queue.forEach(q => q.player?.remove());
+    this.pending = '';
     this.queue = [];
     this.current?.remove();
     this.current = null;
     Speech.stop();
+    this.files.forEach(deleteQuietly);
+    this.files = [];
   }
-
-  private current: AudioPlayer | null = null;
 
   private enqueue(text: string) {
-    const player = this.premium && this.token && !this.premiumBroken
-      ? createAudioPlayer({ uri: `${functionsUrl('tts')}?t=${encodeURIComponent(text)}&v=${encodeURIComponent(this.voice)}`, headers: { Authorization: `Bearer ${this.token}` } })
-      : null;
-    this.queue.push({ text, player });
-    if (!this.playing) this.next();
+    this.queue.push({ text, audio: this.premium && this.token ? this.download(text) : null });
+    if (!this.playing) void this.next();
   }
 
-  private next() {
+  private async download(text: string): Promise<File | null> {
+    const url = `${functionsUrl('tts')}?t=${encodeURIComponent(text)}&v=${encodeURIComponent(this.voice)}`;
+    stopwatch.mark(`clip requested (${text.length} chars)`);
+    try {
+      const file = await File.downloadFileAsync(url, new File(Paths.cache, `rei-voice-${Date.now()}-${seq++}.mp3`), {
+        headers: { Authorization: `Bearer ${this.token}` },
+        idempotent: true,
+      });
+      if (this.stopped) {
+        deleteQuietly(file);
+        return null;
+      }
+      this.files.push(file);
+      stopwatch.mark(`clip ready (${text.length} chars)`);
+      return file;
+    } catch (e) {
+      console.warn('REI: voice clip failed', e);
+      return null;
+    }
+  }
+
+  private async next() {
+    // A short last piece waits for company; once the queue runs dry, send it as is.
+    if (!this.queue.length) this.flush();
     const item = this.queue.shift();
     if (!item || this.stopped) {
       this.playing = false;
@@ -121,42 +230,37 @@ export class Speaker {
       return;
     }
     this.playing = true;
-    if (!item.player) {
-      Speech.speak(item.text, { rate: 1.02, pitch: 1.05, onDone: () => this.next(), onStopped: () => this.next(), onError: () => this.next() });
+    if (!item.audio) {
+      Speech.speak(stripTags(item.text), { rate: 1.02, pitch: 1.05, onDone: () => void this.next(), onStopped: () => void this.next(), onError: () => void this.next() });
       return;
     }
-    const player = item.player;
+    const file = await item.audio;
+    if (this.stopped) return;
+    if (!file) {
+      void this.next();
+      return;
+    }
+    const player = createAudioPlayer({ uri: file.uri });
     this.current = player;
-    let started = false;
     let settled = false;
-    const finish = (failed: boolean) => {
+    const finish = () => {
       if (settled) return;
       settled = true;
-      clearTimeout(startTimer);
-      clearTimeout(endTimer);
+      clearTimeout(timer);
       sub.remove();
       player.remove();
-      this.current = null;
-      if (failed && !this.stopped) {
-        // The premium voice didn't play: say this sentence and the rest with the iPhone's voice.
-        this.premiumBroken = true;
-        this.queue.forEach(q => {
-          q.player?.remove();
-          q.player = null;
-        });
-        Speech.speak(item.text, { rate: 1.02, pitch: 1.05, onDone: () => this.next(), onStopped: () => this.next(), onError: () => this.next() });
-        return;
-      }
-      this.next();
+      if (this.current === player) this.current = null;
+      deleteQuietly(file);
+      this.files = this.files.filter(f => f !== file);
+      void this.next();
     };
     const sub = player.addListener('playbackStatusUpdate', status => {
-      if (status.playing) started = true;
-      if (status.didJustFinish) finish(false);
+      if (status.didJustFinish) finish();
     });
-    // There's no error event: if audio hasn't started in 5 s, or runs far past its length, move on.
-    const startTimer = setTimeout(() => !started && finish(true), 5000);
-    const endTimer = setTimeout(() => finish(false), 8000 + item.text.length * 120);
+    // Safety net in case the finish event never arrives.
+    const timer = setTimeout(finish, 6000 + item.text.length * 120);
     player.play();
+    stopwatch.mark(`playing (${item.text.length} chars)`);
   }
 }
 

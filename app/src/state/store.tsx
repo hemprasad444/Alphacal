@@ -3,7 +3,7 @@ import { loadState, saveSlices } from '../lib/persist';
 import { sliceStore } from '../lib/sliceStore';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
-  type Activity, activityFor, activityFromDay, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  type Activity, activityFor, activityFromDay, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
@@ -134,7 +134,7 @@ function daysAgoIso(n: number): string {
   return isoDate(d);
 }
 
-interface Store extends Persisted {
+export interface Store extends Persisted {
   ready: boolean;
   account: Account;
   /** Signed in: data lives in Firestore and syncs across devices. */
@@ -436,7 +436,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const offline = useCallback((text: string, s: Persisted) => {
     const x = reiContext({
       profile: s.profile, disc: s.disc, meals: s.meals, sessionDone: s.sessionDone, history: history(s), activity: activityOf(s),
-      tough: s.settings.tone === 'Tough love', nudge: s.settings.nudge, now: new Date(), program: s.program, memory: s.memory,
+      tough: s.settings.tone !== 'Coach', bro: s.settings.tone === 'Bro', nudge: s.settings.nudge, now: new Date(), program: s.program, memory: s.memory,
     });
     return parseReply(offlineReply(text, x));
   }, [history, activityOf]);
@@ -448,9 +448,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const remote = useCallback(async (req: Omit<ChatRequest, 'replyId'>, onDelta?: (text: string) => void): Promise<ChatDone | null> => {
     if (!uidRef.current) return null;
     const replyId = newId();
+    let raw = '';
     try {
       return await streamChat({ ...req, replyId }, d => {
-        setStreaming(cur => ({ id: replyId, role: 'rei', text: (cur?.id === replyId ? cur.text : '') + d, time: hhmm(), createdAt: Date.now() }));
+        raw += d;
+        // A tag can arrive split across deltas, so strip from the whole text so far.
+        const text = stripTags(raw);
+        setStreaming({ id: replyId, role: 'rei', text, time: hhmm(), createdAt: Date.now() });
         onDelta?.(d);
       });
     } catch (e) {
@@ -552,7 +556,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Signed in, voice turns are stored as they happen, like chat.
       const userMsg = msg('user', lastTurn.text);
       pushMessages([userMsg]);
-      const done = await remote({ text: lastTurn.text, mode: 'chat', userMessageId: userMsg.id }, onDelta);
+      const done = await remote({ text: lastTurn.text, mode: 'chat', userMessageId: userMsg.id, voice: true }, onDelta);
       if (done) return { text: done.text, note: done.notes[0] ?? null };
     }
     const cur = ref.current;

@@ -43,7 +43,7 @@ export const mealFromPhoto = onCall({ secrets: [OPENROUTER_API_KEY], timeoutSeco
   try {
     res = await complete({
       task: 'photo',
-      system: `${systemRules({ tough: ctx.tough, nudge: ctx.nudge, tools: false })}\n\n${systemContext(ctx)}\nThe user sent a photo of what they are eating. Estimate it like a nutrition coach: identify each item, judge portion sizes from plate and cutlery scale, and count oil and sauces.`,
+      system: `${systemRules({ tough: ctx.tough, bro: ctx.bro, nudge: ctx.nudge, tools: false })}\n\n${systemContext(ctx)}\nThe user sent a photo of what they are eating. Estimate it like a nutrition coach: identify each item, judge portion sizes from plate and cutlery scale, and count oil and sauces.`,
       messages: [{ role: 'user', content: note ? `What I'm eating: ${note}` : 'What I’m eating.' }],
       image,
       maxTokens: 4000,

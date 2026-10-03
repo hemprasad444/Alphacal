@@ -15,7 +15,7 @@ const TARGETS: [string, ProfileKey, string][] = [['Calories', 'kcal', 'kcal'], [
 export default function Vow() {
   const s = useStore();
   const { profile, settings, accent } = s;
-  const tough = settings.tone === 'Tough love';
+  const tough = settings.tone !== 'Coach';
   const traj = trajectory(profile, week(s.history, s.sessionDone, new Date(), s.program).missed, new Date(), s.weighInsOrDemo);
   const strong = settings.scenario === 'Strong week';
   const deadline = parseIsoDate(profile.deadline) ?? new Date();

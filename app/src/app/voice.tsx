@@ -7,9 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
 import { Core } from '../components/Core';
 import { Dots, IconButton, Label, Tap, Txt } from '../components/ui';
-import { hhmm, type Message, splitLead } from '@rei/shared';
+import { hhmm, type Message, splitLead, stripTags } from '@rei/shared';
 import { alpha, C, fontFamily, mix } from '../lib/theme';
-import { newSpeaker, premiumVoice, type Speaker, transcribe, voiceOffReason } from '../lib/voice';
+import { newSpeaker, premiumVoice, type Speaker, stopwatch, transcribe, voiceOffReason, warmVoice } from '../lib/voice';
 import { useStore } from '../state/store';
 
 type Phase = 'idle' | 'listening' | 'thinking' | 'speaking';
@@ -73,10 +73,13 @@ export default function Voice() {
     }
     if (phase === 'listening') {
       setPhase('thinking');
+      stopwatch.start();
       try {
         await recorder.stop();
+        stopwatch.mark('recording saved');
         await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
         const text = recorder.uri ? await transcribe(recorder.uri) : '';
+        stopwatch.mark(`transcript (${text.length} chars)`);
         if (text) await sendVoice(text);
         else setPhase('idle');
       } catch (e) {
@@ -92,6 +95,7 @@ export default function Voice() {
       return;
     }
     stopSpeaking();
+    void warmVoice();
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
     await recorder.prepareToRecordAsync();
     recorder.record();
@@ -111,13 +115,16 @@ export default function Voice() {
     const sp = settings.speak ? await newSpeaker(() => alive.current && setPhase(p => (p === 'speaking' ? 'idle' : p)), settings.voice) : null;
     speaker.current = sp;
     let streamed = false;
+    stopwatch.mark('asking REI');
     const r = await s.voiceReply(next, d => {
       if (!alive.current) return;
+      if (!streamed) stopwatch.mark('first words from REI');
       if (!streamed) setPhase(sp ? 'speaking' : 'thinking');
       streamed = true;
       setLive(cur => cur + d);
       sp?.push(d);
     });
+    stopwatch.mark('REI finished writing');
     if (!alive.current) return;
     setLive('');
     setTurns(t => [...t, { role: 'rei', text: r.text, time: hhmm() }]);
@@ -199,7 +206,7 @@ export default function Voice() {
           {live ? (
             <View style={{ maxWidth: '94%', gap: 8 }}>
               <Label size={10} ls={0.14}>REI</Label>
-              <Txt size={20} w={500} lh={1.3} ls={-0.02}>{live}</Txt>
+              <Txt size={20} w={500} lh={1.3} ls={-0.02}>{stripTags(live)}</Txt>
             </View>
           ) : null}
           {phase === 'thinking' && !live ? (

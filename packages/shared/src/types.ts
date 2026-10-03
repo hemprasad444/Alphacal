@@ -62,7 +62,7 @@ export interface Profile {
 export type ProfileKey = keyof Profile;
 
 export type Scenario = 'Slipping week' | 'Strong week';
-export type Tone = 'Tough love' | 'Coach';
+export type Tone = 'Tough love' | 'Coach' | 'Bro';
 export type Avatar = 'Character in chat' | 'Core only';
 export type BgStrength = 'Subtle' | 'Medium' | 'Bold';
 export type EmblemSize = 'S' | 'M' | 'L';

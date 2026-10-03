@@ -14,3 +14,11 @@ export const DEFAULT_VOICE = VOICES[0].id;
 export const isVoice = (id: unknown): id is string => typeof id === 'string' && VOICES.some(v => v.id === id);
 
 export const VOICE_PREVIEW = 'This is how I sound. Now stop scrolling and go train.';
+
+/** Delivery cues REI may put in voice replies; ElevenLabs performs them, the screen never shows them. */
+export const VOICE_TAGS = ['firm', 'serious', 'encouraging', 'excited', 'warmly', 'laughs', 'chuckles', 'sighs', 'whispers', 'sarcastic'];
+
+/** Removes [audio tags] from text meant to be read, including one still arriving at the end. */
+export function stripTags(text: string): string {
+  return text.replace(/\[[a-z][a-z '-]{0,24}\]\s*/gi, '').replace(/\[[a-z '-]{0,24}$/i, '').replace(/\s{2,}/g, ' ').trim();
+}

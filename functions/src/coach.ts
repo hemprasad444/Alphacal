@@ -12,7 +12,7 @@ async function write(data: Awaited<ReturnType<typeof loadUser>>, nudge: Nudge): 
   try {
     const res = await complete({
       task: 'fast',
-      system: `${systemRules({ tough: ctx.tough, nudge: ctx.nudge, tools: false })}\n\n${systemContext(ctx)}`,
+      system: `${systemRules({ tough: ctx.tough, bro: ctx.bro, nudge: ctx.nudge, tools: false })}\n\n${systemContext(ctx)}`,
       messages: [{ role: 'user', content: `(You are messaging first; they have not said anything.) ${nudge.fact} Write one check-in message, under 30 words, that names the number and the next action.` }],
       maxTokens: 300,
     });

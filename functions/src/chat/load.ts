@@ -70,7 +70,9 @@ export async function loadUser(uid: string): Promise<Loaded> {
       sessionDone: !!t.sessionDone,
       history: { kind: 'real', startedOn: typeof u.startedOn === 'string' ? u.startedOn : today, sessions },
       activity: activityFromDay(t.steps, t.sleepMin),
-      tough: settings.tone === 'Tough love',
+      // Bro pushes as hard as tough love, in a friend's voice.
+      tough: settings.tone !== 'Coach',
+      bro: settings.tone === 'Bro',
       nudge: settings.nudge,
       now,
       program: (programSnaps.find(p => p.id === isoWeek(now) && p.exists)?.data() as WeekProgram | undefined) ?? null,
