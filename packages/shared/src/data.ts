@@ -139,6 +139,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fx: true,
   speak: true,
   voice: DEFAULT_VOICE,
+  character: 'rei',
   liveEngine: 'elevenlabs',
   nudge: true,
   tone: 'Tough love',

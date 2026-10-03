@@ -470,7 +470,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const applyOnboarding = useCallback((d: Intake) => {
     const cur = ref.current;
     const profile = intakeProfile(d, new Date());
-    const settings: Settings = { ...cur.settings, theme: d.theme, accent: null, tone: d.tone, nudge: d.nudge, speak: d.speak };
+    const settings: Settings = { ...cur.settings, theme: d.theme, accent: null, tone: d.tone, character: d.character || 'rei', nudge: d.nudge, speak: d.speak };
     const disc = intakeDisciplines(d);
     const memory = addMemory(cur.memory, intakeMemory(d), 'you', Date.now(), newId).list;
     patch({ profile, settings, disc, memory, onboarded: true });

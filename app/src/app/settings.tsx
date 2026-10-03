@@ -1,162 +1,77 @@
+// Settings: who you are at the top, then four rooms. Each opens its own page, so nothing here is
+// a wall of switches.
+import { characterOf, programWeek, trajectory, week } from '@rei/shared';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
+import { Icon, type IconKey } from '../components/icons';
+import { Panel, Stamp } from '../components/manga';
 import { Screen, SubHeader } from '../components/Screen';
-import { Card, Label, Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
-import { firebaseEnabled, usingEmulators } from '../lib/firebase';
-import { DEFAULT_VOICE, isVoice, programWeek, trajectory, VOICES, week } from '@rei/shared';
-import { alpha, C, mix } from '../lib/theme';
-import { previewVoice, type Speaker } from '../lib/voice';
+import { Tap, Txt } from '../components/ui';
+import { alpha, C } from '../lib/theme';
+import { useGame } from '../state/game';
 import { useStore } from '../state/store';
-
-const TEXT_SIZES: [number, string, number][] = [[0.82, 'SMALLEST', 11], [0.9, 'SMALL', 13], [1, 'DEFAULT', 15], [1.08, 'LARGE', 17]];
 
 export default function Settings() {
   const s = useStore();
-  const { settings, accent, theme } = s;
-  const tough = settings.tone !== 'Coach';
-  const [playing, setPlaying] = useState<string | null>(null);
-  const [iphoneOnly, setIphoneOnly] = useState(false);
-  const preview = useRef<Speaker | null>(null);
-  useEffect(() => () => preview.current?.stop(), []);
-
-  const pickVoice = async (id: string) => {
-    s.setOpt('voice', id);
-    preview.current?.stop();
-    setPlaying(id);
-    const { speaker, premium } = await previewVoice(id, () => setPlaying(p => (p === id ? null : p)));
-    preview.current = speaker;
-    setIphoneOnly(!premium);
-  };
-  const daysLeft = trajectory(s.profile, week(s.history, s.sessionDone, new Date(), s.program).missed, new Date(), s.weighInsOrDemo).daysLeft;
+  const g = useGame();
+  const { settings, accent, theme, profile } = s;
+  const daysLeft = trajectory(profile, week(s.history, s.sessionDone, new Date(), s.program).missed, new Date(), s.weighInsOrDemo).daysLeft;
+  const name = profile.name || (s.account.email ? s.account.email.split('@')[0] : 'You');
+  const character = characterOf(settings.character);
+  const rooms: { icon: IconKey; title: string; sub: string; to: () => void }[] = [
+    { icon: 'rei', title: 'REI', sub: `${settings.tone} · voice of ${character.name}`, to: () => router.push('/rei-settings') },
+    { icon: 'look', title: 'Look', sub: `${theme.name} · ${settings.font}`, to: () => router.push('/appearance') },
+    { icon: 'memory', title: 'Memory', sub: s.memory.length ? `${s.memory.length} things REI knows` : 'What REI knows about you', to: () => router.push('/memory') },
+    { icon: 'door', title: 'Account', sub: s.cloud ? 'Signed in · data · credits' : 'Demo · data · credits', to: () => router.push('/account') },
+  ];
 
   return (
     <Screen tabs={false}>
       <SubHeader title="SETTINGS" onBack={() => router.back()} />
 
-      <Tap onPress={() => router.navigate('/vow')} style={{ marginTop: 24, padding: 16, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: C.line3, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <View style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: mix(accent, '#0A0C0F', 0.16), borderWidth: 1, borderColor: alpha(accent, 0.45) }}>
-          <Txt size={22} w={500} color={accent}>H</Txt>
+      <Panel acc={accent} style={{ marginTop: 22 }} onPress={() => router.navigate('/vow')}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <View style={{ width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: alpha(accent, 0.14), borderWidth: 2, borderColor: accent }}>
+            <Txt size={26} w={600} color={accent}>{name.trim().charAt(0).toUpperCase()}</Txt>
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Txt size={22} w={600} ls={-0.01}>{name}</Txt>
+            <Txt size={13} color={C.muted}>{`Week ${programWeek(s.startedOn)} · ${daysLeft} days to the vow`}</Txt>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+              <Stamp text={g.rank.name} color={accent} tilt={0} />
+              <Stamp text={`${g.xp.toLocaleString('en-US')} XP`} color={C.warn} tilt={0} />
+            </View>
+          </View>
+          <Icon name="chevron" size={18} color={C.dim} />
         </View>
-        <View style={{ flex: 1, gap: 4 }}>
-          <Txt size={18} w={500} ls={-0.01}>{s.cloud && s.account.email ? s.account.email.split('@')[0] : 'Hemprasad'}</Txt>
-          <Txt size={13} color={C.muted}>{`Week ${programWeek(s.startedOn)} · ${daysLeft} days to the vow`}</Txt>
+      </Panel>
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 22 }}>
+        {rooms.map(r => (
+          <Tap key={r.title} onPress={r.to} style={{ width: '47.5%', flexGrow: 1 }}>
+            <View style={{ height: 132, borderRadius: 14, borderWidth: 1.5, borderColor: C.line3, backgroundColor: '#0D0F13', padding: 16, justifyContent: 'space-between' }}>
+              <Icon name={r.icon} size={30} color={accent} tint={0.24} />
+              <View style={{ gap: 3 }}>
+                <Txt size={18} w={600}>{r.title}</Txt>
+                <Txt size={12} color={C.muted} numberOfLines={2}>{r.sub}</Txt>
+              </View>
+            </View>
+          </Tap>
+        ))}
+      </View>
+
+      <Tap onPress={() => router.push('/badges')} style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 14, borderWidth: 1.5, borderColor: C.line3, backgroundColor: '#0D0F13' }}>
+        <Icon name="badge" size={24} color={C.warn} />
+        <View style={{ flex: 1 }}>
+          <Txt size={16} w={500}>Badges</Txt>
+          <Txt size={12} color={C.muted}>{`${g.earned.length} of ${g.earned.length + g.locked.length} earned`}</Txt>
         </View>
-        <Txt size={13} color={accent}>Vow ›</Txt>
+        <Icon name="chevron" size={16} color={C.dim} />
       </Tap>
 
-      <Label style={{ marginTop: 30 }}>DISPLAY</Label>
-      <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
-        <Row
-          title="Appearance"
-          sub={`${theme.name} · ${settings.font}`}
-          onPress={() => router.push('/appearance')}
-          right={<Txt size={18} color={C.faint}>›</Txt>}
-        />
-        <View style={{ paddingVertical: 14 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <Txt size={16}>Text size</Txt>
-            <Label size={11} ls={0} color={accent}>{TEXT_SIZES.find(t => t[0] === settings.textSize)?.[1] ?? 'DEFAULT'}</Label>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 }}>
-            <Txt size={12} color={C.muted}>A</Txt>
-            <View style={{ flex: 1, flexDirection: 'row', gap: 4, padding: 3, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: C.line3 }}>
-              {TEXT_SIZES.map(([v, , px]) => {
-                const on = settings.textSize === v;
-                return (
-                  <Tap key={v} onPress={() => s.setOpt('textSize', v)} style={{ flex: 1, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? 'rgba(255,255,255,0.14)' : 'transparent' }}>
-                    <Txt size={px / settings.textSize} color={on ? C.text : C.label}>Aa</Txt>
-                  </Tap>
-                );
-              })}
-            </View>
-            <Txt size={18} color={C.muted}>A</Txt>
-          </View>
-        </View>
-      </Card>
-
-      <Label style={{ marginTop: 30 }}>REI</Label>
-      <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
-        <Row title="Personality" sub={settings.tone === 'Bro' ? 'Your gym bro · casual, swears back, banter' : tough ? '10 / 10 · no excuses accepted' : '6 / 10 · firm, warmer'} right={<Segmented value={settings.tone} options={[['Tough love', 'Tough'], ['Coach', 'Coach'], ['Bro', 'Bro']]} onChange={v => s.setOpt('tone', v)} />} />
-        <Row title="In conversation" sub="Show her portrait or the core" right={<Segmented value={settings.avatar} options={[['Character in chat', 'Portrait'], ['Core only', 'Core']]} onChange={v => s.setOpt('avatar', v)} />} />
-        <Row title="Speak replies aloud" sub="In voice mode" right={<Toggle on={settings.speak} onPress={() => s.setOpt('speak', !settings.speak)} />} />
-        <Row title="Proactive check-ins" sub="REI messages you when you slip" right={<Toggle on={settings.nudge} onPress={() => s.setOpt('nudge', !settings.nudge)} />} />
-        <Row title="What REI remembers" sub={s.memory.length ? `${s.memory.length} fact${s.memory.length > 1 ? 's' : ''}: diet, health, schedule…` : 'Diet, injuries, schedule, equipment'} onPress={() => router.push('/memory')} right={<Txt size={18} color={C.dim}>›</Txt>} last />
-      </Card>
-
-      <Label style={{ marginTop: 30 }}>REI’S VOICE</Label>
-      <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
-        {VOICES.map((v, i) => {
-          const on = (isVoice(settings.voice) ? settings.voice : DEFAULT_VOICE) === v.id;
-          return (
-            <Row
-              key={v.id}
-              title={v.name}
-              sub={playing === v.id ? 'Playing…' : v.note}
-              onPress={() => void pickVoice(v.id)}
-              right={<Txt size={16} color={on ? accent : C.dim}>{on ? '●' : '○'}</Txt>}
-              last={i === VOICES.length - 1}
-            />
-          );
-        })}
-      </Card>
-      <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
-        <Row
-          title="Live voice engine"
-          sub={settings.liveEngine === 'livekit' ? 'Fish voice on our own agent · cheaper' : 'ElevenLabs agent'}
-          right={<Segmented value={settings.liveEngine} options={[['elevenlabs', 'ElevenLabs'], ['livekit', 'Fish']]} onChange={v => s.setOpt('liveEngine', v)} />}
-          last
-        />
-      </Card>
-      {iphoneOnly ? <Txt size={12} color={C.dim} style={{ marginTop: 8, paddingHorizontal: 4 }}>Premium voice is off right now, so this preview used the iPhone’s voice. Open Voice to see why.</Txt> : null}
-
-      <Label style={{ marginTop: 30 }}>ACCOUNT</Label>
-      <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
-        {s.cloud ? (
-          <Row
-            title={s.account.email ?? 'Signed in'}
-            sub={usingEmulators ? 'Synced to the local emulators' : 'Synced to your REI account'}
-            right={<Tap onPress={() => Alert.alert('Sign out?', 'Your data stays in your account.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign out', style: 'destructive', onPress: () => void s.signOut() }])}><Txt size={14} color={accent}>Sign out</Txt></Tap>}
-            last
-          />
-        ) : firebaseEnabled ? (
-          <Row title="Demo mode" sub="Stored on this phone only" right={<Tap onPress={() => s.setDemo(false)}><Txt size={14} color={accent}>Sign in</Txt></Tap>} last />
-        ) : (
-          <Row title="On this phone only" sub="Add a Firebase project to sync. See app/README.md." last />
-        )}
-      </Card>
-
-      {s.cloud ? null : (
-        <>
-          <Label style={{ marginTop: 30 }}>DEMO</Label>
-          <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
-            <Row title="Week scenario" sub="Preview how REI reacts" right={<Segmented value={settings.scenario} options={[['Slipping week', 'Slipping'], ['Strong week', 'Strong']]} onChange={v => s.setOpt('scenario', v)} />} last />
-          </Card>
-        </>
-      )}
-
-      <Label style={{ marginTop: 30 }}>DATA</Label>
-      <View style={{ gap: 8, marginTop: 10 }}>
-        <Tap
-          onPress={() => Alert.alert('Clear conversation?', 'REI keeps your goal and today’s log.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: s.clearChat }])}
-          style={{ height: 50, borderRadius: 16, borderWidth: 1, borderColor: C.line3, backgroundColor: C.card2, justifyContent: 'center', paddingHorizontal: 16 }}
-        >
-          <Txt size={15} color={C.body}>Clear conversation</Txt>
-        </Tap>
-        <Tap
-          onPress={() => Alert.alert('Reset today’s log?', 'Meals, session and today’s messages go back to the start of the day.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Reset', style: 'destructive', onPress: s.resetDay }])}
-          style={{ height: 50, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,90,60,0.3)', backgroundColor: 'rgba(255,90,60,0.05)', justifyContent: 'center', paddingHorizontal: 16 }}
-        >
-          <Txt size={15} color={C.alertSoft}>{"Reset today's log"}</Txt>
-        </Tap>
-      </View>
-      <Label style={{ marginTop: 30 }}>DATA CREDITS</Label>
-      <Txt size={12} lh={1.5} color={C.dim} style={{ marginTop: 10 }}>
-        Indian Food Composition Tables 2017, National Institute of Nutrition (ICMR-NIN). Food nutrition data from TempoLife (tempolife.app), CC-BY-4.0, based on USDA FoodData Central. Packaged foods from Open Food Facts (ODbL). Exercises from free-exercise-db (public domain). Activity estimates from the Compendium of Physical Activities. Dish values are typical estimates.
+      <Txt face="mono" size={10} ls={0.14} color={C.ghost} style={{ textAlign: 'center', marginTop: 30 }}>
+        {`REI · BUILD 0.8 · ${s.cloud ? 'CLOUD' : 'ON DEVICE'}`}
       </Txt>
-      <Label size={10} ls={0.14} color={C.ghost} style={{ textAlign: 'center', marginTop: 26 }}>
-        {`REI · BUILD 0.7 · ${s.cloud ? 'CLOUD' : 'ON DEVICE'}`}
-      </Label>
     </Screen>
   );
 }

@@ -1,4 +1,4 @@
-import { agentGreeting, agentPrompt, historyBlock, isVoice, LIVEKIT_TOOLS, recentTurns, reiContext } from '@rei/shared';
+import { agentGreeting, agentPrompt, characterOf, hasVoice, historyBlock, isVoice, LIVEKIT_TOOLS, recentTurns, reiContext } from '@rei/shared';
 import { logger } from 'firebase-functions';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
@@ -63,7 +63,8 @@ export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET],
       prompt: agentPrompt(ctx),
       history: recentTurns(data.messages),
       greeting: agentGreeting(ctx),
-      voice: FISH_VOICE_ID.value(),
+      // The character's own voice once it's added; REI's Fish voice until then.
+      voice: (hasVoice(characterOf(data.settings.character)) ? characterOf(data.settings.character).fish : '') || FISH_VOICE_ID.value(),
       models: LLM_LIVE.value().split(',').map(s => s.trim()).filter(Boolean),
       tools: LIVEKIT_TOOLS,
       maxSeconds: MAX_SECONDS,

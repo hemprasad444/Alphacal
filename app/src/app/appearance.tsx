@@ -7,6 +7,8 @@ import { Card, Label, Row, Segmented, Tap, Toggle, Txt } from '../components/ui'
 import { ACCENT_EXTRAS, alpha, C, DEFAULT_EMBLEM, EMBLEMS, FONT_KEYS, fontFamily, THEMES, type Theme } from '../lib/theme';
 import { useStore } from '../state/store';
 
+const TEXT_SIZES: [number, string, number][] = [[0.82, 'SMALLEST', 11], [0.9, 'SMALL', 13], [1, 'DEFAULT', 15], [1.08, 'LARGE', 17]];
+
 /** Diagonal two-tone swatch, like the design's 135° split gradient. */
 function Swatch({ t, height, radius = 0 }: { t: Theme; height: number; radius?: number }) {
   return (
@@ -36,9 +38,27 @@ export default function Appearance() {
 
   return (
     <Screen tabs={false}>
-      <SubHeader title={settings.hud ? 'APPEARANCE · 外観' : 'APPEARANCE'} onBack={() => router.back()} />
+      <SubHeader title="LOOK" onBack={() => router.back()} />
 
-      <Label style={{ marginTop: 26 }}>THEME</Label>
+      <Label style={{ marginTop: 26 }}>TEXT SIZE</Label>
+      <Card style={{ marginTop: 10, padding: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Txt size={12} color={C.muted}>A</Txt>
+          <View style={{ flex: 1, flexDirection: 'row', gap: 4, padding: 3, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: C.line3 }}>
+            {TEXT_SIZES.map(([v, , px]) => {
+              const on = settings.textSize === v;
+              return (
+                <Tap key={v} onPress={() => s.setOpt('textSize', v)} style={{ flex: 1, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? 'rgba(255,255,255,0.14)' : 'transparent' }}>
+                  <Txt size={px / settings.textSize} color={on ? C.text : C.label}>Aa</Txt>
+                </Tap>
+              );
+            })}
+          </View>
+          <Txt size={18} color={C.muted}>A</Txt>
+        </View>
+      </Card>
+
+      <Label style={{ marginTop: 30 }}>THEME</Label>
       <Card style={{ marginTop: 10, padding: 16 }}>
         <Txt size={16}>Theme</Txt>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>

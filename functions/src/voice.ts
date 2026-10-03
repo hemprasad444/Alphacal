@@ -5,12 +5,16 @@
 import { logger } from 'firebase-functions';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { onRequest } from 'firebase-functions/v2/https';
-import { DEFAULT_VOICE, isVoice, stripTags } from '@rei/shared';
+import { characterOf, DEFAULT_VOICE, hasVoice, isVoice, stripTags } from '@rei/shared';
 import { speak, TtsError } from './elevenlabs';
 import { verify } from './http';
 
 /** Set with: firebase functions:secrets:set TTS_API_KEY (enter "none" until you have one). */
 export const TTS_API_KEY = defineSecret('TTS_API_KEY');
+/** Fish Audio, for voice characters (characters.ts). */
+export const FISH_API_KEY = defineSecret('FISH_API_KEY');
+/** Fish model: the free S2.1 Pro until Nov 30, 2026, then "s2.1-pro". */
+const FISH_MODEL = defineString('FISH_MODEL', { default: 's2.1-pro-free' });
 /** REI's voice when the app doesn't pick one (from VOICES). */
 export const VOICE_ID = defineString('TTS_VOICE_ID', { default: DEFAULT_VOICE });
 
@@ -33,10 +37,17 @@ export const key = () => {
  * GET /tts?probe=1       → 204 when the premium voice is configured, 503 when not.
  * GET (not POST) so the phone's audio player can stream it directly with an auth header.
  */
-export const tts = onRequest({ secrets: [TTS_API_KEY], timeoutSeconds: 60, concurrency: 40, cors: true }, async (req, res) => {
+export const tts = onRequest({ secrets: [TTS_API_KEY, FISH_API_KEY], timeoutSeconds: 60, concurrency: 40, cors: true }, async (req, res) => {
   const who = await verify(req);
   if ('error' in who) {
     res.status(who.error).json({ error: who.message });
+    return;
+  }
+  // A voice character ("c:naruto") speaks through Fish Audio when its voice has been added.
+  const ch = typeof req.query.v === 'string' && req.query.v.startsWith('c:') ? characterOf(req.query.v.slice(2)) : null;
+  const fish = FISH_API_KEY.value();
+  if (ch && hasVoice(ch) && fish && !req.query.probe) {
+    await fishSpeak(req.query.t, ch.fish, fish, res, who.uid);
     return;
   }
   const k = key();
@@ -80,6 +91,38 @@ export const tts = onRequest({ secrets: [TTS_API_KEY], timeoutSeconds: 60, concu
   res.end();
   logger.info('tts', { uid: who.uid, model, chars: text.length, firstByteMs: first, totalMs: Date.now() - t0 });
 });
+
+/** Streams one sentence from Fish Audio as MP3. Fish S2 performs [tags] itself, so they stay in. */
+async function fishSpeak(t: unknown, voice: string, apiKey: string, res: Parameters<Parameters<typeof onRequest>[0]>[1], uid: string) {
+  const text = typeof t === 'string' ? t.trim().slice(0, 600) : '';
+  if (!text) {
+    res.status(400).json({ error: 'Missing text.' });
+    return;
+  }
+  const t0 = Date.now();
+  const model = FISH_MODEL.value() || 's2.1-pro-free';
+  const upstream = await fetch('https://api.fish.audio/v1/tts', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', model },
+    body: JSON.stringify({ text, reference_id: voice, format: 'mp3', mp3_bitrate: 128, latency: 'balanced' }),
+  }).catch(() => null);
+  if (!upstream?.ok || !upstream.body) {
+    logger.error('fish tts failed', { status: upstream?.status, detail: upstream ? (await upstream.text().catch(() => '')).slice(0, 300) : 'network' });
+    res.status(502).json({ error: 'Voice unavailable.' });
+    return;
+  }
+  res.set({ 'Content-Type': 'audio/mpeg', 'Cache-Control': 'private, max-age=3600' });
+  let first = 0;
+  const reader = upstream.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!first) first = Date.now() - t0;
+    res.write(Buffer.from(value));
+  }
+  res.end();
+  logger.info('tts', { uid, engine: 'fish', model, chars: text.length, firstByteMs: first, totalMs: Date.now() - t0 });
+}
 
 /** POST /stt with the recorded clip as the body (audio/mp4, up to ~60 s) → { text }. */
 export const stt = onRequest({ secrets: [TTS_API_KEY], timeoutSeconds: 60, memory: '512MiB', cors: true }, async (req, res) => {

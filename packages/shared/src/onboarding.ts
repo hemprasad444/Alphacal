@@ -1,6 +1,7 @@
 // First-run onboarding ("The Pact Arc"): fifteen short chapters in which REI learns who the user
 // is, then turns the answers into their profile, targets, settings and lasting memory.
 // Screens live in the app (app/src/app/onboarding.tsx); everything that decides numbers is here.
+import { characterOf } from './characters';
 import { isoDate } from './time';
 import type { MemoryKind } from './memory';
 import type { Profile, ThemeId, Tone } from './types';
@@ -119,6 +120,8 @@ export interface Intake {
   note: string;
   tone: Tone;
   intensity: number;
+  /** Voice character (characters.ts). */
+  character: string;
   theme: ThemeId;
   health: boolean;
   nudge: boolean;
@@ -133,7 +136,7 @@ export const DEFAULT_INTAKE: Intake = {
   job: 'Desk', wake: 405, bed: 1395, stress: 3, steps: 10000,
   diet: 'Non-veg', meals: 4, cook: 'Sometimes', alcohol: 'Weekends', cuisine: { Indian: true }, kcalAdj: 0,
   quit: { 'Work gets busy': true, Weekends: true }, injuries: {}, note: '',
-  tone: 'Tough love', intensity: 4, theme: 'zero', health: true, nudge: true, speak: true, photo: true,
+  tone: 'Tough love', intensity: 4, character: 'rei', theme: 'zero', health: true, nudge: true, speak: true, photo: true,
 };
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -247,7 +250,7 @@ export function pactRows(d: Intake): [string, string][] {
     ['FUEL', `${c.kcal.toLocaleString('en-US')} kcal · ${c.p} g protein`],
     ['SLEEP', `${clockOf(d.bed)} → ${clockOf(d.wake)} · ${sleepHours(d).toFixed(1)} h`],
     ['WATCH FOR', picked(d.quit).slice(0, 2).join(', ') || 'Nothing. We will see.'],
-    ['VOICE', `${d.tone} · ${d.intensity}/5`],
+    ['VOICE', `${d.tone} · ${d.intensity}/5 · ${characterOf(d.character).name}`],
   ];
 }
 

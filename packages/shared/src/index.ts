@@ -20,3 +20,4 @@ export * from './workout';
 export * from './onboarding';
 export * from './icons';
 export * from './game';
+export * from './characters';

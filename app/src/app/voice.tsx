@@ -8,7 +8,7 @@ import { Backdrop } from '../components/Backdrop';
 import { Wave } from '../components/Core';
 import { Icon } from '../components/icons';
 import { Dots, IconButton, Label, Tap, Txt } from '../components/ui';
-import { hhmm, type Message, splitLead, stripTags } from '@rei/shared';
+import { hhmm, type Message, speakVoice, splitLead, stripTags } from '@rei/shared';
 import { alpha, C, fontFamily, mix } from '../lib/theme';
 import { newSpeaker, premiumVoice, type Speaker, stopwatch, transcribe, voiceOffReason, warmVoice } from '../lib/voice';
 import { useStore } from '../state/store';
@@ -113,7 +113,7 @@ export default function Voice() {
     setTurns(next);
     setLive('');
     setPhase('thinking');
-    const sp = settings.speak ? await newSpeaker(() => alive.current && setPhase(p => (p === 'speaking' ? 'idle' : p)), settings.voice) : null;
+    const sp = settings.speak ? await newSpeaker(() => alive.current && setPhase(p => (p === 'speaking' ? 'idle' : p)), speakVoice(settings)) : null;
     speaker.current = sp;
     let streamed = false;
     stopwatch.mark('asking REI');

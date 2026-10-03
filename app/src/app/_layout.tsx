@@ -96,6 +96,8 @@ function Root() {
           <Stack.Screen name="progress" />
           <Stack.Screen name="memory" />
           <Stack.Screen name="badges" />
+          <Stack.Screen name="rei-settings" />
+          <Stack.Screen name="account" />
           <Stack.Screen name="board" />
           <Stack.Screen name="log-training" options={{ presentation: 'modal' }} />
         </Stack.Protected>

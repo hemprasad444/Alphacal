@@ -7,7 +7,7 @@ import { Backdrop } from '../components/Backdrop';
 import { Core } from '../components/Core';
 import { Icon } from '../components/icons';
 import { Dots, IconButton, Label, Tap, Txt, VoiceGlyph } from '../components/ui';
-import { integrity, type Message, nutrition, todaysPlan, trajectory, week } from '@rei/shared';
+import { characterOf, integrity, type Message, nutrition, todaysPlan, trajectory, week } from '@rei/shared';
 import { liveVoiceAvailable, prepareVoiceSession } from '../lib/live';
 import { alpha, C, fontFamily, mix } from '../lib/theme';
 import { useLiveReply, useStore } from '../state/store';
@@ -67,7 +67,7 @@ export default function Talk() {
           {settings.avatar === 'Character in chat' ? (
             <View style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: accent, alignItems: 'center', justifyContent: 'center', shadowColor: accent, shadowOpacity: 0.4, shadowRadius: 7, shadowOffset: { width: 0, height: 0 } }}>
               <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: mix(accent, '#0A0C0F', 0.16), alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name={s.theme.icon} size={24} color={accent} />
+                <Icon name={characterOf(settings.character).icon} size={24} color={accent} />
               </View>
             </View>
           ) : (

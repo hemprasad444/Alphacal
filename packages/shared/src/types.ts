@@ -86,6 +86,8 @@ export interface Settings {
   speak: boolean;
   /** ElevenLabs voice id, from VOICES. */
   voice: string;
+  /** Voice character (characters.ts): who REI sounds like. */
+  character: string;
   /** Live voice engine: the ElevenLabs agent, or our LiveKit agent with a Fish voice. */
   liveEngine: LiveEngine;
   nudge: boolean;

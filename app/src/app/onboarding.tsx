@@ -8,7 +8,7 @@ import { Animated, Easing, KeyboardAvoidingView, Platform, ScrollView, StyleShee
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import {
-  ARCHETYPES, bondLine, CHAPTERS, clockOf, deadlineOf, DEFAULT_INTAKE, fuel, goalOf, GOALS, type Intake, mmss, nameOf, pactRows, reiLine, shortDate,
+  ARCHETYPES, bondLine, CHAPTERS, CHARACTERS, characterOf, clockOf, deadlineOf, DEFAULT_INTAKE, fuel, goalOf, GOALS, type Intake, mmss, nameOf, pactRows, reiLine, shortDate,
   sleepHours, STEPS, suggestedTarget, TONES, toneSample, trainTime, vowSentence, weeklyRate,
 } from '@rei/shared';
 import { Icon } from '../components/icons';
@@ -651,7 +651,25 @@ function ToneStep({ d, set, acc }: StepProps) {
       <Block i={3} label="INTENSITY" right={['', 'GENTLE', 'STEADY', 'FIRM', 'HARD', 'RELENTLESS'][d.intensity]} acc={acc}>
         <Seg value={d.intensity} opts={[1, 2, 3, 4, 5].map(n => [n, String(n)] as [number, string])} onPick={v => set('intensity', v)} acc={acc} />
       </Block>
-      <Rise delay={600}>
+      <Block i={4} label="WHOSE VOICE" right={characterOf(d.character).series.toUpperCase()} acc={acc}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {CHARACTERS.map(c => {
+            const on = (d.character || 'rei') === c.id;
+            return (
+              <Tap key={c.id} onPress={() => set('character', c.id)} style={{ width: '31%', flexGrow: 1 }}>
+                <View style={{ height: 84, borderRadius: 10, borderWidth: 1.5, borderColor: on ? c.acc : 'rgba(255,255,255,0.1)', backgroundColor: on ? alpha(c.acc, 0.12) : 'rgba(255,255,255,0.02)', padding: 10, justifyContent: 'space-between', overflow: 'hidden', ...(on ? comic(alpha(c.acc, 0.6), 3) : null) }}>
+                  <Icon name={c.icon} size={22} color={on ? c.acc : C.muted} tint={on ? 0.3 : 0.1} />
+                  <View>
+                    <Txt size={13} w={600} numberOfLines={1}>{c.name}</Txt>
+                    <Txt face="mono" size={8} ls={0.1} color={c.fish || c.id === 'rei' ? (on ? c.acc : C.dim) : C.faint} numberOfLines={1}>{c.fish || c.id === 'rei' ? c.series.toUpperCase() : 'VOICE SOON'}</Txt>
+                  </View>
+                </View>
+              </Tap>
+            );
+          })}
+        </View>
+      </Block>
+      <Rise delay={700}>
         <FieldLabel label="PREVIEW · TUESDAY 12:40 · 2 SESSIONS MISSED" acc={acc} />
         <View style={{ paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1.5, borderColor: hard ? C.alertSoft : acc, backgroundColor: 'rgba(255,255,255,0.03)' }}>
           <Txt size={15.5} lh={1.45} color={C.textSoft}>{toneSample(d.tone, d)}</Txt>
