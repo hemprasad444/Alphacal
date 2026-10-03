@@ -21,3 +21,8 @@ Order: things everything else builds on first (icons, navigation, data), then be
 | 9 | **Look** | Bring onboarding's manga language (panels, halftone, speed lines, offset shadows) into the app screens; REI's tomoe as the brand mark. |
 | 10 | **Research** | Apple Health (what's there, what it takes) and "Hey REI" (Siri / App Shortcuts / deep links), with what can ship now. Deep links (`rei://live`, `rei://log`) so a Siri Shortcut works today. |
 | 11 | **Check** | Tests, typecheck, lint, web screenshots of every screen, functions + rules deployed, live agent redeployed, report. |
+
+## Status (stopped at usage limit)
+
+Done: 1 icons · 2 Dojo · 3 game layer (rules deployed) · 4 settings · 6 continuity (benchmark 12/24 → 23/24, deployed) · 7 voice characters (Fish key set as secret, deployed; voice IDs still placeholders except Naruto).
+Not started: 5 auth-first sign up (email + verification) · 8 calorie logging speed · 9 restyle Fuel / Vow / Talk in the manga look · 10 Apple Health and "Hey REI" research + deep links · 11 Simulator screenshots of everything.
