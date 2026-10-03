@@ -76,6 +76,8 @@ export interface Settings {
   hud: boolean;
   fx: boolean;
   speak: boolean;
+  /** ElevenLabs voice id, from VOICES. */
+  voice: string;
   nudge: boolean;
   tone: Tone;
   avatar: Avatar;

@@ -1,7 +1,7 @@
-import type Anthropic from '@anthropic-ai/sdk';
+import type { LlmTool } from '../llm';
 import { type AiItem, MEMORY_KINDS, type MemoryKind, PROFILE_KEYS, type MealEstimate, type ProfileKey } from '@rei/shared';
 
-type Tool = Anthropic.Beta.Messages.BetaTool;
+type Tool = LlmTool;
 
 const mealProps = {
   name: { type: 'string', description: 'Short name for the meal, e.g. "Chicken rice bowl"' },
@@ -36,8 +36,6 @@ const itemsProp = {
 export const logMealTool: Tool = {
   name: 'log_meal',
   description: 'Log a meal the user says they ate, one entry per food. Call it after writing your reply.',
-  strict: true,
-  eager_input_streaming: true,
   input_schema: { type: 'object', properties: { name: mealProps.name, items: itemsProp }, required: ['name', 'items'], additionalProperties: false },
 };
 
@@ -45,7 +43,6 @@ export const logMealTool: Tool = {
 export const logMealWithVerdictTool: Tool = {
   name: 'log_meal',
   description: 'Log the meal, one entry per food, with REI’s one or two sentence verdict on how it fits the rest of today’s budget.',
-  strict: true,
   input_schema: {
     type: 'object',
     properties: { name: mealProps.name, items: itemsProp, verdict: { type: 'string', description: 'REI’s reaction, in REI’s voice, using the numbers left after this meal' } },
@@ -57,8 +54,6 @@ export const logMealWithVerdictTool: Tool = {
 export const updateVowTool: Tool = {
   name: 'update_vow',
   description: 'Change the user’s goal, deadline, body stats or daily targets when they explicitly ask. Include only fields that change.',
-  strict: true,
-  eager_input_streaming: true,
   input_schema: {
     type: 'object',
     properties: {
@@ -84,8 +79,6 @@ export const updateVowTool: Tool = {
 export const rebuildProgramTool: Tool = {
   name: 'rebuild_program',
   description: 'Rewrite this week\u2019s training plan when the user asks for a new or changed plan. Say in your reply that the new week is coming.',
-  strict: true,
-  eager_input_streaming: true,
   input_schema: {
     type: 'object',
     properties: { focus: { type: 'string', description: 'What the user wants changed, in a few words' } },
@@ -98,8 +91,6 @@ export const rebuildProgramTool: Tool = {
 export const rememberTool: Tool = {
   name: 'remember',
   description: 'Keep lasting facts about the user (diet, allergies, injuries, schedule, equipment, likes and dislikes, life constraints) for all future conversations. Call it after writing your reply.',
-  strict: true,
-  eager_input_streaming: true,
   input_schema: {
     type: 'object',
     properties: {
@@ -124,8 +115,6 @@ export const rememberTool: Tool = {
 export const forgetTool: Tool = {
   name: 'forget',
   description: 'Drop remembered facts that the user says are no longer true, by their ids.',
-  strict: true,
-  eager_input_streaming: true,
   input_schema: { type: 'object', properties: { ids: { type: 'array', items: { type: 'string' } } }, required: ['ids'], additionalProperties: false },
 };
 

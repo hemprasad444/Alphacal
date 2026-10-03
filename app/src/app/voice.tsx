@@ -9,7 +9,7 @@ import { Core } from '../components/Core';
 import { Dots, IconButton, Label, Tap, Txt } from '../components/ui';
 import { hhmm, type Message, splitLead } from '@rei/shared';
 import { alpha, C, fontFamily, mix } from '../lib/theme';
-import { newSpeaker, premiumVoice, type Speaker, transcribe } from '../lib/voice';
+import { newSpeaker, premiumVoice, type Speaker, transcribe, voiceOffReason } from '../lib/voice';
 import { useStore } from '../state/store';
 
 type Phase = 'idle' | 'listening' | 'thinking' | 'speaking';
@@ -63,7 +63,9 @@ export default function Voice() {
       return;
     }
     if (!canRecord) {
-      // Keyboard path: the iOS keyboard's mic does the dictation.
+      // Keyboard path: the iOS keyboard's mic does the dictation. Say why, so it isn't a mystery.
+      const why = s.cloud ? voiceOffReason() : 'Voice needs a signed-in account.';
+      if (why) setNotes(n => (n.some(x => x.text.startsWith('VOICE OFF')) ? n : [...n, { role: 'sys', text: `VOICE OFF · ${why} Using keyboard dictation.`, time: hhmm() }]));
       setTyping(true);
       setPhase('listening');
       setTimeout(() => input.current?.focus(), 50);
@@ -106,7 +108,7 @@ export default function Voice() {
     setTurns(next);
     setLive('');
     setPhase('thinking');
-    const sp = settings.speak ? await newSpeaker(() => alive.current && setPhase(p => (p === 'speaking' ? 'idle' : p))) : null;
+    const sp = settings.speak ? await newSpeaker(() => alive.current && setPhase(p => (p === 'speaking' ? 'idle' : p)), settings.voice) : null;
     speaker.current = sp;
     let streamed = false;
     const r = await s.voiceReply(next, d => {
@@ -191,6 +193,9 @@ export default function Voice() {
               </View>
             );
           })}
+          {notes.map((n, i) => (
+            <Label key={`n${i}`} size={10} ls={0.12} color={C.label}>{n.text}</Label>
+          ))}
           {live ? (
             <View style={{ maxWidth: '94%', gap: 8 }}>
               <Label size={10} ls={0.14}>REI</Label>

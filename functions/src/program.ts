@@ -1,6 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
 import {
-  DEFAULT_DISCIPLINES, DEFAULT_PROFILE, isoDate, memorySummary, readMemory, isoWeek, MODELS, normalizeProgram, PROGRAM_SCHEMA, programPrompt, type Profile, type SessionLog,
+  DEFAULT_DISCIPLINES, DEFAULT_PROFILE, isoDate, memorySummary, readMemory, isoWeek, normalizeProgram, PROGRAM_SCHEMA, programPrompt, type Profile, type SessionLog,
   type WeeklyReport, type WeekProgram, zonedNow,
 } from '@rei/shared';
 import { logger } from 'firebase-functions';
@@ -8,9 +7,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { db } from './admin';
-import { ANTHROPIC_API_KEY, claude } from './claude';
-
-type Effort = 'medium' | 'high';
+import { complete, jsonText, LlmError, OPENROUTER_API_KEY } from './llm';
 
 function monday(d: Date): Date {
   const m = new Date(d);
@@ -19,10 +16,10 @@ function monday(d: Date): Date {
 }
 
 /**
- * Ask Opus for a week of training built from the user's goal, disciplines and the
+ * Ask the model for a week of training built from the user's goal, disciplines and the
  * last four weeks of logged sessions, and store it at users/{uid}/programs/{week}.
  */
-export async function generateProgram(uid: string, opts: { next?: boolean; focus?: string; effort?: Effort } = {}): Promise<{ program: WeekProgram; timeZone: string }> {
+export async function generateProgram(uid: string, opts: { next?: boolean; focus?: string} = {}): Promise<{ program: WeekProgram; timeZone: string }> {
   const user = db.doc(`users/${uid}`);
   const userSnap = await user.get();
   const u = userSnap.data() ?? {};
@@ -59,18 +56,10 @@ export async function generateProgram(uid: string, opts: { next?: boolean; focus
   });
 
   const t0 = Date.now();
-  const res = await claude().beta.messages.create({
-    model: MODELS.deep,
-    max_tokens: 16000,
-    output_config: { effort: opts.effort ?? 'high', format: { type: 'json_schema', schema: PROGRAM_SCHEMA as unknown as Record<string, unknown> } },
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    system,
-    messages: [{ role: 'user', content: prompt }],
-  });
+  const res = await complete({ task: 'program', system, messages: [{ role: 'user', content: prompt }], maxTokens: 16000, json: PROGRAM_SCHEMA });
   if (res.stop_reason === 'refusal') throw new Error('Program request was declined.');
   if (res.stop_reason === 'max_tokens') throw new Error('Program output was cut off.');
-  const text = res.content.map(b => (b.type === 'text' ? b.text : '')).join('');
+  const text = jsonText(res);
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -97,7 +86,7 @@ async function announce(uid: string, { program, timeZone }: { program: WeekProgr
 
 /** Sunday evening: next week's program for every user who doesn't have one yet. */
 export const weeklyPrograms = onSchedule(
-  { schedule: 'every sunday 21:00', timeZone: 'Asia/Kolkata', secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 540, memory: '512MiB' },
+  { schedule: 'every sunday 21:00', timeZone: 'Asia/Kolkata', secrets: [OPENROUTER_API_KEY], timeoutSeconds: 540, memory: '512MiB' },
   async () => {
     const users = await db.collection('users').select().get();
     for (const u of users.docs) {
@@ -111,26 +100,26 @@ export const weeklyPrograms = onSchedule(
 );
 
 /** "Rebuild my week": rewrites the current week now. Takes 10–40 s. */
-export const rebuildProgram = onCall({ secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 300, memory: '512MiB' }, async req => {
+export const rebuildProgram = onCall({ secrets: [OPENROUTER_API_KEY], timeoutSeconds: 300, memory: '512MiB' }, async req => {
   if (!req.auth || req.auth.token.tester !== true) throw new HttpsError('permission-denied', 'Not on the tester list.');
   const focus = typeof req.data?.focus === 'string' ? req.data.focus.slice(0, 200) : undefined;
   try {
-    const result = await generateProgram(req.auth.uid, { focus, effort: 'medium' });
+    const result = await generateProgram(req.auth.uid, { focus });
     await announce(req.auth.uid, result, 'Week rebuilt.');
     return { week: result.program.week, note: result.program.note };
   } catch (e) {
-    logger.error('rebuild failed', { uid: req.auth.uid, error: e instanceof Error ? e.message : String(e), status: e instanceof Anthropic.APIError ? e.status : undefined });
+    logger.error('rebuild failed', { uid: req.auth.uid, error: e instanceof Error ? e.message : String(e), status: e instanceof LlmError ? e.status : undefined });
     throw new HttpsError('unavailable', 'REI could not rebuild the week. Try again.');
   }
 });
 
 /** Jobs queued by other functions (the chat's rebuild_program tool) run here, off the request path. */
-export const runJob = onDocumentCreated({ document: 'users/{uid}/jobs/{jobId}', secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 300, memory: '512MiB' }, async event => {
+export const runJob = onDocumentCreated({ document: 'users/{uid}/jobs/{jobId}', secrets: [OPENROUTER_API_KEY], timeoutSeconds: 300, memory: '512MiB' }, async event => {
   const job = event.data?.data();
   if (!job || job.type !== 'program') return;
   const uid = event.params.uid;
   try {
-    const result = await generateProgram(uid, { focus: typeof job.focus === 'string' ? job.focus : undefined, effort: 'medium' });
+    const result = await generateProgram(uid, { focus: typeof job.focus === 'string' ? job.focus : undefined });
     await announce(uid, result, 'Week rebuilt.');
     await event.data?.ref.set({ status: 'done', week: result.program.week }, { merge: true });
   } catch (e) {

@@ -10,7 +10,7 @@ import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { db } from './admin';
-import { ANTHROPIC_API_KEY, claude } from './claude';
+import { complete, jsonText, OPENROUTER_API_KEY } from './llm';
 import { usageDay } from './chat/load';
 
 /** On-demand reports per user per day. */
@@ -45,16 +45,8 @@ export async function buildReport(uid: string, opts: { at?: Date } = {}): Promis
   try {
     const memory = memorySummary(readMemory(u.memory));
     const { system, user: prompt } = reportPrompt(stats, profile, settings.tone === 'Tough love', memory);
-    const res = await claude().beta.messages.create({
-      model: MODELS.deep,
-      max_tokens: 4000,
-      output_config: { effort: 'low', format: { type: 'json_schema', schema: REPORT_SCHEMA as unknown as Record<string, unknown> } },
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      system,
-      messages: [{ role: 'user', content: prompt }],
-    });
-    const out = res.stop_reason === 'end_turn' ? normalizeReport(JSON.parse(res.content.map(b => (b.type === 'text' ? b.text : '')).join(''))) : null;
+    const res = await complete({ task: 'report', system, messages: [{ role: 'user', content: prompt }], maxTokens: 4000, json: REPORT_SCHEMA });
+    const out = res.stop_reason === 'end_turn' ? normalizeReport(JSON.parse(jsonText(res))) : null;
     if (out) (text = out), (ai = true), (model = res.model);
   } catch (e) {
     logger.warn('report text failed; using the plain report', { uid, error: e instanceof Error ? e.message : String(e) });
@@ -74,7 +66,7 @@ export async function buildReport(uid: string, opts: { at?: Date } = {}): Promis
 
 /** Sunday evening, before next week's program: every user's report. */
 export const weeklyReports = onSchedule(
-  { schedule: 'every sunday 20:30', timeZone: 'Asia/Kolkata', secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 540, memory: '512MiB' },
+  { schedule: 'every sunday 20:30', timeZone: 'Asia/Kolkata', secrets: [OPENROUTER_API_KEY], timeoutSeconds: 540, memory: '512MiB' },
   async () => {
     const users = await db.collection('users').select().get();
     for (const u of users.docs) {
@@ -88,7 +80,7 @@ export const weeklyReports = onSchedule(
 );
 
 /** "Write this week's report" on the Progress screen: the week so far. */
-export const weeklyReport = onCall({ secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 120, memory: '512MiB' }, async req => {
+export const weeklyReport = onCall({ secrets: [OPENROUTER_API_KEY], timeoutSeconds: 120, memory: '512MiB' }, async req => {
   if (!req.auth || req.auth.token.tester !== true) throw new HttpsError('permission-denied', 'Not on the tester list.');
   const usage = db.doc(`users/${req.auth.uid}/usage/${usageDay()}`);
   const used = Number((await usage.get()).data()?.reports ?? 0);

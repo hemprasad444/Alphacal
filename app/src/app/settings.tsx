@@ -1,10 +1,12 @@
 import { router } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { Screen, SubHeader } from '../components/Screen';
 import { Card, Label, Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
 import { firebaseEnabled, usingEmulators } from '../lib/firebase';
-import { programWeek, trajectory, week } from '@rei/shared';
+import { DEFAULT_VOICE, isVoice, programWeek, trajectory, VOICES, week } from '@rei/shared';
 import { alpha, C, mix } from '../lib/theme';
+import { previewVoice, type Speaker } from '../lib/voice';
 import { useStore } from '../state/store';
 
 const TEXT_SIZES: [number, string, number][] = [[0.82, 'SMALLEST', 11], [0.9, 'SMALL', 13], [1, 'DEFAULT', 15], [1.08, 'LARGE', 17]];
@@ -13,6 +15,19 @@ export default function Settings() {
   const s = useStore();
   const { settings, accent, theme } = s;
   const tough = settings.tone === 'Tough love';
+  const [playing, setPlaying] = useState<string | null>(null);
+  const [iphoneOnly, setIphoneOnly] = useState(false);
+  const preview = useRef<Speaker | null>(null);
+  useEffect(() => () => preview.current?.stop(), []);
+
+  const pickVoice = async (id: string) => {
+    s.setOpt('voice', id);
+    preview.current?.stop();
+    setPlaying(id);
+    const { speaker, premium } = await previewVoice(id, () => setPlaying(p => (p === id ? null : p)));
+    preview.current = speaker;
+    setIphoneOnly(!premium);
+  };
   const daysLeft = trajectory(s.profile, week(s.history, s.sessionDone, new Date(), s.program).missed, new Date(), s.weighInsOrDemo).daysLeft;
 
   return (
@@ -68,6 +83,24 @@ export default function Settings() {
         <Row title="Proactive check-ins" sub="REI messages you when you slip" right={<Toggle on={settings.nudge} onPress={() => s.setOpt('nudge', !settings.nudge)} />} />
         <Row title="What REI remembers" sub={s.memory.length ? `${s.memory.length} fact${s.memory.length > 1 ? 's' : ''}: diet, health, schedule…` : 'Diet, injuries, schedule, equipment'} onPress={() => router.push('/memory')} right={<Txt size={18} color={C.dim}>›</Txt>} last />
       </Card>
+
+      <Label style={{ marginTop: 30 }}>{settings.hud ? 'REI’S VOICE · 声' : 'REI’S VOICE'}</Label>
+      <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
+        {VOICES.map((v, i) => {
+          const on = (isVoice(settings.voice) ? settings.voice : DEFAULT_VOICE) === v.id;
+          return (
+            <Row
+              key={v.id}
+              title={v.name}
+              sub={playing === v.id ? 'Playing…' : v.note}
+              onPress={() => void pickVoice(v.id)}
+              right={<Txt size={16} color={on ? accent : C.dim}>{on ? '●' : '○'}</Txt>}
+              last={i === VOICES.length - 1}
+            />
+          );
+        })}
+      </Card>
+      {iphoneOnly ? <Txt size={12} color={C.dim} style={{ marginTop: 8, paddingHorizontal: 4 }}>Premium voice is off right now, so this preview used the iPhone’s voice. Open Voice to see why.</Txt> : null}
 
       <Label style={{ marginTop: 30 }}>ACCOUNT</Label>
       <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>

@@ -1,3 +1,4 @@
+import { DEFAULT_VOICE } from './voices';
 import type { Activity, Exercise, Meal, Message, Profile, Scenario, Settings, WeighIn } from './types';
 import { isoDate } from './time';
 
@@ -135,6 +136,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hud: true,
   fx: true,
   speak: true,
+  voice: DEFAULT_VOICE,
   nudge: true,
   tone: 'Tough love',
   avatar: 'Character in chat',

@@ -1,11 +1,10 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { addMemory, applyUpdate, catalog, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, MODELS, nutrition, parseReply, reiContext, resolveAiItems, route, systemContext, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
+import { addMemory, applyUpdate, catalog, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, systemContext, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineInt } from 'firebase-functions/params';
 import { onRequest } from 'firebase-functions/v2/https';
 import { db } from '../admin';
-import { ANTHROPIC_API_KEY, claude } from '../claude';
+import { complete, LlmError, OPENROUTER_API_KEY, type Msg } from '../llm';
 import { verify } from '../http';
 import { DAILY_LIMIT, loadUser, usageDay } from './load';
 import { forgetTool, logMealTool, logMealWithVerdictTool, parseForget, parseMealItems, parseRemember, parseVow, rebuildProgramTool, rememberTool, updateVowTool } from './tools';
@@ -47,7 +46,7 @@ function parseBody(raw: unknown): Body | null {
  * The reply, any meal and any vow change are written to Firestore before "done".
  */
 export const chat = onRequest(
-  { secrets: [ANTHROPIC_API_KEY], minInstances: MIN_INSTANCES, timeoutSeconds: 120, memory: '512MiB', concurrency: 40, cors: true },
+  { secrets: [OPENROUTER_API_KEY], minInstances: MIN_INSTANCES, timeoutSeconds: 120, memory: '512MiB', concurrency: 40, cors: true },
   async (req, res) => {
     const t0 = Date.now();
     if (req.method !== 'POST') {
@@ -80,16 +79,11 @@ export const chat = onRequest(
     // The foods this message might mean, so REI logs the list's numbers instead of guessing.
     const foods = [...data.foods, ...catalog()];
     const candidates = foodCandidates(body.text, foods);
-    const system: Anthropic.Beta.Messages.BetaTextBlockParam[] = [
-      { type: 'text', text: systemRules({ tough: ctx.tough, nudge: ctx.nudge, tools: true }), cache_control: { type: 'ephemeral' } },
-      { type: 'text', text: systemContext(ctx) },
-      ...(candidates.length ? [{ type: 'text' as const, text: foodListPrompt(candidates) }] : []),
-    ];
+    const system = [systemRules({ tough: ctx.tough, nudge: ctx.nudge, tools: true }), systemContext(ctx), ...(candidates.length ? [foodListPrompt(candidates)] : [])].join('\n\n');
     const userText = body.mode === 'meal' ? `Just ate: ${body.text}` : body.text;
     const history = data.messages.filter(m => m.id !== body.userMessageId);
     const turns = toTurns([...history, { role: 'user', text: userText, time: '' }]);
     const tier: Tier = body.mode === 'meal' ? 'fast' : route(body.text);
-    const model = MODELS[tier];
 
     let ttft = 0;
     let text = '';
@@ -143,60 +137,29 @@ export const chat = onRequest(
         meal: !!meal, vow: !!vow, remembered: memory.remember.length, forgot: memory.forget.length, foods: candidates.length, matched: meal?.items?.filter(i => i.food).length ?? 0,
       });
     } catch (e) {
-      const status = e instanceof Anthropic.APIError ? e.status : undefined;
+      const status = e instanceof LlmError ? e.status : undefined;
       logger.error('chat failed', { uid, tier, status, error: e instanceof Error ? e.message : String(e) });
-      send({ type: 'error', message: status === 429 || status === 529 ? 'REI is overloaded. Try again in a moment.' : 'REI could not answer.' });
+      send({ type: 'error', message: status === 429 || status === 529 || status === 503 ? 'REI is overloaded. Try again in a moment.' : 'REI could not answer.' });
     }
     res.end();
   },
 );
 
 /** Streamed reply that may end with log_meal / update_vow. */
-async function chatCall(tier: Tier, system: Anthropic.Beta.Messages.BetaTextBlockParam[], turns: Anthropic.Beta.Messages.BetaMessageParam[], onText: (d: string) => void) {
-  const c = claude();
-  const stream =
-    tier === 'deep'
-      ? c.beta.messages.stream({
-          model: MODELS.deep,
-          max_tokens: 16000,
-          output_config: { effort: 'medium' },
-          // On a safety decline, the API re-runs the request on its recommended fallback model.
-          betas: ['server-side-fallback-2026-07-01'],
-          fallbacks: 'default',
-          system,
-          messages: turns,
-          tools: [logMealTool, updateVowTool, rememberTool, forgetTool, rebuildProgramTool],
-        })
-      : c.beta.messages.stream({
-          model: MODELS.fast,
-          max_tokens: 2048,
-          system,
-          messages: turns,
-          tools: [logMealTool, updateVowTool, rememberTool, forgetTool],
-        });
-  stream.on('text', onText);
-  try {
-    return await stream.finalMessage();
-  } catch (e) {
-    if (e instanceof Anthropic.APIError) throw e;
-    // A tool input that isn't parseable JSON at all: keep the text, drop the tool call.
-    logger.warn('tool input unparseable; using text only', { error: e instanceof Error ? e.message : String(e) });
-    const snapshot = stream.currentMessage;
-    if (!snapshot) throw e;
-    return { ...snapshot, content: snapshot.content.filter(b => b.type === 'text') };
-  }
+function chatCall(tier: Tier, system: string, turns: Msg[], onText: (d: string) => void) {
+  return complete({
+    task: tier,
+    system,
+    messages: turns,
+    maxTokens: tier === 'deep' ? 16000 : 2048,
+    tools: tier === 'deep' ? [logMealTool, updateVowTool, rememberTool, forgetTool, rebuildProgramTool] : [logMealTool, updateVowTool, rememberTool, forgetTool],
+    onText,
+  });
 }
 
 /** Fuel screen: one forced tool call returns the macros and REI's verdict together. */
-function mealCall(system: Anthropic.Beta.Messages.BetaTextBlockParam[], turns: Anthropic.Beta.Messages.BetaMessageParam[]) {
-  return claude().beta.messages.create({
-    model: MODELS.fast,
-    max_tokens: 1024,
-    system,
-    messages: turns,
-    tools: [logMealWithVerdictTool],
-    tool_choice: { type: 'tool', name: 'log_meal' },
-  });
+function mealCall(system: string, turns: Msg[]) {
+  return complete({ task: 'fast', system, messages: turns, maxTokens: 1024, tools: [logMealWithVerdictTool], forceTool: 'log_meal' });
 }
 
 interface Memory {

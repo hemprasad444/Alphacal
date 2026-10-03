@@ -1,24 +1,41 @@
 // Premium voice: REI's replies spoken sentence by sentence as they stream in, and your
 // speech transcribed by the backend. Falls back to the iPhone's voice (expo-speech) and
 // keyboard dictation when the backend voice isn't configured or can't be reached.
-import { takeSentences } from '@rei/shared';
-import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { DEFAULT_VOICE, isVoice, takeSentences, VOICE_PREVIEW } from '@rei/shared';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import { fetch } from 'expo/fetch';
 import { File } from 'expo-file-system';
 import * as Speech from 'expo-speech';
 import { fb, functionsUrl } from './firebase';
 
 let available: Promise<boolean> | null = null;
+let lastReason = '';
+
+/** Why premium voice is off, from the last check; '' when it's on or unchecked. */
+export function voiceOffReason(): string {
+  return lastReason;
+}
+
+const REASONS: Record<number, string> = {
+  401: 'Sign-in expired. Sign out and back in.',
+  403: 'This account isn’t activated as a tester yet.',
+  503: 'The voice key isn’t set on the server (TTS_API_KEY).',
+};
 
 /** Whether the backend voice is set up (cached for the session). */
 export function premiumVoice(): Promise<boolean> {
   available ??= (async () => {
     try {
       const token = await fb().auth.currentUser?.getIdToken();
-      if (!token) return false;
+      if (!token) {
+        lastReason = 'Not signed in.';
+        return false;
+      }
       const res = await fetch(`${functionsUrl('tts')}?probe=1`, { headers: { Authorization: `Bearer ${token}` } });
+      lastReason = res.status === 204 ? '' : (REASONS[res.status] ?? `Voice check failed (${res.status}).`);
       return res.status === 204;
     } catch {
+      lastReason = 'Can’t reach the REI server.';
       return false;
     }
   })();
@@ -57,6 +74,7 @@ export class Speaker {
     private readonly premium: boolean,
     private readonly token: string | null,
     private readonly onIdle: () => void,
+    private readonly voice: string,
   ) {}
 
   push(delta: string) {
@@ -89,7 +107,7 @@ export class Speaker {
 
   private enqueue(text: string) {
     const player = this.premium && this.token && !this.premiumBroken
-      ? createAudioPlayer({ uri: `${functionsUrl('tts')}?t=${encodeURIComponent(text)}`, headers: { Authorization: `Bearer ${this.token}` } })
+      ? createAudioPlayer({ uri: `${functionsUrl('tts')}?t=${encodeURIComponent(text)}&v=${encodeURIComponent(this.voice)}`, headers: { Authorization: `Bearer ${this.token}` } })
       : null;
     this.queue.push({ text, player });
     if (!this.playing) this.next();
@@ -142,8 +160,17 @@ export class Speaker {
   }
 }
 
-export async function newSpeaker(onIdle: () => void): Promise<Speaker> {
+export async function newSpeaker(onIdle: () => void, voice: string): Promise<Speaker> {
   const premium = await premiumVoice();
   const token = premium ? (await fb().auth.currentUser?.getIdToken()) ?? null : null;
-  return new Speaker(premium, token, onIdle);
+  return new Speaker(premium, token, onIdle, isVoice(voice) ? voice : DEFAULT_VOICE);
+}
+
+/** Says a short sample line in this voice; `premium` is false when the iPhone's voice was used instead. */
+export async function previewVoice(voice: string, onDone: () => void): Promise<{ speaker: Speaker; premium: boolean }> {
+  await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+  const speaker = await newSpeaker(onDone, voice);
+  speaker.push(VOICE_PREVIEW);
+  speaker.end();
+  return { speaker, premium: await premiumVoice() };
 }

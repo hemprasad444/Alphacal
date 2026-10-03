@@ -2,7 +2,7 @@
 
 REI (零, "zero excuses") is a personal AI fitness companion: a tough-love coach that tracks your training, food and goal and calls you out when you slip. This is the iOS app built from the prototype in [`../design/REI.dc.html`](../design/REI.dc.html).
 
-Built with Expo (React Native + TypeScript) and Expo Router. Data syncs through Firebase, and REI's replies stream from Claude through the backend in [`../functions`](../functions). Setup for the backend is in the [root README](../README.md).
+Built with Expo (React Native + TypeScript) and Expo Router. Data syncs through Firebase, and REI's replies stream from AI models (via OpenRouter) through the backend in [`../functions`](../functions). Setup for the backend is in the [root README](../README.md).
 
 ## Screens
 
@@ -31,8 +31,8 @@ With no `.env`, the app runs as an on-device demo with offline replies. To conne
 ## How it stays fast
 
 - **Local-first.** Screens read and write the on-device store, so logging a meal or ticking a set updates within a frame. Firestore syncs in the background and listeners merge changes from other devices.
-- **Streamed replies.** `src/lib/api.ts` streams REI's reply from the `chat` function word by word. Quick chat goes to Claude Haiku 4.5; planning and analysis go to Claude Opus 5.5.
-- **No key in the app.** The Claude API key lives only in Firebase Secret Manager.
+- **Streamed replies.** `src/lib/api.ts` streams REI's reply from the `chat` function word by word. Each job (quick chat, planning, photos, reports) uses its own model.
+- **No key in the app.** The OpenRouter API key lives only in Firebase Secret Manager.
 
 ## Build for the App Store
 

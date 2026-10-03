@@ -5,12 +5,13 @@
 import { logger } from 'firebase-functions';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { onRequest } from 'firebase-functions/v2/https';
+import { DEFAULT_VOICE, isVoice } from '@rei/shared';
 import { verify } from './http';
 
 /** Set with: firebase functions:secrets:set TTS_API_KEY (enter "none" until you have one). */
 export const TTS_API_KEY = defineSecret('TTS_API_KEY');
-/** REI's voice. Any ElevenLabs voice id; the default is a calm, clear female voice. */
-const VOICE_ID = defineString('TTS_VOICE_ID', { default: '21m00Tcm4TlvDq8ikWAM' });
+/** REI's voice when the app doesn't pick one (from VOICES). */
+const VOICE_ID = defineString('TTS_VOICE_ID', { default: DEFAULT_VOICE });
 
 const BASE = () => process.env.ELEVENLABS_BASE_URL || 'https://api.elevenlabs.io';
 const key = () => {
@@ -19,7 +20,7 @@ const key = () => {
 };
 
 /**
- * GET /tts?t=<sentence>  → audio/mpeg, streamed as it's generated.
+ * GET /tts?t=<sentence>[&v=<voice id>]  → audio/mpeg, streamed as it's generated.
  * GET /tts?probe=1       → 204 when the premium voice is configured, 503 when not.
  * GET (not POST) so the phone's audio player can stream it directly with an auth header.
  */
@@ -43,14 +44,15 @@ export const tts = onRequest({ secrets: [TTS_API_KEY], timeoutSeconds: 60, concu
     res.status(400).json({ error: 'Missing text.' });
     return;
   }
+  const voice = isVoice(req.query.v) ? req.query.v : VOICE_ID.value();
   const t0 = Date.now();
-  const upstream = await fetch(`${BASE()}/v1/text-to-speech/${encodeURIComponent(VOICE_ID.value())}/stream?output_format=mp3_44100_64`, {
+  const upstream = await fetch(`${BASE()}/v1/text-to-speech/${encodeURIComponent(voice)}/stream?output_format=mp3_44100_64`, {
     method: 'POST',
     headers: { 'xi-api-key': k, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
     body: JSON.stringify({ text, model_id: 'eleven_flash_v2_5' }),
   });
   if (!upstream.ok || !upstream.body) {
-    logger.error('tts upstream failed', { status: upstream.status });
+    logger.error('tts upstream failed', { status: upstream.status, voice, detail: (await upstream.text().catch(() => '')).slice(0, 300) });
     res.status(502).json({ error: 'Voice unavailable.' });
     return;
   }
@@ -91,7 +93,7 @@ export const stt = onRequest({ secrets: [TTS_API_KEY], timeoutSeconds: 60, memor
   form.append('file', new Blob([new Uint8Array(audio)], { type: req.get('content-type') || 'audio/mp4' }), 'clip.m4a');
   const upstream = await fetch(`${BASE()}/v1/speech-to-text`, { method: 'POST', headers: { 'xi-api-key': k }, body: form });
   if (!upstream.ok) {
-    logger.error('stt upstream failed', { status: upstream.status });
+    logger.error('stt upstream failed', { status: upstream.status, detail: (await upstream.text().catch(() => '')).slice(0, 300) });
     res.status(502).json({ error: 'Transcription unavailable.' });
     return;
   }

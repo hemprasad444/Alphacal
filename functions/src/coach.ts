@@ -1,23 +1,20 @@
-import { MODELS, nudgeDue, nutrition, parseReply, reiContext, systemContext, systemRules, todaysPlan, week, type Nudge } from '@rei/shared';
+import { nudgeDue, nutrition, parseReply, reiContext, systemContext, systemRules, todaysPlan, week, type Nudge } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { db } from './admin';
 import { loadUser } from './chat/load';
-import { ANTHROPIC_API_KEY, claude } from './claude';
+import { complete, OPENROUTER_API_KEY } from './llm';
 
 /** REI's proactive message for one nudge, in its own voice; the canned line if the model fails. */
 async function write(data: Awaited<ReturnType<typeof loadUser>>, nudge: Nudge): Promise<string> {
   const ctx = reiContext(data.input);
   try {
-    const res = await claude().messages.create({
-      model: MODELS.fast,
-      max_tokens: 300,
-      system: [
-        { type: 'text', text: systemRules({ tough: ctx.tough, nudge: ctx.nudge, tools: false }), cache_control: { type: 'ephemeral' } },
-        { type: 'text', text: systemContext(ctx) },
-      ],
+    const res = await complete({
+      task: 'fast',
+      system: `${systemRules({ tough: ctx.tough, nudge: ctx.nudge, tools: false })}\n\n${systemContext(ctx)}`,
       messages: [{ role: 'user', content: `(You are messaging first; they have not said anything.) ${nudge.fact} Write one check-in message, under 30 words, that names the number and the next action.` }],
+      maxTokens: 300,
     });
     const text = parseReply(res.content.map(b => (b.type === 'text' ? b.text : '')).join('')).text;
     return text || nudge.fallback;
@@ -58,7 +55,7 @@ export async function coachUser(uid: string, at?: Date): Promise<string | null> 
 
 /** Every 15 minutes: REI checks in with anyone who has proactive check-ins on. */
 export const coach = onSchedule(
-  { schedule: 'every 15 minutes', secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 300, memory: '512MiB' },
+  { schedule: 'every 15 minutes', secrets: [OPENROUTER_API_KEY], timeoutSeconds: 300, memory: '512MiB' },
   async () => {
     const users = await db.collection('users').where('settings.nudge', '==', true).select().get();
     const results = await Promise.allSettled(users.docs.map(u => coachUser(u.id)));

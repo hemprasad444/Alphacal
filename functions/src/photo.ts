@@ -1,12 +1,11 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { hhmm, MODELS, reiContext, systemContext, systemRules, type Meal } from '@rei/shared';
+import { hhmm, reiContext, systemContext, systemRules, type Meal } from '@rei/shared';
 import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { db } from './admin';
 import { save } from './chat';
 import { loadUser } from './chat/load';
 import { parseMeal } from './chat/tools';
-import { ANTHROPIC_API_KEY, claude } from './claude';
+import { complete, jsonText, LlmError, OPENROUTER_API_KEY } from './llm';
 
 /** About 1.5 MB of JPEG; the app sends ~150 KB (1024 px, quality 0.7). */
 const MAX_BASE64 = 2_000_000;
@@ -27,10 +26,10 @@ const PHOTO_SCHEMA = {
 } as const;
 
 /**
- * A meal photo from the Fuel screen: Opus reads the plate, estimates macros, and REI
+ * A meal photo from the Fuel screen: the model reads the plate, estimates macros, and REI
  * reacts. Confident estimates are logged like a typed meal; unsure ones only ask.
  */
-export const mealFromPhoto = onCall({ secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 120, memory: '512MiB' }, async req => {
+export const mealFromPhoto = onCall({ secrets: [OPENROUTER_API_KEY], timeoutSeconds: 120, memory: '512MiB' }, async req => {
   if (!req.auth || req.auth.token.tester !== true) throw new HttpsError('permission-denied', 'Not on the tester list.');
   const image = req.data?.image;
   const note = typeof req.data?.note === 'string' ? req.data.note.trim().slice(0, 200) : '';
@@ -40,34 +39,24 @@ export const mealFromPhoto = onCall({ secrets: [ANTHROPIC_API_KEY], timeoutSecon
   const data = await loadUser(uid);
   const ctx = reiContext(data.input);
 
-  let res: Anthropic.Beta.Messages.BetaMessage;
+  let res;
   try {
-    res = await claude().beta.messages.create({
-      model: MODELS.deep,
-      max_tokens: 4000,
-      output_config: { effort: 'medium', format: { type: 'json_schema', schema: PHOTO_SCHEMA as unknown as Record<string, unknown> } },
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      system: [
-        { type: 'text', text: systemRules({ tough: ctx.tough, nudge: ctx.nudge, tools: false }), cache_control: { type: 'ephemeral' } },
-        { type: 'text', text: `${systemContext(ctx)}\nThe user sent a photo of what they are eating. Estimate it like a nutrition coach: identify each item, judge portion sizes from plate and cutlery scale, and count oil and sauces.` },
-      ],
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } },
-          { type: 'text', text: note ? `What I'm eating: ${note}` : 'What I’m eating.' },
-        ],
-      }],
+    res = await complete({
+      task: 'photo',
+      system: `${systemRules({ tough: ctx.tough, nudge: ctx.nudge, tools: false })}\n\n${systemContext(ctx)}\nThe user sent a photo of what they are eating. Estimate it like a nutrition coach: identify each item, judge portion sizes from plate and cutlery scale, and count oil and sauces.`,
+      messages: [{ role: 'user', content: note ? `What I'm eating: ${note}` : 'What I’m eating.' }],
+      image,
+      maxTokens: 4000,
+      json: PHOTO_SCHEMA,
     });
   } catch (e) {
-    logger.error('photo failed', { uid, status: e instanceof Anthropic.APIError ? e.status : undefined, error: e instanceof Error ? e.message : String(e) });
+    logger.error('photo failed', { uid, status: e instanceof LlmError ? e.status : undefined, error: e instanceof Error ? e.message : String(e) });
     throw new HttpsError('unavailable', 'REI could not read the photo. Try again.');
   }
   if (res.stop_reason === 'refusal') throw new HttpsError('failed-precondition', 'REI can only read food photos.');
   let out: unknown;
   try {
-    out = JSON.parse(res.content.map(b => (b.type === 'text' ? b.text : '')).join(''));
+    out = JSON.parse(jsonText(res));
   } catch {
     throw new HttpsError('internal', 'REI could not read the photo. Try again.');
   }
