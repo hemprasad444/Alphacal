@@ -1,3 +1,4 @@
+import type { Nutrients } from './nutrients';
 export type ThemeId = 'zero' | 'shinobi' | 'voyager' | 'hero' | 'cursed' | 'slayer';
 export type FontKey = 'Geist' | 'Space Grotesk' | 'IBM Plex' | 'Zen Kaku';
 
@@ -25,6 +26,8 @@ export interface Meal {
   items?: MealItem[];
   /** How it was logged: picked from the food list, by REI, from a photo, or by barcode. */
   src?: 'food' | 'ai' | 'photo' | 'barcode';
+  /** Fibre, sugar, sodium, vitamins and minerals, as far as they're known. */
+  n?: Nutrients;
 }
 
 /** One food in a meal: an amount of a known food, or REI's estimate when nothing matched (food ''). */
@@ -39,6 +42,8 @@ export interface MealItem {
   p: number;
   c: number;
   f: number;
+  /** Fibre, vitamins and minerals for this amount, where the food has them. */
+  n?: Nutrients;
 }
 
 export interface Profile {

@@ -61,7 +61,8 @@ describe('portions', () => {
   });
 
   it('scales macros by weight', () => {
-    expect(itemFor(byId('d:roti'), 2)).toEqual({ food: 'd:roti', name: 'Roti', qty: 2, unit: 'roti', g: 80, kcal: 220, p: 7, c: 38, f: 5 });
+    expect(itemFor(byId('d:roti'), 2)).toMatchObject({ food: 'd:roti', name: 'Roti', qty: 2, unit: 'roti', g: 80, kcal: 220, p: 7, c: 38, f: 5, n: { fib: 5, sug: 0.6, sfa: 1, na: 240 } });
+    expect(itemFor(byId('d:roti'), 2).n?.fe).toBeGreaterThan(0);
     expect(itemFor(byId('d:grilled-chicken'), 200, 'g').kcal).toBe(330);
   });
 
@@ -152,5 +153,25 @@ describe('search index', () => {
     for (const foods of lists)
       for (const q of ['roti', 'pa', 'chi', 'dal', 'paneer wrap', 'egg', 'rice cook', 'moong', 'bajra', 'ban', 'curd rice', 'xyz', 'ghee', 'chicken breast', 'masala dosa'])
         expect(searchFoods(q, foods, 8).map(m => m.food.id)).toEqual(searchFoodsLinear(q, foods, 8).map(m => m.food.id));
+  });
+});
+
+describe('nutrients', () => {
+  const { mealFromItems } = jest.requireActual('../food') as typeof import('../food');
+  it('carries IFCT vitamins and minerals, scaled to the amount eaten, and sums them per meal', () => {
+    const egg = catalog().find(f => f.id === 'i:M001')!;
+    expect(egg.n?.fe).toBeCloseTo(1.82);
+    expect(egg.n?.va).toBeGreaterThan(200);
+    const two = itemFor(egg, 2);
+    expect(two.n?.fe).toBeCloseTo(1.82, 1);
+    const roti = itemFor(byId('d:roti'), 2);
+    const meal = mealFromItems([two, roti], '09:00', 'food');
+    expect(meal.n?.fib).toBeCloseTo(5, 1);
+    expect(meal.n?.na).toBeGreaterThan(240);
+    expect(meal.n?.fe).toBeCloseTo((two.n?.fe ?? 0) + (roti.n?.fe ?? 0), 1);
+  });
+
+  it('leaves meals without any nutrient data without an n', () => {
+    expect(mealFromItems([{ food: '', name: 'Mystery', qty: 1, unit: 'serving', g: 0, kcal: 300, p: 10, c: 30, f: 10 }], '09:00', 'ai').n).toBeUndefined();
   });
 });

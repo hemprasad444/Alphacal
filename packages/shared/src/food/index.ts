@@ -1,6 +1,7 @@
 // The food list: Indian ingredients (IFCT 2017), common dishes, and each tester's own foods.
 // Search, quantity parsing and portion maths all run on the device, so picking a food logs
 // it instantly and works offline. REI uses the same list to match what you type.
+import { addNutrients, cleanNutrients, type Nutrients, nutrientsFromRow, scaleNutrients } from '../nutrients';
 import type { Meal, MealItem } from '../types';
 import { DISHES } from './dishes';
 import { IFCT } from './ifct';
@@ -32,6 +33,8 @@ export interface Food {
   f: number;
   /** Portions; the first is the default. Grams always work too, unless `serving` is set. */
   units: Unit[];
+  /** Fibre, sugar, sodium, vitamins and minerals for `per` grams, where known. */
+  n?: Nutrients;
   src: FoodSource;
   brand?: string;
   barcode?: string;
@@ -72,14 +75,14 @@ const HUNDRED: Unit[] = [{ n: '100 g', g: 100 }];
 /** Every built-in food: dishes first (what people usually mean), then IFCT ingredients, then USDA. */
 export function catalog(): Food[] {
   built ??= [
-    ...DISHES.map(([id, name, alt, units, kcal, p, c, f]): Food => ({
-      id: `d:${id}`, name, alt, per: units[0][1], kcal, p, c, f, units: units.map(([n, g]) => ({ n, g })), src: 'dish',
+    ...DISHES.map(([id, name, alt, units, kcal, p, c, f, extra]): Food => ({
+      id: `d:${id}`, name, alt, per: units[0][1], kcal, p, c, f, units: units.map(([n, g]) => ({ n, g })), src: 'dish', n: nutrientsFromRow(extra),
     })),
-    ...IFCT.map(([code, name, alt, p, c, f, fib]): Food => ({
-      id: `i:${code}`, name, alt, per: 100, kcal: kcalOf(p, c, f, fib), p, c, f, units: IFCT_UNITS[code] ?? [{ n: '100 g', g: 100 }], src: 'ifct',
+    ...IFCT.map(([code, name, alt, p, c, f, fib, nutr]): Food => ({
+      id: `i:${code}`, name, alt, per: 100, kcal: kcalOf(p, c, f, fib), p, c, f, units: IFCT_UNITS[code] ?? [{ n: '100 g', g: 100 }], src: 'ifct', n: nutrientsFromRow(nutr),
     })),
     // Everything else, from USDA: ranked below the Indian lists when both match.
-    ...USDA.map(([id, name, kcal, p, c, f]): Food => ({ id: `u:${id}`, name, per: 100, kcal, p, c, f, units: HUNDRED, src: 'usda' })),
+    ...USDA.map(([id, name, kcal, p, c, f, nutr]): Food => ({ id: `u:${id}`, name, per: 100, kcal, p, c, f, units: HUNDRED, src: 'usda', n: nutrientsFromRow(nutr) })),
   ];
   return built;
 }
@@ -281,7 +284,8 @@ export function itemFor(food: Food, qty: number, unit?: string): MealItem {
   const u = unitFor(food, unit);
   const g = qty * u.g;
   const k = g / (food.per || 1);
-  return { food: food.id, name: food.name, qty, unit: u.n, g: food.serving ? 0 : Math.round(g), kcal: Math.round(food.kcal * k), p: r1(food.p * k), c: r1(food.c * k), f: r1(food.f * k) };
+  const n = scaleNutrients(food.n, k);
+  return { food: food.id, name: food.name, qty, unit: u.n, g: food.serving ? 0 : Math.round(g), kcal: Math.round(food.kcal * k), p: r1(food.p * k), c: r1(food.c * k), f: r1(food.f * k), ...(n ? { n } : {}) };
 }
 
 /** "2 roti", "150 g", "1.5 katori". */
@@ -296,7 +300,8 @@ export function mealFromItems(items: MealItem[], time: string, src: Meal['src'],
   const sum = (k: 'kcal' | 'p' | 'c' | 'f') => Math.round(items.reduce((a, i) => a + i[k], 0));
   const label = name?.trim() || items.map(i => (i.qty !== 1 && i.unit !== 'g' && !/^\d/.test(i.unit) ? `${+i.qty.toFixed(2)} ${i.name}` : i.name)).join(' + ');
   const n = label.slice(0, 60);
-  return { time, name: n.charAt(0).toUpperCase() + n.slice(1), kcal: sum('kcal'), p: sum('p'), c: sum('c'), f: sum('f'), items, src };
+  const nutr = items.some(i => i.n) ? addNutrients(...items.map(i => i.n)) : undefined;
+  return { time, name: n.charAt(0).toUpperCase() + n.slice(1), kcal: sum('kcal'), p: sum('p'), c: sum('c'), f: sum('f'), items, src, ...(nutr ? { n: nutr } : {}) };
 }
 
 // ---- Free text ----------------------------------------------------------------
@@ -392,6 +397,11 @@ export interface AiItem {
   p: number;
   c: number;
   f: number;
+  /** REI's estimate of fibre, sugar and saturated fat (g) and sodium (mg), when it gave one. */
+  fib?: number;
+  sug?: number;
+  sfa?: number;
+  na?: number;
 }
 
 /** Use the list's numbers for anything REI matched; keep REI's estimate for the rest. */
@@ -400,7 +410,8 @@ export function resolveAiItems(items: AiItem[], foods: Food[]): MealItem[] {
   return items.map(i => {
     const food = byId.get(i.food_id);
     if (food && i.qty > 0) return itemFor(food, i.qty, i.unit);
-    return { food: '', name: i.name, qty: i.qty > 0 ? i.qty : 1, unit: i.unit || 'serving', g: 0, kcal: Math.round(i.kcal), p: r1(i.p), c: r1(i.c), f: r1(i.f) };
+    const n = cleanNutrients({ fib: i.fib, sug: i.sug, sfa: i.sfa, na: i.na });
+    return { food: '', name: i.name, qty: i.qty > 0 ? i.qty : 1, unit: i.unit || 'serving', g: 0, kcal: Math.round(i.kcal), p: r1(i.p), c: r1(i.c), f: r1(i.f), ...(n ? { n } : {}) };
   });
 }
 
@@ -428,16 +439,22 @@ export function offToFood(code: string, body: unknown): Food | null {
   if (pack && +pack[1] > 0 && +pack[1] <= 5000) units.push({ n: 'pack', g: Math.round(+pack[1]) });
   units.push({ n: '100 g', g: 100 });
   const safe = (v: number) => (Number.isFinite(v) && v >= 0 ? r1(v) : 0);
+  // Label nutrients per 100 g; OFF gives everything in grams, so minerals and vitamins are converted.
+  const label = cleanNutrients({
+    fib: num('fiber_100g'), sug: num('sugars_100g'), sfa: num('saturated-fat_100g'), na: num('sodium_100g') * 1000,
+    k: num('potassium_100g') * 1000, ca: num('calcium_100g') * 1000, fe: num('iron_100g') * 1000, mg: num('magnesium_100g') * 1000, zn: num('zinc_100g') * 1000,
+    va: num('vitamin-a_100g') * 1e6, vc: num('vitamin-c_100g') * 1000, vd: num('vitamin-d_100g') * 1e6,
+  });
   return {
     id: `b:${code}`, name: name.slice(0, 60), brand, barcode: code, per: 100,
     kcal: Number.isFinite(kcal) ? Math.round(kcal) : kcalOf(safe(p), safe(c), safe(f)),
-    p: safe(p), c: safe(c), f: safe(f), units, src: 'barcode',
+    p: safe(p), c: safe(c), f: safe(f), units, src: 'barcode', ...(label ? { n: label } : {}),
   };
 }
 
 /** Save a logged meal as one of your foods, counted in servings. */
 export function foodFromMeal(meal: Meal, id: string): Food {
-  return { id, name: meal.name, per: 1, kcal: meal.kcal, p: meal.p, c: meal.c, f: meal.f, units: [{ n: 'serving', g: 1 }], src: 'mine', serving: true };
+  return { id, name: meal.name, per: 1, kcal: meal.kcal, p: meal.p, c: meal.c, f: meal.f, units: [{ n: 'serving', g: 1 }], src: 'mine', serving: true, ...(meal.n ? { n: meal.n } : {}) };
 }
 
 /** Basic checks before a food is stored (also enforced by the security rules). */

@@ -1,5 +1,5 @@
 import type { LlmTool } from '../llm';
-import { type AiItem, isClock, MEMORY_KINDS, WORKOUT_KINDS, type MemoryKind, PROFILE_KEYS, type MealEstimate, type ProfileKey } from '@rei/shared';
+import { type AiItem, cleanNutrients, isClock, MEMORY_KINDS, type Nutrients, WORKOUT_KINDS, type MemoryKind, PROFILE_KEYS, type MealEstimate, type ProfileKey } from '@rei/shared';
 
 type Tool = LlmTool;
 
@@ -26,8 +26,12 @@ const itemsProp = {
       p: { type: 'integer' },
       c: { type: 'integer' },
       f: { type: 'integer' },
+      fib: { type: 'number', description: 'Fibre, grams, your estimate for this amount' },
+      sug: { type: 'number', description: 'Total sugars, grams' },
+      sfa: { type: 'number', description: 'Saturated fat, grams' },
+      na: { type: 'integer', description: 'Sodium, mg (count salt in cooking)' },
     },
-    required: ['food_id', 'name', 'qty', 'unit', 'kcal', 'p', 'c', 'f'],
+    required: ['food_id', 'name', 'qty', 'unit', 'kcal', 'p', 'c', 'f', 'fib', 'sug', 'sfa', 'na'],
     additionalProperties: false,
   },
 } as const;
@@ -181,10 +185,23 @@ export function parseMealItems(input: unknown): { name: string; items: AiItem[];
       qty,
       unit: typeof i.unit === 'string' ? i.unit.trim().slice(0, 24) : '',
       kcal, p, c, f,
+      ...estimates(i),
     });
   }
   if (!items.length) return null;
   return { name: o.name.trim().slice(0, 60), items, ...(typeof o.verdict === 'string' ? { verdict: o.verdict.trim().slice(0, 600) } : {}) };
+}
+
+/** Fibre, sugar, saturated fat and sodium from a tool input, where present and sane. */
+function estimates(i: Record<string, unknown>): Pick<AiItem, 'fib' | 'sug' | 'sfa' | 'na'> {
+  const n = (v: unknown, max: number) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max ? Math.round(v * 10) / 10 : undefined);
+  const out = { fib: n(i.fib, 200), sug: n(i.sug, 500), sfa: n(i.sfa, 300), na: n(i.na, 20000) };
+  return Object.fromEntries(Object.entries(out).filter(([, v]) => v !== undefined));
+}
+
+/** The same four for a whole meal (the photo estimate), as a nutrient map. */
+export function mealEstimates(input: unknown): Nutrients | undefined {
+  return cleanNutrients(estimates((input ?? {}) as Record<string, unknown>));
 }
 
 const NUMERIC: ProfileKey[] = ['weight', 'targetWeight', 'bf', 'targetBf', 'kcal', 'protein', 'carbs', 'fat', 'steps', 'sleep', 'sessions'];

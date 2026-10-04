@@ -3,7 +3,7 @@ import { loadState, saveSlices } from '../lib/persist';
 import { sliceStore } from '../lib/sliceStore';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
-  type Activity, activityFor, type Bests, bestsOf, activityFromDay, type Intake, intakeDisciplines, intakeMemory, intakeProfile, type Workout, workoutLog, workoutNote, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  type Activity, activityFor, type Bests, bestsOf, type Sex, activityFromDay, type Intake, intakeDisciplines, intakeMemory, intakeProfile, type Workout, workoutLog, workoutNote, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
@@ -54,6 +54,8 @@ interface Persisted {
   onboarded: boolean;
   /** Starting strength and 5K from onboarding, for the Vow's benchmarks. */
   bests: Bests | null;
+  /** From onboarding, for vitamin and mineral targets. */
+  sex: Sex | null;
 }
 
 /** The old format kept everything in one AsyncStorage key per mode; moved over on first load. */
@@ -86,6 +88,7 @@ function fresh(settings: Settings = DEFAULT_SETTINGS, demo = true): Persisted {
     memory: [],
     onboarded: demo,
     bests: null,
+    sex: null,
   };
 }
 
@@ -421,7 +424,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...(doc.disc ? { disc: same(cur.disc, doc.disc) } : {}),
           startedOn: doc.startedOn ?? cur.startedOn,
           onboarded: doc.onboarded === true,
-          ...(doc.intake ? { bests: same(cur.bests, bestsOf(doc.intake)) } : {}),
+          ...(doc.intake ? { bests: same(cur.bests, bestsOf(doc.intake)), sex: doc.intake.sex ?? null } : {}),
           ...(doc.memory ? { memory: same(cur.memory, readMemory(doc.memory)) } : {}),
           chatClearedAt: doc.chatClearedAt ?? 0,
         }));
@@ -477,7 +480,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const settings: Settings = { ...cur.settings, theme: d.theme, accent: null, tone: d.tone, character: d.character || 'rei', nudge: d.nudge, speak: d.speak };
     const disc = intakeDisciplines(d);
     const memory = addMemory(cur.memory, intakeMemory(d), 'you', Date.now(), newId).list;
-    patch({ profile, settings, disc, memory, onboarded: true, bests: bestsOf(d) });
+    patch({ profile, settings, disc, memory, onboarded: true, bests: bestsOf(d), sex: d.sex });
     const u = uidRef.current;
     if (u) {
       write.user(u, { profile, settings, disc, memory, onboarded: true, intake: d, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });

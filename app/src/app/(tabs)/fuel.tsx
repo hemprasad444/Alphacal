@@ -11,7 +11,7 @@ import { Gauge, Heading, Panel, Stamp, Tile } from '../../components/manga';
 import { PageTitle } from '../../components/PageTitle';
 import { Screen } from '../../components/Screen';
 import { Tap, Txt } from '../../components/ui';
-import { amountLabel, type Food, fuelLine, itemFor, nutrition, searchFoods, splitMealText } from '@rei/shared';
+import { amountLabel, dailyTargets, dayIntake, type Food, fuelLine, itemFor, nutrition, searchFoods, splitMealText } from '@rei/shared';
 import { alpha, C, fontFamily } from '../../lib/theme';
 import { useStore } from '../../state/store';
 
@@ -71,17 +71,20 @@ export default function Fuel() {
     s.logMeal(t);
   };
 
+  const intake = dayIntake(meals);
+  const fibT = dailyTargets({ kcal: kcalT, sex: s.sex }).fib;
   const macros: { label: string; icon: IconKey; eaten: number; target: number; color: string }[] = [
     { label: 'Protein', icon: 'protein', eaten: nu.protein, target: protT, color: accent },
     { label: 'Carbs', icon: 'carbs', eaten: nu.carbs, target: n('carbs'), color: C.carbs },
     { label: 'Fat', icon: 'fat', eaten: nu.fat, target: n('fat'), color: C.fat },
+    { label: 'Fibre', icon: 'fiber', eaten: intake.totals.fib, target: fibT, color: '#7BD88F' },
   ];
 
   return (
     <Screen>
       <PageTitle icon="fuel" title="Fuel" sub="Eat · log · refuel" />
 
-      <Panel acc={tagColor} style={{ marginTop: 22 }} pad={20}>
+      <Panel acc={tagColor} style={{ marginTop: 22 }} pad={20} onPress={() => router.push('/nutrition')}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <View>
             <Txt face="mono" size={10} ls={0.16} color={C.muted}>{kL < 0 ? 'CALORIES OVER' : 'CALORIES LEFT'}</Txt>
@@ -95,7 +98,7 @@ export default function Fuel() {
         </View>
         <View style={{ marginTop: 18, gap: 12 }}>
           {macros.map(m => {
-            const over = m.target > 0 && m.eaten > m.target && m.label !== 'Protein';
+            const over = m.target > 0 && m.eaten > m.target && m.label !== 'Protein' && m.label !== 'Fibre';
             return (
               <View key={m.label} style={{ gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -111,6 +114,11 @@ export default function Fuel() {
         <View style={{ flexDirection: 'row', gap: 12, marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.line2 }}>
           <Core size={28} alert={kL < 0} speaking={s.fuelBusy} />
           <Txt size={14} lh={1.45} color={C.textSoft} style={{ flex: 1 }}>{s.fuelBusy ? 'Reading the plate…' : s.fuelVerdict || fuelLine(profile, nu)}</Txt>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.line2 }}>
+          <Icon name="vitamin" size={16} color={accent} />
+          <Txt size={13} w={500} color={accent} style={{ flex: 1 }}>Full breakdown: vitamins, minerals, sodium, by meal</Txt>
+          <Icon name="chevron" size={14} color={accent} />
         </View>
       </Panel>
 
@@ -208,12 +216,14 @@ export default function Fuel() {
                   <Txt size={12} color={C.dim} numberOfLines={2}>{m.items.map(it => `${amountLabel(it)} ${it.name.toLowerCase()}`).join(' · ')}</Txt>
                 ) : null}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                  {([['protein', m.p, accent], ['carbs', m.c, C.carbs], ['fat', m.f, C.fat]] as const).map(([ic, v, col]) => (
-                    <View key={ic} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Icon name={ic} size={13} color={col} />
-                      <Txt face="mono" size={11} color={col}>{`${Math.round(v)}g`}</Txt>
-                    </View>
-                  ))}
+                  {([['protein', m.p, accent], ['carbs', m.c, C.carbs], ['fat', m.f, C.fat], ['fiber', m.n?.fib, '#7BD88F']] as const).map(([ic, v, col]) =>
+                    typeof v === 'number' ? (
+                      <View key={ic} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Icon name={ic} size={13} color={col} />
+                        <Txt face="mono" size={11} color={col}>{`${Math.round(v)}g`}</Txt>
+                      </View>
+                    ) : null,
+                  )}
                   {est ? <Txt face="mono" size={9} ls={0.12} color={C.faint}>≈ EST</Txt> : null}
                   <View style={{ flex: 1 }} />
                   <Txt face="mono" size={13} color={C.value}>{`${fmt(m.kcal)} kcal`}</Txt>

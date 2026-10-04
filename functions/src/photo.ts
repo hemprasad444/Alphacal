@@ -4,7 +4,9 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { db } from './admin';
 import { save } from './chat';
 import { loadUser } from './chat/load';
-import { parseMeal } from './chat/tools';
+import { mealEstimates, parseMeal } from './chat/tools';
+
+const withN = (n: ReturnType<typeof mealEstimates>) => (n ? { n } : {});
 import { complete, jsonText, LlmError, OPENROUTER_API_KEY } from './llm';
 
 /** About 1.5 MB of JPEG; the app sends ~150 KB (1024 px, quality 0.7). */
@@ -18,10 +20,14 @@ const PHOTO_SCHEMA = {
     p: { type: 'integer', description: 'Protein, grams' },
     c: { type: 'integer', description: 'Carbohydrates, grams' },
     f: { type: 'integer', description: 'Fat, grams' },
+    fib: { type: 'number', description: 'Fibre, grams' },
+    sug: { type: 'number', description: 'Total sugars, grams' },
+    sfa: { type: 'number', description: 'Saturated fat, grams' },
+    na: { type: 'integer', description: 'Sodium, mg (count salt in cooking)' },
     confidence: { type: 'number', description: '0 to 1: how sure you are of the portion and contents' },
     verdict: { type: 'string', description: 'REI’s reaction in one or two sentences, using the numbers left after this meal. If unsure, one short question about what is in it or how much.' },
   },
-  required: ['name', 'kcal', 'p', 'c', 'f', 'confidence', 'verdict'],
+  required: ['name', 'kcal', 'p', 'c', 'f', 'fib', 'sug', 'sfa', 'na', 'confidence', 'verdict'],
   additionalProperties: false,
 } as const;
 
@@ -64,7 +70,7 @@ export const mealFromPhoto = onCall({ secrets: [OPENROUTER_API_KEY], timeoutSeco
   const confidence = Number((out as { confidence?: unknown }).confidence ?? 0);
   const verdict = est?.verdict || 'Couldn’t read that plate. Tell me what it is and roughly how much.';
   const logged = !!est && confidence >= 0.5;
-  const meal: Meal | null = logged && est ? { time: hhmm(data.input.now), name: est.name.charAt(0).toUpperCase() + est.name.slice(1), kcal: est.kcal, p: est.p, c: est.c, f: est.f, src: 'photo' } : null;
+  const meal: Meal | null = logged && est ? { time: hhmm(data.input.now), name: est.name.charAt(0).toUpperCase() + est.name.slice(1), kcal: est.kcal, p: est.p, c: est.c, f: est.f, src: 'photo', ...withN(mealEstimates(out)) } : null;
 
   const replyId = `ph${Date.now().toString(36)}`;
   await db.doc(`users/${uid}/messages/${replyId}u`).set({ role: 'user', text: note ? `Photo: ${note}` : 'Photo of my meal', time: hhmm(data.input.now), createdAt: Date.now() - 1 });

@@ -48,6 +48,7 @@ export const AGENT_TOOLS = [
     protein: num('Protein, grams'),
     carbs: num('Carbohydrates, grams'),
     fat: num('Fat, grams'),
+    fiber: num('Fibre, grams'),
   }),
   tool('remove_meal', 'Remove a meal logged today, when the user says it is wrong or asks to delete it.', {
     name: str('Name of the logged meal to remove, as it appears in today’s meals'),

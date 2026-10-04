@@ -264,6 +264,27 @@ const ICONS: Record<IconKey, (k: Draw) => ReactNode> = {
   ),
   // Barcode.
   barcode: () => <P d="M4 5v14M7 5v14M10 5v14M12.5 5v14M16 5v14M18 5v14M20.5 5v14" />,
+  // Fibre: a leaf with its veins.
+  fiber: ({ f }) => (
+    <>
+      <P d="M5 19C5 10 10.5 4.5 20 4c-.4 9.6-6 15-15 15z" fill={f} />
+      <P d="M5 19 14.5 9.5M9 15h4.5M11.5 12.5V8.5" />
+    </>
+  ),
+  // Minerals: a cut gem.
+  mineral: ({ f }) => (
+    <>
+      <P d="M7 4h10l4 5.5L12 20.5 3 9.5z" fill={f} />
+      <P d="M3 9.5h18M9.5 4 8 9.5l4 11 4-11L14.5 4" />
+    </>
+  ),
+  // Vitamins: a capsule.
+  vitamin: ({ f }) => (
+    <>
+      <P d="M9.2 4.8a4.6 4.6 0 0 1 6.5 0l3.5 3.5a4.6 4.6 0 0 1 0 6.5l-4.4 4.4a4.6 4.6 0 0 1-6.5 0l-3.5-3.5a4.6 4.6 0 0 1 0-6.5z" fill={f} />
+      <P d="M7.1 7 17 16.9" />
+    </>
+  ),
   // Search: a magnifying glass.
   search: ({ f }) => (
     <>

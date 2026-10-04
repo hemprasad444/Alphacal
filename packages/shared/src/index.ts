@@ -24,3 +24,5 @@ export * from './characters';
 export * from './continuity';
 export * from './benchmarks';
 export * from './picks';
+export * from './nutrients';
+export * from './intake';

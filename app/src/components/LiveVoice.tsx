@@ -31,7 +31,8 @@ function tools(store: RefObject<Store>) {
     log_meal: (p: Params) => {
       const name = String(p.name ?? '').trim().slice(0, 60);
       if (!name || !n(p.kcal)) return 'Not logged: need a meal name and calories.';
-      const meal = { time: hhmm(), name, kcal: n(p.kcal), p: n(p.protein), c: n(p.carbs), f: n(p.fat), src: 'ai' as const };
+      const fib = Number(p.fiber);
+      const meal = { time: hhmm(), name, kcal: n(p.kcal), p: n(p.protein), c: n(p.carbs), f: n(p.fat), src: 'ai' as const, ...(fib > 0 && fib < 200 ? { n: { fib: Math.round(fib * 10) / 10 } } : {}) };
       store.current.repeatMeal(meal);
       // The agent's prompt was written at the start; hand it the new totals so it never works from stale numbers.
       return `Logged ${name}, ${meal.kcal} kcal. ${todayLine(store.current.profile, [...store.current.meals, meal])}`;

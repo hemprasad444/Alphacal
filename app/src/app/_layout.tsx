@@ -96,6 +96,7 @@ function Root() {
           <Stack.Screen name="progress" />
           <Stack.Screen name="memory" />
           <Stack.Screen name="badges" />
+          <Stack.Screen name="nutrition" />
           <Stack.Screen name="rei-settings" />
           <Stack.Screen name="account" />
           <Stack.Screen name="board" />
