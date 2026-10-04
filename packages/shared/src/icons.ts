@@ -7,7 +7,7 @@ export type IconKey =
   | 'vow' | 'rei' | 'voice' | 'settings' | 'rank' | 'badge' | 'board' | 'streak' | 'log' | 'progress'
   | 'weight' | 'look' | 'bell' | 'memory' | 'profile' | 'run' | 'ride' | 'sport' | 'gym' | 'timer'
   | 'camera' | 'barcode' | 'plus' | 'check' | 'close' | 'chevron' | 'back' | 'lock' | 'door'
-  | 'kunai' | 'strawhat' | 'fist' | 'eye' | 'wave';
+  | 'kunai' | 'strawhat' | 'fist' | 'eye' | 'wave' | 'search';
 
 /** The picture for each kind of training day. */
 export const SESSION_ICON: Record<SessionKey, IconKey> = { PUSH: 'gym', PULL: 'strength', LEGS: 'train', RUN: 'run', CALI: 'fist', REST: 'sleep' };

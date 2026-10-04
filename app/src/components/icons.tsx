@@ -264,6 +264,13 @@ const ICONS: Record<IconKey, (k: Draw) => ReactNode> = {
   ),
   // Barcode.
   barcode: () => <P d="M4 5v14M7 5v14M10 5v14M12.5 5v14M16 5v14M18 5v14M20.5 5v14" />,
+  // Search: a magnifying glass.
+  search: ({ f }) => (
+    <>
+      <Circle cx={10.5} cy={10.5} r={6.2} fill={f} />
+      <P d="M15.2 15.2 20.5 20.5" />
+    </>
+  ),
   // Add.
   plus: () => <P d="M12 5v14M5 12h14" />,
   // Done.
