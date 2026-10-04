@@ -39,3 +39,15 @@ describe('benchmarks', () => {
     expect(by(rows, 'run5k').logged).toBe(true);
   });
 });
+
+describe('next plan', () => {
+  it('finds the next training day after a rest day, wrapping the week', () => {
+    const { nextPlan, dayName } = jest.requireActual('../derive') as typeof import('../derive');
+    const { SESSIONS } = jest.requireActual('../data') as typeof import('../data');
+    const program = { week: '2026-W40', note: '', generatedAt: 0, days: [SESSIONS.PUSH, SESSIONS.LEGS, null, SESSIONS.PULL, SESSIONS.RUN, null, null] };
+    const sunday = new Date(2026, 9, 4);
+    expect(dayName(sunday)).toBe('Sunday');
+    expect(nextPlan(sunday, program)).toEqual({ day: 'Monday', plan: SESSIONS.PUSH });
+    expect(nextPlan(new Date(2026, 9, 1), program)?.day).toBe('Friday');
+  });
+});

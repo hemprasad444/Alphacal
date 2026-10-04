@@ -1,6 +1,6 @@
 // The Dojo: everything about training in one place. Rank and XP, today's session, one-tap logging,
 // the week, badges, the weekly leaderboard and the training log.
-import { clock, RANKS, sessionOrder, todaysPlan } from '@rei/shared';
+import { clock, dayName, nextPlan, RANKS, SESSION_ICON, sessionOrder, todaysPlan } from '@rei/shared';
 import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { View } from 'react-native';
@@ -22,6 +22,7 @@ export default function Dojo() {
   const g = useGame();
   const { accent } = s;
   const plan = todaysPlan(now, s.program);
+  const next = plan ? null : nextPlan(now, s.program);
   const recent = useMemo(() => [...s.sessions].sort(sessionOrder).reverse().slice(0, 3), [s.sessions]);
   const rankNo = RANKS.findIndex(r => r.id === g.rank.id) + 1;
   const showcase = [...g.earned.slice(0, 3), ...g.locked.slice(0, 4 - Math.min(3, g.earned.length))].slice(0, 4);
@@ -90,13 +91,25 @@ export default function Dojo() {
             </Tap>
           </>
         ) : (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-            <Icon name="sleep" size={30} color={C.muted} />
-            <View style={{ flex: 1 }}>
-              <Txt size={20} w={600}>Rest day</Txt>
-              <Txt size={13} color={C.sub}>Walk, stretch, sleep. Played a sport anyway? Log it below.</Txt>
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <Icon name="sleep" size={30} color={C.muted} />
+              <View style={{ flex: 1 }}>
+                <Txt size={20} w={600}>{`${dayName(now)} · Rest day`}</Txt>
+                <Txt size={13} color={C.sub}>Walk, stretch, sleep. Played a sport anyway? Log it below.</Txt>
+              </View>
             </View>
-          </View>
+            {next ? (
+              <Tap onPress={() => router.push('/session')} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, padding: 12, borderRadius: 10, backgroundColor: '#14161A' }}>
+                <Icon name={SESSION_ICON[next.plan.key]} size={22} color={accent} />
+                <View style={{ flex: 1 }}>
+                  <Txt face="mono" size={9.5} ls={0.14} color={C.muted}>{`NEXT UP · ${next.day.toUpperCase()}`}</Txt>
+                  <Txt size={15} w={600}>{`${next.plan.title} · ${next.plan.minutes} min`}</Txt>
+                </View>
+                <Txt size={13} color={accent}>Do it today</Txt>
+              </Tap>
+            ) : null}
+          </>
         )}
       </Panel>
 

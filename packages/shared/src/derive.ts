@@ -43,6 +43,22 @@ export function todaysPlan(now: Date = new Date(), program?: WeekProgram | null)
   return key === 'REST' ? null : SESSIONS[key];
 }
 
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+/** The next training day after today in this week's plan (wrapping into next week's same split). */
+export function nextPlan(now: Date = new Date(), program?: WeekProgram | null): { day: string; plan: SessionPlan } | null {
+  const days = usable(program) ? program.days : WEEK_PLAN.map(k => (k === 'REST' ? null : SESSIONS[k]));
+  const i = weekdayIndex(now);
+  for (let k = 1; k <= 7; k++) {
+    const p = days[(i + k) % 7];
+    if (p) return { day: DAY_NAMES[(i + k) % 7], plan: p };
+  }
+  return null;
+}
+
+/** Today's weekday name, Monday-first naming used across the plan. */
+export const dayName = (now: Date = new Date()) => DAY_NAMES[weekdayIndex(now)];
+
 /** Session type per weekday, Monday first. */
 export function weekTypes(program?: WeekProgram | null): SessionKey[] {
   return usable(program) ? program.days.map(d => d?.key ?? 'REST') : WEEK_PLAN;
