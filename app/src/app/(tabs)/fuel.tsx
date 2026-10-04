@@ -1,25 +1,27 @@
+// Fuel: what's left in the tank today, four ways to log a meal, quick re-adds, and today's plate.
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Platform, TextInput, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
 import { Core } from '../../components/Core';
 import { FoodSheet, MealSheet } from '../../components/FoodSheet';
+import { Icon, type IconKey } from '../../components/icons';
+import { Gauge, Heading, Panel, Stamp, Tile } from '../../components/manga';
+import { PageTitle } from '../../components/PageTitle';
 import { Screen } from '../../components/Screen';
-import { Icon } from '../../components/icons';
-import { Card, Label, Tap, Txt } from '../../components/ui';
-import { amountLabel, dayStamp, type Food, fuelLine, itemFor, nutrition, searchFoods, splitMealText } from '@rei/shared';
-import { C, fontFamily } from '../../lib/theme';
+import { Tap, Txt } from '../../components/ui';
+import { amountLabel, type Food, fuelLine, itemFor, nutrition, searchFoods, splitMealText } from '@rei/shared';
+import { alpha, C, fontFamily } from '../../lib/theme';
 import { useStore } from '../../state/store';
 
-const QUICK = ['200 g chicken + rice', 'Protein shake', '3 eggs on toast', 'Burger & fries'];
-const RING = 2 * Math.PI * 32;
+const QUICK = ['200 g chicken + rice', 'Protein shake', '3 eggs on toast', '2 roti + dal'];
 
 export default function Fuel() {
   const s = useStore();
   const { settings, profile, accent, meals } = s;
   const router = useRouter();
+  const input = useRef<TextInput>(null);
   const [draft, setDraft] = useState('');
   const [pick, setPick] = useState<{ food: Food; qty: number; unit?: string } | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
@@ -27,21 +29,23 @@ export default function Fuel() {
   const piece = draft.includes(',') || / and | with |\+/.test(draft) ? null : splitMealText(draft).pop();
   const suggestions = piece && !s.fuelBusy ? searchFoods(piece.query, s.allFoods, 5) : [];
   const favs = s.foods.filter(f => f.fav);
-  const recent = s.recent.filter(m => !favs.some(f => f.name.toLowerCase() === m.name.toLowerCase()));
+  const recent = s.recent.filter(m => !favs.some(f => f.name.toLowerCase() === m.name.toLowerCase())).slice(0, 6);
   const nu = nutrition(meals, s.activity);
   const n = (k: keyof typeof profile) => parseFloat(profile[k]) || 0;
   const kcalT = n('kcal'), protT = n('protein');
   const kL = kcalT - nu.kcal, pL = protT - nu.protein;
-  const MCOL = { p: accent, c: C.carbs, f: C.fat };
-  const kDen = Math.max(kcalT, nu.kcal) || 1;
-  const fuelTag = kL < 0 ? 'OVER' : pL > 0 && pL * 4 > kL * 0.6 ? 'TIGHT' : 'ON TRACK';
-  const fuelTagColor = kL < 0 ? C.alert : fuelTag === 'TIGHT' ? C.warn : accent;
+  const tag = kL < 0 ? 'Over' : pL > 0 && pL * 4 > kL * 0.6 ? 'Tight' : 'On track';
+  const tagColor = kL < 0 ? C.alert : tag === 'Tight' ? C.warn : accent;
   const has = !!draft.trim() && !s.fuelBusy;
-  const fmt = (v: number) => v.toLocaleString('en-US');
+  const fmt = (v: number) => Math.round(v).toLocaleString('en-US');
 
   /** Camera (or library on web): resize on the phone, then let REI read the plate. */
   const photo = async (fromLibrary = false) => {
     if (s.fuelBusy) return;
+    if (!s.cloud) {
+      Alert.alert('Sign in for photo logging', 'REI reads plates in the cloud, so photos need an account.');
+      return;
+    }
     const useLibrary = fromLibrary || Platform.OS === 'web';
     if (!useLibrary) {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -63,115 +67,83 @@ export default function Fuel() {
   const log = (t: string) => {
     if (!t.trim() || s.fuelBusy) return;
     setDraft('');
+    input.current?.blur();
     s.logMeal(t);
   };
 
-  const macros = ([['Protein', 'protein', 'p', nu.protein, protT], ['Carbs', 'carbs', 'c', nu.carbs, n('carbs')], ['Fat', 'fat', 'f', nu.fat, n('fat')]] as const).map(([label, icon, k, a, t]) => {
-    const left = t - a;
-    let status: string, statusColor: string, color: string = MCOL[k];
-    if (k === 'p') {
-      status = left > 0 ? `${left} G LEFT` : 'HIT';
-      statusColor = left > 0 && a / t < 0.7 ? C.alert : accent;
-    } else {
-      status = left < 0 ? `${-left} G OVER` : `${left} G LEFT`;
-      statusColor = left < 0 ? C.alert : C.muted;
-      if (left < 0) color = C.alert;
-    }
-    return { label, icon, eaten: a, target: t, color, frac: Math.min(1, t ? a / t : 0), status, statusColor };
-  });
+  const macros: { label: string; icon: IconKey; eaten: number; target: number; color: string }[] = [
+    { label: 'Protein', icon: 'protein', eaten: nu.protein, target: protT, color: accent },
+    { label: 'Carbs', icon: 'carbs', eaten: nu.carbs, target: n('carbs'), color: C.carbs },
+    { label: 'Fat', icon: 'fat', eaten: nu.fat, target: n('fat'), color: C.fat },
+  ];
 
   return (
     <Screen>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 }}>
-        <Label color={C.muted}>{settings.hud ? 'FUEL · 食' : 'FUEL'}</Label>
-        <Label color={C.dim}>{`${dayStamp()} · ${meals.length} MEALS`}</Label>
-      </View>
+      <PageTitle icon="fuel" title="Fuel" sub="Eat · log · refuel" />
 
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginTop: 28 }}>
-        <View>
-          <Label>{kL < 0 ? 'KCAL OVER' : 'KCAL LEFT'}</Label>
-          <Txt size={64} w={300} ls={-0.05} color={kL < 0 ? C.alert : C.text} style={{ marginTop: 6 }}>{fmt(Math.abs(kL))}</Txt>
-        </View>
-        <View style={{ alignItems: 'flex-end', paddingBottom: 6 }}>
-          <Txt face="mono" size={15} color={C.value}>{fmt(nu.kcal)} <Txt face="mono" size={15} color={C.faint}>{`/ ${fmt(kcalT)}`}</Txt></Txt>
-          <Label size={10} ls={0.14} style={{ marginTop: 4 }}>EATEN · TARGET</Label>
-        </View>
-      </View>
-
-      <View style={{ flexDirection: 'row', gap: 2, height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: C.line, marginTop: 16 }}>
-        {[[nu.protein * 4, MCOL.p], [nu.carbs * 4, MCOL.c], [nu.fat * 9, MCOL.f]].map(([v, color], i) => (
-          <View key={i} style={{ height: '100%', width: `${((v as number) / kDen) * 100}%`, backgroundColor: color as string }} />
-        ))}
-      </View>
-      <View style={{ flexDirection: 'row', gap: 14, marginTop: 10, flexWrap: 'wrap' }}>
-        {[['PROTEIN', nu.protein * 4, MCOL.p], ['CARBS', nu.carbs * 4, MCOL.c], ['FAT', nu.fat * 9, MCOL.f]].map(([t, v, color]) => (
-          <View key={t as string} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color as string }} />
-            <Label size={10} ls={0.12} color={C.muted}>{`${t} ${v}`}</Label>
+      <Panel acc={tagColor} style={{ marginTop: 22 }} pad={20}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <View>
+            <Txt face="mono" size={10} ls={0.16} color={C.muted}>{kL < 0 ? 'CALORIES OVER' : 'CALORIES LEFT'}</Txt>
+            <Txt size={56} w={300} ls={-0.05} lh={1.05} color={kL < 0 ? C.alert : C.text}>{fmt(Math.abs(kL))}</Txt>
+            <Txt face="mono" size={11} color={C.muted}>{`${fmt(nu.kcal)} EATEN · ${fmt(kcalT)} TARGET`}</Txt>
           </View>
-        ))}
-      </View>
-
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 22 }}>
-        {macros.map(m => (
-          <Card key={m.label} style={{ flex: 1, paddingTop: 16, paddingBottom: 14, paddingHorizontal: 6, alignItems: 'center', gap: 10 }}>
-            <View style={{ width: 76, height: 76 }}>
-              <Svg width={76} height={76} style={{ transform: [{ rotate: '-90deg' }] }}>
-                <Circle cx={38} cy={38} r={32} fill="none" stroke={C.line2} strokeWidth={4} />
-                <Circle cx={38} cy={38} r={32} fill="none" stroke={m.color} strokeWidth={4} strokeLinecap="round" strokeDasharray={`${(m.frac * RING).toFixed(1)} 999`} />
-              </Svg>
-              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-                <Txt size={22} ls={-0.03}>{m.eaten}</Txt>
-                <Txt face="mono" size={10} color={C.dim} style={{ marginTop: 3 }}>{`/ ${m.target}g`}</Txt>
+          <Stamp text={tag} color={tagColor} />
+        </View>
+        <View style={{ marginTop: 14 }}>
+          <Gauge pct={kcalT ? nu.kcal / kcalT : 0} acc={kL < 0 ? C.alert : accent} segments={24} />
+        </View>
+        <View style={{ marginTop: 18, gap: 12 }}>
+          {macros.map(m => {
+            const over = m.target > 0 && m.eaten > m.target && m.label !== 'Protein';
+            return (
+              <View key={m.label} style={{ gap: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Icon name={m.icon} size={17} color={over ? C.alert : m.color} />
+                  <Txt size={14} w={500} style={{ flex: 1 }}>{m.label}</Txt>
+                  <Txt face="mono" size={12} color={over ? C.alert : C.body}>{`${fmt(m.eaten)} / ${fmt(m.target)} g`}</Txt>
+                </View>
+                <Gauge pct={m.target ? m.eaten / m.target : 0} acc={over ? C.alert : m.color} segments={24} height={6} />
               </View>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Icon name={m.icon} size={16} color={m.color} />
-              <Txt size={14} w={500}>{m.label}</Txt>
-            </View>
-            <Label size={10} ls={0.12} color={m.statusColor}>{m.status}</Label>
-          </Card>
-        ))}
-      </View>
-
-      <View style={{ marginTop: 12, padding: 16, borderRadius: 20, borderWidth: 1, borderColor: kL < 0 ? 'rgba(255,90,60,0.4)' : C.line3, backgroundColor: 'rgba(255,255,255,0.035)', flexDirection: 'row', gap: 12 }}>
-        <View style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
+            );
+          })}
+        </View>
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.line2 }}>
           <Core size={28} alert={kL < 0} speaking={s.fuelBusy} />
+          <Txt size={14} lh={1.45} color={C.textSoft} style={{ flex: 1 }}>{s.fuelBusy ? 'Reading the plate…' : s.fuelVerdict || fuelLine(profile, nu)}</Txt>
         </View>
-        <View style={{ flex: 1, gap: 6 }}>
-          <Label size={10} ls={0.14} color={fuelTagColor}>{`REI · ${fuelTag}`}</Label>
-          <Txt size={15} lh={1.45} color={C.textSoft}>{s.fuelBusy ? 'Reading the plate…' : s.fuelVerdict || fuelLine(profile, nu)}</Txt>
-        </View>
+      </Panel>
+
+      <Heading icon="plus" title="Log a meal" acc={accent} style={{ marginTop: 30 }} />
+      <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+        <Tile icon="fuel" label="Describe" sub="type it" acc={accent} hot onPress={() => input.current?.focus()} />
+        <Tile icon="camera" label="Snap" sub="photo of the plate" acc={accent} onPress={() => photo()} />
+      </View>
+      <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+        <Tile icon="barcode" label="Scan" sub="packaged food" acc={accent} onPress={() => router.push('/scan')} />
+        <Tile icon="voice" label="Tell REI" sub="just say it" acc={accent} onPress={() => router.push({ pathname: '/talk', params: { draft: 'I just ate ' } })} />
       </View>
 
-      <Label style={{ marginTop: 28 }}>LOG A MEAL</Label>
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-        <View style={{ flex: 1, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', paddingHorizontal: 18 }}>
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
+        <View style={{ flex: 1, height: 54, borderRadius: 12, backgroundColor: '#0D0F13', borderWidth: 1.5, borderColor: draft ? alpha(accent, 0.6) : C.line3, justifyContent: 'center', paddingHorizontal: 16 }}>
           <TextInput
+            ref={input}
             value={draft}
             onChangeText={setDraft}
             onSubmitEditing={() => log(draft)}
-            placeholder={s.cloud ? 'Search, describe, or snap it' : 'Search or describe it'}
+            placeholder="2 roti, dal and curd…"
             placeholderTextColor={C.dim}
             returnKeyType="done"
             keyboardAppearance="dark"
             style={{ fontFamily: fontFamily(settings.font, 400), fontSize: 16, color: C.text }}
           />
         </View>
-        <Tap onPress={() => router.push('/scan')} style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-          <BarcodeGlyph color={C.body} />
-        </Tap>
-        {s.cloud ? (
-          <Tap onPress={() => photo()} onLongPress={() => photo(true)} disabled={s.fuelBusy} style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-            <CameraGlyph color={C.body} />
-          </Tap>
-        ) : null}
-        <Tap onPress={() => log(draft)} disabled={!has} style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: has ? accent : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' }}>
-          <Txt size={22} w={500} color={has ? C.ink : C.dim}>{s.fuelBusy ? '…' : '+'}</Txt>
+        <Tap onPress={() => log(draft)} disabled={!has} style={{ width: 54, height: 54, borderRadius: 12, backgroundColor: has ? accent : '#14161A', alignItems: 'center', justifyContent: 'center' }}>
+          {s.fuelBusy ? <Txt size={18} color={C.dim}>…</Txt> : <Icon name="check" size={22} color={has ? C.ink : C.dim} tint={0} strokeWidth={2.2} />}
         </Tap>
       </View>
       {suggestions.length ? (
-        <Card style={{ marginTop: 10, paddingHorizontal: 14 }}>
+        <View style={{ marginTop: 10, borderRadius: 12, borderWidth: 1.5, borderColor: C.line3, backgroundColor: '#0D0F13', paddingHorizontal: 14 }}>
           {suggestions.map(({ food }, i) => {
             const it = itemFor(food, piece!.qty, piece!.unit);
             return (
@@ -185,79 +157,74 @@ export default function Fuel() {
               </Tap>
             );
           })}
-        </Card>
-      ) : null}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+        </View>
+      ) : (
+        <Txt size={12} color={C.faint} style={{ marginTop: 8 }}>Foods on the list log instantly. Anything else, REI estimates.</Txt>
+      )}
+
+      <Heading icon="streak" title="Quick add" acc={accent} style={{ marginTop: 28 }} />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
         {favs.map(f => (
-          <Tap key={f.id} onPress={() => setPick({ food: f, qty: 1 })} style={{ height: 34, paddingHorizontal: 13, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', backgroundColor: C.card2 }}>
-            <Txt size={13} color={C.text}>{`★ ${f.name}`}</Txt>
+          <Tap key={f.id} onPress={() => setPick({ food: f, qty: 1 })} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1.5, borderColor: alpha(C.warn, 0.4), backgroundColor: '#14130F' }}>
+            <Icon name="badge" size={14} color={C.warn} />
+            <Txt size={13}>{f.name}</Txt>
           </Tap>
         ))}
         {recent.map(m => (
-          <Tap key={`r-${m.name}`} onPress={() => s.repeatMeal(m)} style={{ height: 34, paddingHorizontal: 13, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', backgroundColor: C.card2 }}>
-            <Txt size={13} color={C.body}>{`↺ ${m.name}`}</Txt>
+          <Tap key={`r-${m.name}`} onPress={() => s.repeatMeal(m)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1.5, borderColor: C.line3, backgroundColor: '#0D0F13' }}>
+            <Icon name="plus" size={13} color={C.muted} />
+            <Txt size={13} color={C.body}>{m.name}</Txt>
           </Tap>
         ))}
         {!favs.length && !recent.length ? QUICK.map(t => (
-          <Tap key={t} onPress={() => log(t)} style={{ height: 34, paddingHorizontal: 13, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', backgroundColor: C.card2 }}>
+          <Tap key={t} onPress={() => log(t)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1.5, borderColor: C.line3, backgroundColor: '#0D0F13' }}>
+            <Icon name="plus" size={13} color={C.muted} />
             <Txt size={13} color={C.body}>{t}</Txt>
           </Tap>
         )) : null}
       </View>
 
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 30 }}>
-        <Label>LOGGED TODAY</Label>
-        <Label ls={0.12} color={C.muted}>{`${fmt(nu.kcal)} KCAL`}</Label>
-      </View>
-      <View style={{ marginTop: 8 }}>
+      <Heading icon="fuel" title="Today's plate" acc={accent} right={`${fmt(nu.kcal)} KCAL`} style={{ marginTop: 30 }} />
+      <View style={{ marginTop: 14, gap: 10 }}>
         {meals.length === 0 ? (
-          <Txt size={14} color={C.dim} style={{ paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.line }}>Nothing logged yet. REI is watching.</Txt>
+          <View style={{ padding: 18, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.line3, alignItems: 'center', gap: 8 }}>
+            <Icon name="fuel" size={30} color={C.faint} />
+            <Txt size={14} color={C.dim} align="center">Nothing on the plate yet. Log your first meal for +10 XP.</Txt>
+          </View>
         ) : null}
-        {meals.map((m, i) => (
-          <Tap key={`${m.time}-${i}`} haptic={false} onPress={() => setEditing(i)} style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start', paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.line }}>
-            <Txt face="mono" size={11} color={C.dim} style={{ width: 38, paddingTop: 4 }}>{m.time}</Txt>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-                <Txt size={16} w={500} ls={-0.01} style={{ flex: 1 }}>{m.name}</Txt>
-                <Txt face="mono" size={13} color={C.value}>{`${fmt(m.kcal)} kcal`}</Txt>
+        {meals.map((m, i) => {
+          const est = m.items?.some(it => !it.food) || m.src === 'photo' || m.src === 'ai';
+          return (
+            <Tap key={`${m.time}-${i}`} haptic={false} onPress={() => setEditing(i)}>
+              <View style={{ padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: C.line3, backgroundColor: '#0D0F13', gap: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Txt face="mono" size={11} color={C.dim}>{m.time}</Txt>
+                  <Txt size={16} w={600} style={{ flex: 1 }} numberOfLines={2}>{m.name}</Txt>
+                  <Tap onPress={() => s.removeMeal(i)} style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="close" size={14} color={C.faint} />
+                  </Tap>
+                </View>
+                {m.items && m.items.length > 1 ? (
+                  <Txt size={12} color={C.dim} numberOfLines={2}>{m.items.map(it => `${amountLabel(it)} ${it.name.toLowerCase()}`).join(' · ')}</Txt>
+                ) : null}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                  {([['protein', m.p, accent], ['carbs', m.c, C.carbs], ['fat', m.f, C.fat]] as const).map(([ic, v, col]) => (
+                    <View key={ic} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Icon name={ic} size={13} color={col} />
+                      <Txt face="mono" size={11} color={col}>{`${Math.round(v)}g`}</Txt>
+                    </View>
+                  ))}
+                  {est ? <Txt face="mono" size={9} ls={0.12} color={C.faint}>≈ EST</Txt> : null}
+                  <View style={{ flex: 1 }} />
+                  <Txt face="mono" size={13} color={C.value}>{`${fmt(m.kcal)} kcal`}</Txt>
+                </View>
               </View>
-              {m.items && m.items.length > 1 ? (
-                <Txt size={12} color={C.dim} style={{ marginTop: 4 }} numberOfLines={2}>{m.items.map(it => `${amountLabel(it)} ${it.name.toLowerCase()}`).join(' · ')}</Txt>
-              ) : null}
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 6 }}>
-                <Txt face="mono" size={11} color={accent}>{`P ${m.p}`}</Txt>
-                <Txt face="mono" size={11} color={C.carbs}>{`C ${m.c}`}</Txt>
-                <Txt face="mono" size={11} color={C.fat}>{`F ${m.f}`}</Txt>
-                {m.items?.some(it => !it.food) || m.src === 'photo' ? <Txt face="mono" size={11} color={C.faint}>≈ ESTIMATE</Txt> : null}
-              </View>
-            </View>
-            <Tap onPress={() => s.removeMeal(i)} style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
-              <Txt size={12} color={C.faint}>✕</Txt>
             </Tap>
-          </Tap>
-        ))}
+          );
+        })}
       </View>
       <FoodSheet pick={pick} onClose={() => (setPick(null), setDraft(''))} />
       <MealSheet index={editing} onClose={() => setEditing(null)} />
     </Screen>
-  );
-}
-
-/** Barcode stripes. */
-function BarcodeGlyph({ color }: { color: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'stretch', height: 16, gap: 1.5 }}>
-      {[2, 1, 1, 2, 1, 2, 1].map((w, i) => <View key={i} style={{ width: w, backgroundColor: color, borderRadius: 0.5 }} />)}
-    </View>
-  );
-}
-
-/** Simple camera outline. */
-function CameraGlyph({ color }: { color: string }) {
-  return (
-    <View style={{ width: 22, height: 16, borderRadius: 4, borderWidth: 1.6, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ position: 'absolute', top: -4, left: 6, width: 8, height: 3, borderTopLeftRadius: 2, borderTopRightRadius: 2, backgroundColor: color }} />
-      <View style={{ width: 7, height: 7, borderRadius: 4, borderWidth: 1.6, borderColor: color }} />
-    </View>
   );
 }
