@@ -3,7 +3,7 @@ import { loadState, saveSlices } from '../lib/persist';
 import { sliceStore } from '../lib/sliceStore';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
-  type Activity, activityFor, type Bests, bestsOf, type Sex, activityFromDay, type Intake, intakeDisciplines, intakeMemory, intakeProfile, type Workout, workoutLog, workoutNote, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  type Activity, activityFor, type Bests, bestsOf, type Sex, activityFromDay, type Intake, intakeDisciplines, intakeMemory, intakeProfile, nameOf, type Workout, workoutLog, workoutNote, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
@@ -175,6 +175,8 @@ export interface Store extends Persisted {
   signIn: (email: string, password: string) => Promise<unknown>;
   signUp: (email: string, password: string) => Promise<unknown>;
   resetPassword: (email: string) => Promise<void>;
+  resendVerification: () => Promise<void>;
+  checkVerified: () => Promise<boolean>;
   signOut: () => Promise<void>;
   setDemo: (on: boolean) => void;
   setOpt: <K extends keyof Settings>(k: K, v: Settings[K]) => void;
@@ -289,7 +291,7 @@ export function useLiveReply(): Message | null {
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const { account, setDemo, signIn, signUp, resetPassword, signOut } = useAccount();
+  const { account, setDemo, signIn, signUp, resendVerification, checkVerified, resetPassword, signOut } = useAccount();
   const uid = account.status === 'signedIn' ? account.uid : null;
   const cloud = !!uid;
   // Which saved state is loaded: the on-device demo, or a signed-in user's cache.
@@ -414,7 +416,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // otherwise start the account from what's on this device.
           write.user(uid, pendingOb.current ? { startedOn, chatClearedAt: 0, timezone } : { profile: s.profile, settings: s.settings, disc: s.disc, startedOn, chatClearedAt: 0, timezone, onboarded: s.onboarded });
           patch({ startedOn });
-          pushMessages([msg('rei', 'You’re in. I have your vow. Now we find out if you meant it. What’s first today?')]);
           return;
         }
         // Unchanged values keep their old object, so nothing redraws or re-saves for them.
@@ -481,12 +482,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const disc = intakeDisciplines(d);
     const memory = addMemory(cur.memory, intakeMemory(d), 'you', Date.now(), newId).list;
     patch({ profile, settings, disc, memory, onboarded: true, bests: bestsOf(d), sex: d.sex });
+    pushMessages([msg('rei', `${nameOf(d)}. Pact sealed, I have your vow. Now we find out if you meant it. What’s first today?`)]);
     const u = uidRef.current;
     if (u) {
       write.user(u, { profile, settings, disc, memory, onboarded: true, intake: d, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
       write.weighIn(u, cur.day, d.weight);
     }
-  }, [patch]);
+  }, [patch, pushMessages, msg]);
 
   // Signed up at the end of onboarding: write the held answers into the new account.
   useEffect(() => {
@@ -740,15 +742,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       obActive,
       setObActive,
       pendingOnboarding,
-      completeOnboarding: d => {
-        if (uidRef.current) {
-          applyOnboarding(d);
-          return;
-        }
-        pendingOb.current = d;
-        setPendingOnboarding(d);
-        AsyncStorage.setItem(PENDING_KEY, JSON.stringify(d)).catch(() => {});
-      },
+      // The account exists before the chapters now, so answers go straight in (on-device for the demo).
+      completeOnboarding: applyOnboarding,
       theme,
       accent: p.settings.accent ?? theme.acc,
       emblem: items.find(e => e.id === sel) ?? null,
@@ -762,6 +757,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       recent: repeatable(p.meals, p.recentMeals),
       signIn,
       signUp,
+      resendVerification,
+      checkVerified,
       resetPassword,
       signOut: async () => {
         await signOut();
@@ -921,7 +918,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
     };
-  }, [p, ready, account, cloud, userLoaded, obActive, pendingOnboarding, applyOnboarding, thinking, fuelBusy, fuelVerdict, signIn, signUp, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
+  }, [p, ready, account, cloud, userLoaded, obActive, pendingOnboarding, applyOnboarding, thinking, fuelBusy, fuelVerdict, signIn, signUp, resendVerification, checkVerified, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
 
   // Subscribers read the new value during this render pass; those that didn't render (their
   // slice is unchanged, or they sit outside this subtree) are told after commit.

@@ -1,13 +1,12 @@
-// Building blocks for the onboarding ("The Pact Arc"): manga panels, speed lines, outlined kanji,
-// REI's speech bubble, and the answer controls. Colors come from the theme being chosen, passed
+// Building blocks for the onboarding ("The Pact Arc") and sign-in: the page atmosphere, halftones,
+// REI's speech bubble, the call to action and the answer controls. Colors come from the theme being chosen, passed
 // down as `acc` / `acc2`, so the screens repaint as the user picks a world.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, PanResponder, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
-import Svg, { Defs, Line, LinearGradient, Mask, Pattern, Rect, Stop, Text as SvgText, Circle } from 'react-native-svg';
+import { Animated, Easing, PanResponder, StyleSheet, TextInput, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import Svg, { Circle, Defs, Line, LinearGradient, Mask, Pattern, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { Icon, type IconKey } from '../icons';
 import { Tap, Txt } from '../ui';
 import { alpha, C, fontFamily, mix } from '../../lib/theme';
-
-export const JP = 'ZenKakuGothicNew_500Medium';
 
 /** Fades and lifts its children in after `delay` ms, like the design's obRise. */
 export function Rise({ delay = 0, children, style, from = 14 }: { delay?: number; children: ReactNode; style?: StyleProp<ViewStyle>; from?: number }) {
@@ -18,52 +17,28 @@ export function Rise({ delay = 0, children, style, from = 14 }: { delay?: number
   return <Animated.View style={[style, { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) }] }]}>{children}</Animated.View>;
 }
 
-/** Big kanji drawn as an outline only. */
-export function Outline({ text, size, color, width = 1.2, vertical = false, style }: { text: string; size: number; color: string; width?: number; vertical?: boolean; style?: StyleProp<ViewStyle> }) {
-  const chars = vertical ? [...text] : [text];
-  const w = vertical ? size * 1.05 : size * [...text].length * 1.02;
-  const h = vertical ? size * chars.length * 0.92 : size * 1.12;
+/** The page behind sign-in and the chapters: a glow from the top, one from the corner, halftone dots. */
+export function Atmosphere({ acc, acc2 }: { acc: string; acc2: string }) {
+  const { width: W } = useWindowDimensions();
   return (
-    <View pointerEvents="none" style={style}>
-      <Svg width={w} height={h}>
-        {chars.map((c, i) => (
-          <SvgText
-            key={i}
-            x={vertical ? w / 2 : 0}
-            y={vertical ? size * 0.86 + i * size * 0.92 : size * 0.9}
-            textAnchor={vertical ? 'middle' : 'start'}
-            fontFamily={JP}
-            fontSize={size}
-            fill="none"
-            stroke={color}
-            strokeWidth={width}
-          >
-            {c}
-          </SvgText>
-        ))}
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+        <Defs>
+          <RadialGradient id="obTop" cx="50%" cy="-12%" rx="110%" ry="55%">
+            <Stop offset="0" stopColor={acc} stopOpacity={0.14} />
+            <Stop offset="0.62" stopColor={acc} stopOpacity={0} />
+          </RadialGradient>
+          <RadialGradient id="obCorner" cx="105%" cy="108%" rx="80%" ry="40%">
+            <Stop offset="0" stopColor={acc2} stopOpacity={0.18} />
+            <Stop offset="0.7" stopColor={acc2} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#obTop)" />
+        <Rect width="100%" height="100%" fill="url(#obCorner)" />
       </Svg>
+      <View style={{ position: 'absolute', right: 0, top: 0 }}><Halftone width={Math.min(260, W * 0.65)} height={300} corner="tr" /></View>
+      <View style={{ position: 'absolute', left: 0, bottom: 0 }}><Halftone width={240} height={260} color={acc} opacity={0.3} corner="bl" /></View>
     </View>
-  );
-}
-
-/** Manga speed lines radiating from a centre, fading in and out with distance. */
-export function SpeedLines({ size, color, inner = 0.14, outer = 0.5, count = 72, opacity = 1 }: { size: number; color: string; inner?: number; outer?: number; count?: number; opacity?: number }) {
-  const c = size / 2;
-  return (
-    <Svg width={size} height={size} style={{ opacity }}>
-      {Array.from({ length: count }, (_, i) => {
-        const t = (i / count) * Math.PI * 2 + (i % 3) * 0.013;
-        const r1 = size * inner * (1 + (i % 5) * 0.06), r2 = size * outer * (0.82 + (i % 7) * 0.03);
-        const strong = i % 2 === 1;
-        return (
-          <Line
-            key={i}
-            x1={c + r1 * Math.cos(t)} y1={c + r1 * Math.sin(t)} x2={c + r2 * Math.cos(t)} y2={c + r2 * Math.sin(t)}
-            stroke={strong ? color : '#FFFFFF'} strokeOpacity={strong ? 0.32 : 0.09} strokeWidth={strong ? 1.4 : 1}
-          />
-        );
-      })}
-    </Svg>
   );
 }
 
@@ -105,19 +80,21 @@ export function Bubble({ children, acc, tail = 'left', style }: { children: Reac
   return <View style={[{ backgroundColor: C.text, paddingVertical: 13, paddingHorizontal: 16 }, r, comic(acc, tail === 'top' ? 4 : 5), style]}>{children}</View>;
 }
 
-/** The big pill call to action. */
-export function Cta({ label, onPress, acc, disabled, kanji }: { label: string; onPress: () => void; acc: string; disabled?: boolean; kanji?: string }) {
+/** The big call to action: a solid accent slab with a hard shadow, like the Dojo's buttons. */
+export function Cta({ label, onPress, acc, disabled, icon }: { label: string; onPress: () => void; acc: string; disabled?: boolean; icon?: IconKey }) {
   return (
     <Tap
       onPress={disabled ? undefined : onPress}
       style={{
-        height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-        backgroundColor: disabled ? 'rgba(255,255,255,0.06)' : acc,
-        shadowColor: acc, shadowOpacity: disabled ? 0 : 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 0 },
+        height: 56, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+        backgroundColor: disabled ? '#15171B' : acc,
+        borderWidth: 1.5, borderColor: disabled ? C.line3 : acc,
+        ...(disabled ? null : comic(alpha(mix(acc, '#000000', 0.55), 1), 4)),
       }}
     >
+      {icon ? <Icon name={icon} size={20} color={disabled ? C.dim : C.ink} tint={0.25} strokeWidth={2} /> : null}
       <Txt size={17} w={600} color={disabled ? C.dim : C.ink}>{label}</Txt>
-      {kanji ? <Txt face="jp" size={16} color={alpha(C.ink, 0.55)}>{kanji}</Txt> : <Txt size={18} w={600} color={disabled ? C.dim : C.ink}>→</Txt>}
+      {icon ? null : <Icon name="chevron" size={18} color={disabled ? C.dim : C.ink} strokeWidth={2.2} />}
     </Tap>
   );
 }
@@ -136,14 +113,24 @@ export function FieldLabel({ label, right, acc }: { label: string; right?: strin
 /** Selected / unselected look for cards and chips. */
 export function pick(on: boolean, acc: string) {
   return on
-    ? { borderColor: acc, backgroundColor: solid(acc, 0.12), ...comic(alpha(acc, 0.55), 3), kStroke: acc, fg: C.text, check: '● 選択' }
-    : { borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0E0F12', shadowOpacity: 0, kStroke: 'rgba(255,255,255,0.14)', fg: C.body, check: '' };
+    ? { borderColor: acc, backgroundColor: solid(acc, 0.12, '#0D0F13'), ...comic(alpha(acc, 0.55), 3), kStroke: acc, fg: C.text }
+    : { borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0D0F13', shadowOpacity: 0, kStroke: 'rgba(255,255,255,0.14)', fg: C.body };
+}
+
+/** The tick in the corner of a chosen card. */
+export function Picked({ on, acc }: { on: boolean; acc: string }) {
+  if (!on) return <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.14)' }} />;
+  return (
+    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: acc, alignItems: 'center', justifyContent: 'center' }}>
+      <Icon name="check" size={14} color={C.ink} strokeWidth={2.6} />
+    </View>
+  );
 }
 
 /** A segmented row: one choice. */
 export function Seg<T extends string | number>({ value, opts, onPick, acc }: { value: T; opts: [T, string, string?][]; onPick: (v: T) => void; acc: string }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)' }}>
+    <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: '#0D0F13', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)' }}>
       {opts.map(([v, label, sub]) => {
         const on = v === value;
         return (
@@ -178,7 +165,7 @@ export function Nums({ items }: { items: { label: string; unit?: string; value: 
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {items.map(o => (
-        <View key={o.label} style={{ width: '48.6%', flexGrow: 1, paddingTop: 11, paddingBottom: 9, paddingLeft: 13, paddingRight: 6, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)' }}>
+        <View key={o.label} style={{ width: '48.6%', flexGrow: 1, paddingTop: 11, paddingBottom: 9, paddingLeft: 13, paddingRight: 6, borderRadius: 12, backgroundColor: '#0D0F13', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)' }}>
           <Txt face="mono" size={9.5} ls={0.15} color={C.dim}>{o.label}</Txt>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 3 }}>
             <Txt face="mono" size={19} w={500}>{o.value}{o.unit ? <Txt face="mono" size={11} color={C.dim}>{` ${o.unit}`}</Txt> : null}</Txt>
@@ -223,7 +210,7 @@ export function Scrub({ label, unit, value, step, min, max, dp, onChange, acc }:
     ticks.push(<Line key={i} x1={x} x2={x} y1={n % 10 === 0 ? 4 : 10} y2={24} stroke="#FFFFFF" strokeOpacity={n % 10 === 0 ? 0.6 : 0.22} strokeWidth={n % 10 === 0 ? 1.5 : 1} />);
   }
   return (
-    <View style={{ paddingTop: 12, paddingHorizontal: 14, paddingBottom: 10, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)' }}>
+    <View style={{ paddingTop: 12, paddingHorizontal: 14, paddingBottom: 10, borderRadius: 12, backgroundColor: '#0D0F13', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Txt face="mono" size={10.5} ls={0.15} color={C.label} style={{ flex: 1 }} numberOfLines={1}>{label}</Txt>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
@@ -252,10 +239,10 @@ export function Scrub({ label, unit, value, step, min, max, dp, onChange, acc }:
 }
 
 /** A labelled switch row (the Link chapter). */
-export function ToggleRow({ k, label, sub, on, onPress, acc }: { k: string; label: string; sub: string; on: boolean; onPress: () => void; acc: string }) {
+export function ToggleRow({ icon, label, sub, on, onPress, acc }: { icon: IconKey; label: string; sub: string; on: boolean; onPress: () => void; acc: string }) {
   return (
-    <Tap onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingLeft: 16, paddingRight: 14, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1.5, borderColor: on ? alpha(acc, 0.4) : 'rgba(255,255,255,0.1)' }}>
-      <Txt face="jp" size={20} color={on ? acc : C.ghost} style={{ width: 24 }}>{k}</Txt>
+    <Tap onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingLeft: 16, paddingRight: 14, borderRadius: 12, backgroundColor: '#0D0F13', borderWidth: 1.5, borderColor: on ? alpha(acc, 0.45) : 'rgba(255,255,255,0.1)' }}>
+      <Icon name={icon} size={24} color={on ? acc : C.ghost} tint={on ? 0.3 : 0.1} />
       <View style={{ flex: 1 }}>
         <Txt size={15} w={600}>{label}</Txt>
         <Txt size={12.5} color={C.sub} lh={1.35} style={{ marginTop: 2 }}>{sub}</Txt>
@@ -281,7 +268,7 @@ export function Field({ value, onChange, placeholder, secure, keyboard, autoCapi
       autoCorrect={false}
       maxLength={maxLength}
       keyboardAppearance="dark"
-      style={{ height: 50, paddingHorizontal: 16, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)', fontFamily: fontFamily('Geist', 400), fontSize: 15.5, color: C.text }}
+      style={{ height: 50, paddingHorizontal: 16, borderRadius: 12, backgroundColor: '#0D0F13', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)', fontFamily: fontFamily('Geist', 400), fontSize: 15.5, color: C.text }}
     />
   );
 }

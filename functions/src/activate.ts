@@ -11,6 +11,8 @@ export const activate = onCall({ invoker: 'public' }, async req => {
   const email = req.auth?.token.email?.toLowerCase();
   if (!req.auth || !email) throw new HttpsError('unauthenticated', 'Sign in first.');
   if (req.auth.token.tester === true) return { tester: true };
+  // New access needs a verified email, so nobody can claim an allowlisted address they don't own.
+  if (req.auth.token.email_verified !== true) throw new HttpsError('failed-precondition', 'Verify your email first.');
   const entry = await db.doc(`allowlist/${email}`).get();
   if (!entry.exists) throw new HttpsError('permission-denied', 'This email is not on the REI tester list.');
   await auth.setCustomUserClaims(req.auth.uid, { tester: true });

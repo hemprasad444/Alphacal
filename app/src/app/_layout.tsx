@@ -69,19 +69,24 @@ function Root() {
   }, [done]);
 
   if (!done) return null;
-  // With a Firebase project configured, new people start with onboarding (which can switch to
-  // signing in); "Try the demo" skips it. Signed-in accounts that never onboarded do it once.
-  const needsAuth = (account.status === 'signedOut' || account.status === 'denied') && !account.demo;
+  // Sign in (or create an account) first; a new account then plays the chapters once; everyone
+  // else lands in the app. "Try the demo" skips both. The chapters stay up until their dive ends.
+  const needsAuth = (account.status === 'signedOut' || account.status === 'unverified' || account.status === 'denied') && !account.demo;
   const needsOnboarding = account.status === 'signedIn' && userLoaded && !onboarded;
-  const onboarding = needsAuth || needsOnboarding || obActive;
+  const onboarding = !needsAuth && (needsOnboarding || obActive);
+  // Just signed in on a phone with nothing saved: wait for the account before choosing chapters or app.
+  if (account.status === 'signedIn' && !userLoaded && !onboarded && !obActive) return null;
   return (
     <>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.bg }, animation: 'slide_from_right' }}>
+        <Stack.Protected guard={needsAuth}>
+          <Stack.Screen name="sign-in" options={{ animation: 'fade' }} />
+        </Stack.Protected>
         <Stack.Protected guard={onboarding}>
           <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
         </Stack.Protected>
-        <Stack.Protected guard={!onboarding}>
+        <Stack.Protected guard={!needsAuth && !onboarding}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="talk" />
           <Stack.Screen name="settings" />
@@ -101,9 +106,6 @@ function Root() {
           <Stack.Screen name="account" />
           <Stack.Screen name="board" />
           <Stack.Screen name="log-training" options={{ presentation: 'modal' }} />
-        </Stack.Protected>
-        <Stack.Protected guard={needsAuth}>
-          <Stack.Screen name="sign-in" options={{ animation: 'fade' }} />
         </Stack.Protected>
       </Stack>
     </>

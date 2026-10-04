@@ -1,13 +1,46 @@
-import { DEFAULT_INTAKE, fuel, intakeDisciplines, intakeMemory, intakeProfile, reiLine, sleepHours, STEPS, CHAPTERS, suggestedTarget, trainTime, vowSentence, type Intake } from '../onboarding';
+import { ARCHETYPES, DEFAULT_INTAKE, fuel, GOALS, intakeDisciplines, intakeMemory, intakeProfile, pactRows, reiLine, sleepHours, STEPS, CHAPTERS, suggestedTarget, TONES, trainTime, vowSentence, weeklyRate, type Intake } from '../onboarding';
+import { CHARACTERS, characterOf, isSpeakVoice, speakVoice } from '../characters';
 import { DEFAULT_PROFILE } from '../data';
+import { DEFAULT_VOICE } from '../voices';
+
+/** Japanese or Chinese characters: the app shows icons now, not kanji. */
+const CJK = /[\u3040-\u30ff\u4e00-\u9fff]/;
 
 const now = new Date(2026, 9, 3, 12, 0);
 const d = (over: Partial<Intake> = {}): Intake => ({ ...DEFAULT_INTAKE, name: 'Hem', ...over });
 
 describe('onboarding', () => {
-  it('has fifteen chapters, then the account and the bond', () => {
-    expect(CHAPTERS).toBe(15);
-    expect(STEPS.map(s => s.id).slice(-3)).toEqual(['pact', 'account', 'done']);
+  it('has sixteen chapters between the cover and the bond; the account comes before, not inside', () => {
+    expect(CHAPTERS).toBe(16);
+    expect(STEPS[0].id).toBe('boot');
+    expect(STEPS.map(s => s.id).slice(-2)).toEqual(['pact', 'done']);
+    expect(STEPS.map(s => s.id)).not.toContain('account');
+    expect(new Set(STEPS.map(s => s.id)).size).toBe(STEPS.length);
+  });
+
+  it('gives every chapter an icon, a title, a line from REI and (but the pact) a button', () => {
+    for (const st of STEPS.filter(x => x.t)) {
+      expect(st.icon).toBeTruthy();
+      expect(reiLine(st.id, d()).length).toBeGreaterThan(10);
+      if (st.id !== 'pact') expect(st.cta).toBeTruthy();
+    }
+    expect(reiLine('boot', d())).toBe('');
+  });
+
+  it('shows no kanji anywhere in the chapters', () => {
+    const text = [
+      ...STEPS.map(x => `${x.t ?? ''} ${x.cta ?? ''}`), ...ARCHETYPES.map(a => `${a.name} ${a.ref} ${a.spec} ${a.quip}`),
+      ...GOALS.map(g => `${g.tag} ${g.label} ${g.sub}`), ...TONES.map(t => `${t.id} ${t.sub}`),
+      ...STEPS.map(x => reiLine(x.id, d({ arch: 'shinobi', character: 'naruto' }))), ...pactRows(d()).flat(),
+    ].join('\n');
+    expect(text).not.toMatch(CJK);
+    expect([...ARCHETYPES, ...GOALS, ...TONES].every(x => typeof x.icon === 'string' && !CJK.test(x.icon))).toBe(true);
+  });
+
+  it('greets with the chosen partner on the partner chapter', () => {
+    expect(reiLine('partner', d())).toMatch(/corner/);
+    expect(reiLine('partner', d({ character: 'naruto' }))).toMatch(/^Naruto\./);
+    expect(pactRows(d({ character: 'gojo' })).find(([k]) => k === 'VOICE')?.[1]).toMatch(/Gojo$/);
   });
 
   it('runs the fuel numbers from Mifflin–St Jeor, activity and the goal', () => {
@@ -52,5 +85,55 @@ describe('onboarding', () => {
     expect(vowSentence(d({ goal: 'size', targetWeight: 85 }), now)).toBe('build to 85 kg of quality size by 6 MAR 2027.');
     expect(reiLine('target', d({ weight: 90, targetWeight: 70, weeks: 12 }))).toMatch(/Aggressive/);
     expect(intakeDisciplines(d({ disc: { Running: true } }))).toEqual({ Hypertrophy: false, Strength: false, Calisthenics: false, Running: true });
+  });
+
+  it('keeps the fuel sane at the edges', () => {
+    // A light, short, older person on a hard cut still gets at least 60 g of carbs.
+    const small = fuel(d({ weight: 40, height: 140, age: 80, sex: 'Female', sessions: 2, length: 30 }));
+    expect(small.c).toBeGreaterThanOrEqual(60);
+    expect(small.kcal).toBeGreaterThan(0);
+    // Everything stays a whole number of grams.
+    const big = fuel(d({ weight: 160, height: 215, goal: 'size', job: 'Physical', sessions: 7, length: 90 }));
+    expect([big.p, big.c, big.f, big.kcal].every(Number.isInteger)).toBe(true);
+    expect(big.kcal).toBeGreaterThan(fuel(d()).kcal);
+  });
+
+  it('handles an unknown or unset archetype and a zero-change target', () => {
+    expect(suggestedTarget(d({ arch: null }))).toBeNull();
+    expect(suggestedTarget(d({ arch: 'nobody' }))).toBeNull();
+    expect(weeklyRate(d({ weight: 80, targetWeight: 80 }))).toBe(0);
+    expect(reiLine('target', d({ weight: 80, targetWeight: 80 }))).toMatch(/Holding weight/);
+    expect(reiLine('ideal', d({ arch: null }))).toMatch(/Pick yours/);
+  });
+
+  it('uses Operator when the name is only spaces', () => {
+    expect(intakeProfile(d({ name: '   ' }), now).name).toBe('');
+    expect(reiLine('fuel', d({ name: '  ' }))).toMatch(/Operator/);
+  });
+});
+
+describe('characters', () => {
+  it('each has a hello, a world and unique id', () => {
+    expect(new Set(CHARACTERS.map(c => c.id)).size).toBe(CHARACTERS.length);
+    for (const c of CHARACTERS) {
+      expect(c.intro.length).toBeGreaterThan(20);
+      expect(['zero', 'shinobi', 'voyager', 'hero', 'cursed', 'slayer']).toContain(c.theme);
+    }
+  });
+
+  it('falls back to REI for unknown ids', () => {
+    expect(characterOf('nobody').id).toBe('rei');
+    expect(characterOf(undefined).id).toBe('rei');
+  });
+
+  it('speaks a character only once its voice exists, and lets that through the voice check', () => {
+    expect(speakVoice({ character: 'naruto', voice: DEFAULT_VOICE })).toBe('c:naruto');
+    expect(speakVoice({ character: 'gojo', voice: DEFAULT_VOICE })).toBe(DEFAULT_VOICE);
+    expect(isSpeakVoice('c:naruto')).toBe(true);
+    expect(isSpeakVoice('c:gojo')).toBe(false);
+    expect(isSpeakVoice('c:')).toBe(false);
+    expect(isSpeakVoice(DEFAULT_VOICE)).toBe(true);
+    expect(isSpeakVoice('someone-else')).toBe(false);
+    expect(isSpeakVoice(42)).toBe(false);
   });
 });

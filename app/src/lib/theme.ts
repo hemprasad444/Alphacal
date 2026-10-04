@@ -45,7 +45,7 @@ export const THEMES: Theme[] = [
   { id: 'voyager', name: 'One Piece', icon: 'strawhat', vibe: 'Straw gold · captain red', acc: '#F5C542', acc2: '#D7263D', bg: '#06070A', motto: 'SET SAIL · CHASE THE DREAM' },
   { id: 'hero', name: 'My Hero Academia', icon: 'fist', vibe: 'Hero green · signal red', acc: '#2FE08A', acc2: '#E8463B', bg: '#050807', motto: 'GO BEYOND · PLUS ULTRA' },
   { id: 'cursed', name: 'Jujutsu Kaisen', icon: 'eye', vibe: 'Void blue · cursed violet', acc: '#6E8BFF', acc2: '#9B3CF5', bg: '#05040B', motto: 'SURPASS YOURSELF · DOMAIN EXPANSION' },
-  { id: 'slayer', name: 'Demon Slayer', icon: 'strength', vibe: 'Water teal · flame crimson', acc: '#2FC4A5', acc2: '#E0303F', bg: '#070506', motto: 'SHARPEN THE BLADE · UNTIL DAWN' },
+  { id: 'slayer', name: 'Demon Slayer', icon: 'flame', vibe: 'Water teal · flame crimson', acc: '#2FC4A5', acc2: '#E0303F', bg: '#070506', motto: 'SHARPEN THE BLADE · UNTIL DAWN' },
 ];
 
 export const ACCENT_EXTRAS = ['#FF6A4D', '#B8A6FF', '#9EF2B5', '#E9E3D3'];

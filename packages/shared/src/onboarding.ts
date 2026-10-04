@@ -1,14 +1,15 @@
-// First-run onboarding ("The Pact Arc"): fifteen short chapters in which REI learns who the user
+// First-run onboarding ("The Pact Arc"): sixteen short chapters in which REI learns who the user
 // is, then turns the answers into their profile, targets, settings and lasting memory.
 // Screens live in the app (app/src/app/onboarding.tsx); everything that decides numbers is here.
 import { characterOf } from './characters';
+import type { IconKey } from './icons';
 import { isoDate } from './time';
 import type { MemoryKind } from './memory';
 import type { Profile, ThemeId, Tone } from './types';
 
 export interface Archetype {
   id: string;
-  k: string;
+  icon: IconKey;
   name: string;
   ref: string;
   /** Target body fat and lean mass to add (kg) for this look. */
@@ -23,54 +24,57 @@ export interface Archetype {
 }
 
 export const ARCHETYPES: Archetype[] = [
-  { id: 'shinobi', k: '忍', name: 'The Shinobi', ref: 'Kakashi · Itachi', bf: 11, gain: 0, goal: 'lean', bars: [55, 92, 40], spec: '10–12% BF · LEAN · QUICK', disc: ['Calisthenics', 'Running', 'Hypertrophy'], quip: 'The Shinobi. Lean, fast, nothing wasted. That means a real cut and a lot of conditioning. No hiding.' },
-  { id: 'swordsman', k: '剣', name: 'The Swordsman', ref: 'Zoro · Rengoku', bf: 11, gain: 3, goal: 'recomp', bars: [86, 66, 74], spec: '10–12% BF · BROAD · DENSE', disc: ['Hypertrophy', 'Strength'], quip: 'The Swordsman. Broad back, dense shoulders, heavy lifting. Rows and presses become your religion.' },
-  { id: 'slayer', k: '刃', name: 'The Slayer', ref: 'Tanjiro · Giyu', bf: 12, gain: 1, goal: 'lean', bars: [62, 82, 50], spec: '11–13% BF · ATHLETIC', disc: ['Running', 'Calisthenics', 'Hypertrophy'], quip: 'The Slayer. An engine that never quits. Expect early runs and breath work. Total concentration.' },
-  { id: 'sorcerer', k: '呪', name: 'Heavenly Restriction', ref: 'Toji Fushiguro', bf: 9, gain: 4, goal: 'recomp', bars: [92, 86, 80], spec: '8–10% BF · SHREDDED', disc: ['Hypertrophy', 'Strength', 'Calisthenics', 'Running'], quip: 'Toji. Shredded and powerful. The hardest one on this list. Good. I wanted to see if you would pick it.' },
-  { id: 'symbol', k: '英', name: 'Symbol of Peace', ref: 'All Might', bf: 14, gain: 8, goal: 'size', bars: [100, 48, 100], spec: '12–15% BF · MAXIMUM SIZE', disc: ['Hypertrophy', 'Strength'], quip: 'All Might. Maximum size. That means eating a lot more than you want to, every day. Plus Ultra.' },
-  { id: 'caped', k: '拳', name: 'One Punch', ref: 'Saitama', bf: 13, gain: 0, goal: 'lean', bars: [74, 72, 38], spec: '12–14% BF · SIMPLY FIT', disc: ['Calisthenics', 'Running'], quip: 'Saitama. 100 push-ups, 100 sit-ups, 10 km. Simple. Simple is the hardest thing to do every single day.' },
+  { id: 'shinobi', icon: 'kunai', name: 'The Shinobi', ref: 'Kakashi · Itachi', bf: 11, gain: 0, goal: 'lean', bars: [55, 92, 40], spec: '10–12% BF · LEAN · QUICK', disc: ['Calisthenics', 'Running', 'Hypertrophy'], quip: 'The Shinobi. Lean, fast, nothing wasted. That means a real cut and a lot of conditioning. No hiding.' },
+  { id: 'swordsman', icon: 'sword', name: 'The Swordsman', ref: 'Zoro · Rengoku', bf: 11, gain: 3, goal: 'recomp', bars: [86, 66, 74], spec: '10–12% BF · BROAD · DENSE', disc: ['Hypertrophy', 'Strength'], quip: 'The Swordsman. Broad back, dense shoulders, heavy lifting. Rows and presses become your religion.' },
+  { id: 'slayer', icon: 'flame', name: 'The Slayer', ref: 'Tanjiro · Giyu', bf: 12, gain: 1, goal: 'lean', bars: [62, 82, 50], spec: '11–13% BF · ATHLETIC', disc: ['Running', 'Calisthenics', 'Hypertrophy'], quip: 'The Slayer. An engine that never quits. Expect early runs and breath work. Total concentration.' },
+  { id: 'sorcerer', icon: 'eye', name: 'Heavenly Restriction', ref: 'Toji Fushiguro', bf: 9, gain: 4, goal: 'recomp', bars: [92, 86, 80], spec: '8–10% BF · SHREDDED', disc: ['Hypertrophy', 'Strength', 'Calisthenics', 'Running'], quip: 'Toji. Shredded and powerful. The hardest one on this list. Good. I wanted to see if you would pick it.' },
+  { id: 'symbol', icon: 'star', name: 'Symbol of Peace', ref: 'All Might', bf: 14, gain: 8, goal: 'size', bars: [100, 48, 100], spec: '12–15% BF · MAXIMUM SIZE', disc: ['Hypertrophy', 'Strength'], quip: 'All Might. Maximum size. That means eating a lot more than you want to, every day. Plus Ultra.' },
+  { id: 'caped', icon: 'fist', name: 'One Punch', ref: 'Saitama', bf: 13, gain: 0, goal: 'lean', bars: [74, 72, 38], spec: '12–14% BF · SIMPLY FIT', disc: ['Calisthenics', 'Running'], quip: 'Saitama. 100 push-ups, 100 sit-ups, 10 km. Simple. Simple is the hardest thing to do every single day.' },
 ];
 
 export type GoalId = 'lean' | 'size' | 'strong' | 'recomp';
 
-export const GOALS: { id: GoalId; k: string; tag: string; label: string; sub: string; adj: number }[] = [
-  { id: 'lean', k: '削', tag: 'CUT', label: 'Get lean', sub: 'Drop fat, keep muscle', adj: -0.18 },
-  { id: 'size', k: '増', tag: 'BULK', label: 'Build size', sub: 'Add muscle, little fat', adj: 0.1 },
-  { id: 'strong', k: '力', tag: 'STRENGTH', label: 'Get strong', sub: 'Move bigger numbers', adj: 0.03 },
-  { id: 'recomp', k: '鍛', tag: 'RECOMP', label: 'Recomp', sub: 'Lose fat, gain muscle', adj: -0.08 },
+export const GOALS: { id: GoalId; icon: IconKey; tag: string; label: string; sub: string; adj: number }[] = [
+  { id: 'lean', icon: 'flame', tag: 'CUT', label: 'Get lean', sub: 'Drop fat, keep muscle', adj: -0.18 },
+  { id: 'size', icon: 'gym', tag: 'BULK', label: 'Build size', sub: 'Add muscle, little fat', adj: 0.1 },
+  { id: 'strong', icon: 'strength', tag: 'STRENGTH', label: 'Get strong', sub: 'Move bigger numbers', adj: 0.03 },
+  { id: 'recomp', icon: 'progress', tag: 'RECOMP', label: 'Recomp', sub: 'Lose fat, gain muscle', adj: -0.08 },
 ];
 
-export const TONES: { id: Tone; k: string; sub: string }[] = [
-  { id: 'Tough love', k: '厳', sub: 'Calls you out. No negotiating.' },
-  { id: 'Coach', k: '導', sub: 'Firm, measured, technical.' },
-  { id: 'Bro', k: '友', sub: 'Hype first, truth second.' },
+export const TONES: { id: Tone; icon: IconKey; sub: string }[] = [
+  { id: 'Tough love', icon: 'strength', sub: 'Calls you out. No negotiating.' },
+  { id: 'Coach', icon: 'train', sub: 'Firm, measured, technical.' },
+  { id: 'Bro', icon: 'fist', sub: 'Hype first, truth second.' },
 ];
 
-export type StepId = 'boot' | 'name' | 'ideal' | 'vow' | 'body' | 'target' | 'power' | 'train' | 'life' | 'kitchen' | 'fuel' | 'weak' | 'tone' | 'world' | 'link' | 'pact' | 'account' | 'done';
+export type StepId = 'boot' | 'name' | 'ideal' | 'vow' | 'body' | 'target' | 'power' | 'train' | 'life' | 'kitchen' | 'fuel' | 'weak' | 'tone' | 'partner' | 'world' | 'link' | 'pact' | 'done';
 
-/** In order. `k` is the chapter's kanji; steps without one (boot, account, done) have no chapter card. */
-export const STEPS: { id: StepId; k?: string; t?: string; cta?: string }[] = [
+/**
+ * In order. Chapters have an `icon` and a title `t`; the cover and the bond after the pact don't.
+ * The account comes first now (sign-in screen), so there is no account step in here.
+ */
+export const STEPS: { id: StepId; icon?: IconKey; t?: string; cta?: string }[] = [
   { id: 'boot' },
-  { id: 'name', k: '名', t: 'NAME', cta: 'That’s me' },
-  { id: 'ideal', k: '像', t: 'THE IDEAL', cta: 'This is who I become' },
-  { id: 'vow', k: '誓', t: 'THE VOW', cta: 'Lock the vow' },
-  { id: 'body', k: '体', t: 'BODY SCAN', cta: 'Scan complete' },
-  { id: 'target', k: '標', t: 'TARGET', cta: 'Set the target' },
-  { id: 'power', k: '力', t: 'POWER LEVEL', cta: 'Log my numbers' },
-  { id: 'train', k: '鍛', t: 'TRAINING', cta: 'Confirm the split' },
-  { id: 'life', k: '日', t: 'DAILY LIFE', cta: 'That’s my day' },
-  { id: 'kitchen', k: '厨', t: 'KITCHEN', cta: 'Run my numbers' },
-  { id: 'fuel', k: '燃', t: 'FUEL', cta: 'Accept the fuel' },
-  { id: 'weak', k: '弱', t: 'WEAK POINTS', cta: 'Remember this' },
-  { id: 'tone', k: '声', t: 'VOICE', cta: 'That’s the voice' },
-  { id: 'world', k: '界', t: 'WORLD', cta: 'Wear it' },
-  { id: 'link', k: '繋', t: 'LINK', cta: 'Connect' },
-  { id: 'pact', k: '契', t: 'THE PACT' },
-  { id: 'account' },
+  { id: 'name', icon: 'profile', t: 'NAME', cta: 'That’s me' },
+  { id: 'ideal', icon: 'star', t: 'THE IDEAL', cta: 'This is who I become' },
+  { id: 'vow', icon: 'vow', t: 'THE VOW', cta: 'Lock the vow' },
+  { id: 'body', icon: 'weight', t: 'BODY SCAN', cta: 'Scan complete' },
+  { id: 'target', icon: 'target', t: 'TARGET', cta: 'Set the target' },
+  { id: 'power', icon: 'strength', t: 'POWER LEVEL', cta: 'Log my numbers' },
+  { id: 'train', icon: 'train', t: 'TRAINING', cta: 'Confirm the split' },
+  { id: 'life', icon: 'sleep', t: 'DAILY LIFE', cta: 'That’s my day' },
+  { id: 'kitchen', icon: 'fuel', t: 'KITCHEN', cta: 'Run my numbers' },
+  { id: 'fuel', icon: 'kcal', t: 'FUEL', cta: 'Accept the fuel' },
+  { id: 'weak', icon: 'heart', t: 'WEAK POINTS', cta: 'Remember this' },
+  { id: 'tone', icon: 'voice', t: 'TONE', cta: 'That’s how you talk to me' },
+  { id: 'partner', icon: 'rei', t: 'PARTNER', cta: 'You’re in my corner' },
+  { id: 'world', icon: 'look', t: 'WORLD', cta: 'Wear it' },
+  { id: 'link', icon: 'link', t: 'LINK', cta: 'Connect' },
+  { id: 'pact', icon: 'scroll', t: 'THE PACT' },
   { id: 'done' },
 ];
 
-export const CHAPTERS = STEPS.filter(s => s.k).length;
+export const CHAPTERS = STEPS.filter(s => s.t).length;
 
 export type TrainTime = 'Morning' | 'Midday' | 'Evening' | 'Night';
 const TRAIN_AT: Record<TrainTime, string> = { Morning: '06:30', Midday: '12:30', Evening: '18:30', Night: '21:00' };
@@ -224,10 +228,13 @@ export function reiLine(step: StepId, d: Intake): string {
     case 'fuel': return `I ran your numbers. This is your daily fuel, ${n}. Protein first, every single day.`;
     case 'weak': return 'Every protagonist has a weakness. Tell me yours now. I’ll be waiting for it.';
     case 'tone': return 'How hard do you want me to push? Choose carefully. I stick to it.';
+    case 'partner': {
+      const c = characterOf(d.character);
+      return c.id === 'rei' ? 'Who’s in your corner? Me, by default. Or pick a partner from another world. Tap one to hear them.' : `${c.name}. Good pick. They’ll speak for me on calls and replies. Tap anyone else to hear them.`;
+    }
     case 'world': return 'Pick my world. I’ll wear its colors everywhere you see me.';
     case 'link': return 'Give me eyes. I can’t call you out on what I can’t see.';
     case 'pact': return 'Read it. Then hold to seal it. Once it’s sealed, I hold you to every line.';
-    case 'account': return `Last thing, ${n}. Where do I find you? This keeps everything you just told me safe, on every phone you use.`;
     default: return '';
   }
 }

@@ -1,23 +1,24 @@
-// First run: the cover, fifteen chapters, the pact, the account (for new users), the bond and the
-// dive into the app. Numbers and wording come from @rei/shared (onboarding.ts); this file is the stage.
+// First run, after the account exists: the cover, sixteen chapters, the pact, the bond and the dive
+// into the app. Same look as the Dojo: dark panels, hard accent shadows, icons instead of kanji.
+// Numbers and wording come from @rei/shared (onboarding.ts); this file is the stage.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import {
-  ARCHETYPES, bondLine, CHAPTERS, CHARACTERS, characterOf, clockOf, deadlineOf, DEFAULT_INTAKE, fuel, goalOf, GOALS, type Intake, mmss, nameOf, pactRows, reiLine, shortDate,
-  sleepHours, STEPS, suggestedTarget, TONES, toneSample, trainTime, vowSentence, weeklyRate,
+  ARCHETYPES, bondLine, CHAPTERS, CHARACTERS, characterOf, clockOf, deadlineOf, DEFAULT_INTAKE, fuel, goalOf, GOALS, hasVoice, type Intake, mmss, nameOf, pactRows, reiLine, shortDate,
+  sleepHours, speakVoice, STEPS, suggestedTarget, TONES, toneSample, trainTime, vowSentence, weeklyRate,
 } from '@rei/shared';
-import { Icon } from '../components/icons';
+import { Icon, type IconKey } from '../components/icons';
 import { Core } from '../components/Core';
+import { Gauge, Stamp } from '../components/manga';
 import { ChapterCard, EnterFx, Flash, HoldSeal, markArrival } from '../components/onboarding/fx';
-import { Bubble, Chips, comic, Cta, solid, Field, FieldLabel, Halftone, Nums, Outline, pick, Rise, Scrub, Seg, SpeedLines, ToggleRow } from '../components/onboarding/kit';
+import { Atmosphere, Chips, comic, Cta, Field, FieldLabel, Nums, pick, Picked, Rise, Scrub, Seg, solid, ToggleRow } from '../components/onboarding/kit';
 import { Tap, Txt } from '../components/ui';
 import { alpha, C, EMBLEMS, fontFamily, THEMES } from '../lib/theme';
-import { authMessage } from '../state/account';
+import { previewVoice, type Speaker } from '../lib/voice';
 import { useStore } from '../state/store';
 
 const DRAFT_KEY = 'rei-onboarding-draft';
@@ -30,15 +31,15 @@ const toggle = (o: Record<string, boolean>, k: string) => {
   n[k] = !n[k];
   return n;
 };
+/** Chapter number of a step (the cover is 0). */
+const chapterOf = (step: number) => STEPS.slice(1, step + 1).filter(x => x.t).length;
 
 export default function Onboarding() {
   const s = useStore();
   const insets = useSafeAreaInsets();
-  const { width: W } = useWindowDimensions();
-  const signedIn = s.account.status === 'signedIn';
 
   const [d, setD] = useState<Intake>(() => ({ ...DEFAULT_INTAKE, name: s.profile.name || '' }));
-  const [step, setStep] = useState(() => (s.pendingOnboarding && !signedIn ? idx('account') : 0));
+  const [step, setStep] = useState(0);
   const [card, setCard] = useState<{ to: number; key: number } | null>(null);
   const [flash, setFlash] = useState(false);
   const [entering, setEntering] = useState(false);
@@ -75,9 +76,9 @@ export default function Onboarding() {
     return () => clearTimeout(t);
   }, [d]);
 
-  // REI types its line for each chapter (and again when the chosen ideal changes).
+  // REI types its line for each chapter (and again when the chosen ideal or partner changes).
   const line = reiLine(st.id, d);
-  const typeKey = `${step}|${st.id === 'ideal' ? d.arch : ''}`;
+  const typeKey = `${step}|${st.id === 'ideal' ? d.arch : st.id === 'partner' ? d.character : ''}`;
   useEffect(() => {
     let n = 0, timer: ReturnType<typeof setInterval> | undefined;
     const wait = setTimeout(() => {
@@ -86,12 +87,12 @@ export default function Onboarding() {
         setTyped({ key: typeKey, n });
         if (n > 400 && timer) clearInterval(timer);
       }, 20);
-    }, st.k ? 560 : 140);
+    }, st.t ? 560 : 140);
     return () => {
       clearTimeout(wait);
       if (timer) clearInterval(timer);
     };
-  }, [typeKey, st.k]);
+  }, [typeKey, st.t]);
   const shown = typed.key === typeKey ? typed.n : 0;
   const typing = shown < line.length;
 
@@ -105,30 +106,23 @@ export default function Onboarding() {
       }
       setStep(i);
     };
-    if (!instant && to.k && i > step) setCard({ to: i, key: Date.now() });
-    else arrive();
-    if (!instant && to.k && i > step) pendingArrive.current = arrive;
+    if (!instant && to.t && i > step) {
+      pendingArrive.current = arrive;
+      setCard({ to: i, key: Date.now() });
+    } else arrive();
   };
 
   const blocked = (st.id === 'name' && !d.name.trim()) || (st.id === 'ideal' && !d.arch);
   const next = () => {
-    if (!blocked) go(step + 1);
+    if (!blocked && !card) go(step + 1);
   };
 
   const seal = () => {
     s.setObActive(true);
     setFlash(true);
     s.completeOnboarding(d);
-    setTimeout(() => go(signedIn ? idx('done') : idx('account'), true), 380);
+    setTimeout(() => go(idx('done'), true), 380);
   };
-
-  // A new account just finished: its answers are in, on to the bond.
-  useEffect(() => {
-    if (st.id !== 'account' || !signedIn || !s.onboarded) return;
-    const t = setTimeout(() => go(idx('done'), true), 0);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [st.id, signedIn, s.onboarded]);
 
   const enter = () => setEntering(true);
   const entered = () => {
@@ -142,18 +136,18 @@ export default function Onboarding() {
 
   return (
     <View style={{ flex: 1, backgroundColor: bg, overflow: 'hidden' }}>
-      <Atmosphere acc={acc} acc2={acc2} W={W} />
+      <Atmosphere acc={acc} acc2={acc2} />
       {emblem ? (
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-          <Image source={emblem} style={{ width: 300, height: 300, opacity: 0.14 }} contentFit="contain" />
+          <Image source={emblem} style={{ width: 300, height: 300, opacity: 0.1 }} contentFit="contain" />
         </View>
       ) : null}
 
-      {st.id === 'boot' ? <Cover acc={acc} signedIn={signedIn} onBegin={() => go(1)} insetTop={insets.top} insetBottom={insets.bottom} /> : null}
+      {st.id === 'boot' ? <Cover acc={acc} email={s.account.email} onBegin={() => go(1)} onSignOut={() => void s.signOut()} insetTop={insets.top} insetBottom={insets.bottom} /> : null}
 
-      {st.k || st.id === 'account' ? (
+      {st.t ? (
         <Chapter
-          step={step} acc={acc} motto={theme.motto} insetTop={insets.top} insetBottom={insets.bottom}
+          step={step} acc={acc} insetTop={insets.top} insetBottom={insets.bottom}
           line={typing ? line.slice(0, shown) : line} typing={typing} onBack={() => go(step - 1, true)}
           cta={st.cta ? <Cta label={st.cta} acc={acc} disabled={blocked} onPress={next} /> : null}
         >
@@ -169,18 +163,18 @@ export default function Onboarding() {
           {st.id === 'fuel' ? <FuelStep d={d} set={set} acc={acc} /> : null}
           {st.id === 'weak' ? <WeakStep d={d} set={set} acc={acc} /> : null}
           {st.id === 'tone' ? <ToneStep d={d} set={set} acc={acc} /> : null}
+          {st.id === 'partner' ? <PartnerStep d={d} patch={patch} acc={acc} /> : null}
           {st.id === 'world' ? <WorldStep d={d} set={set} /> : null}
           {st.id === 'link' ? <LinkStep d={d} set={set} acc={acc} /> : null}
           {st.id === 'pact' ? <PactStep d={d} acc={acc} onSeal={seal} /> : null}
-          {st.id === 'account' ? <AccountStep acc={acc} /> : null}
         </Chapter>
       ) : null}
 
-      {st.id === 'done' ? <Bond d={d} acc={acc} acc2={acc2} bg={bg} insetTop={insets.top} insetBottom={insets.bottom} onEnter={enter} onReplay={() => go(0, true)} /> : null}
+      {st.id === 'done' ? <Bond d={d} acc={acc} acc2={acc2} bg={bg} insetTop={insets.top} insetBottom={insets.bottom} onEnter={enter} /> : null}
 
       {card ? (
         <ChapterCard
-          key={card.key} n={card.to} k={STEPS[card.to].k ?? ''} t={STEPS[card.to].t ?? ''} total={CHAPTERS} acc={acc} bg={bg}
+          key={card.key} n={chapterOf(card.to)} icon={STEPS[card.to].icon ?? 'rei'} t={STEPS[card.to].t ?? ''} total={CHAPTERS} acc={acc} bg={bg}
           onSwap={() => pendingArrive.current()} onEnd={() => setCard(null)}
         />
       ) : null}
@@ -190,134 +184,92 @@ export default function Onboarding() {
   );
 }
 
-/** The panel's glow, corner halftones and accent wash. */
-function Atmosphere({ acc, acc2, W }: { acc: string; acc2: string; W: number }) {
+function Cover({ acc, email, onBegin, onSignOut, insetTop, insetBottom }: { acc: string; email: string | null; onBegin: () => void; onSignOut: () => void; insetTop: number; insetBottom: number }) {
+  const boot: [string, string][] = [
+    ['REI SYSTEM · v1.0', C.dim],
+    [`ACCOUNT LINKED · ${(email ?? 'YOU').toUpperCase()}`, C.dim],
+    ['NO OPERATOR PROFILE FOUND', C.alertSoft],
+    ['PACT PROTOCOL READY ▍', acc],
+  ];
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-        <Defs>
-          <RadialGradient id="obTop" cx="50%" cy="-12%" rx="110%" ry="55%">
-            <Stop offset="0" stopColor={acc} stopOpacity={0.14} />
-            <Stop offset="0.62" stopColor={acc} stopOpacity={0} />
-          </RadialGradient>
-          <RadialGradient id="obCorner" cx="105%" cy="108%" rx="80%" ry="40%">
-            <Stop offset="0" stopColor={acc2} stopOpacity={0.18} />
-            <Stop offset="0.7" stopColor={acc2} stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Rect width="100%" height="100%" fill="url(#obTop)" />
-        <Rect width="100%" height="100%" fill="url(#obCorner)" />
-      </Svg>
-      <View style={{ position: 'absolute', right: 0, top: 0 }}><Halftone width={Math.min(260, W * 0.65)} height={300} corner="tr" /></View>
-      <View style={{ position: 'absolute', left: 0, bottom: 0 }}><Halftone width={240} height={260} color={acc} opacity={0.3} corner="bl" /></View>
-    </View>
-  );
-}
-
-function Cover({ acc, signedIn, onBegin, insetTop, insetBottom }: { acc: string; signedIn: boolean; onBegin: () => void; insetTop: number; insetBottom: number }) {
-  const { width: W } = useWindowDimensions();
-  const [lines] = useState(() => new Animated.Value(0));
-  useEffect(() => {
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(lines, { toValue: 1, duration: 3000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      Animated.timing(lines, { toValue: 0, duration: 3000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, [lines]);
-  const boot: [string, string][] = [['零 REI SYSTEM · v1.0', C.dim], ['BOOTING PERSONAL CORE ···· OK', C.dim], ['NO OPERATOR PROFILE FOUND', C.alertSoft], ['BOND PROTOCOL READY ▍', acc]];
-  return (
-    <View style={{ flex: 1, paddingTop: insetTop + 14, paddingHorizontal: 26, paddingBottom: insetBottom + 16 }}>
-      <Rise delay={1100} from={0} style={{ position: 'absolute', left: W / 2 - 450, top: '40%', marginTop: -450 }}>
-        <Animated.View style={{ transform: [{ rotate: lines.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '4deg'] }) }, { scale: lines.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] }) }] }}>
-          <SpeedLines size={900} color={acc} inner={0.12} outer={0.4} count={84} opacity={0.75} />
-        </Animated.View>
-      </Rise>
-      <Rise delay={1900} from={0} style={{ position: 'absolute', right: 14, top: insetTop + 60 }}>
-        <Outline text="ゴゴゴゴ" size={58} color={alpha(acc, 0.55)} width={1.5} vertical />
-      </Rise>
+    <View style={{ flex: 1, paddingTop: insetTop + 14, paddingHorizontal: 22, paddingBottom: insetBottom + 16 }}>
       <View style={{ gap: 6 }}>
         {boot.map(([t, color], i) => (
-          <Rise key={t} delay={100 + i * 300} from={0}><Txt face="mono" size={11} ls={0.14} color={color}>{t}</Txt></Rise>
+          <Rise key={t} delay={100 + i * 280} from={0}><Txt face="mono" size={11} ls={0.14} color={color} numberOfLines={1}>{t}</Txt></Rise>
         ))}
       </View>
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24 }}>
-        <Rise delay={1200} from={0} style={{ position: 'absolute' }}>
-          <Outline text="零" size={300} color="rgba(255,255,255,0.07)" width={1} />
-        </Rise>
-        <Rise delay={1200} from={-20}><Core size={160} color={acc} /></Rise>
-        <Rise delay={1700} style={{ alignItems: 'center', gap: 8 }}>
-          <Txt face="mono" size={10.5} ls={0.3} color={acc}>VOL.01 · 契約編 · THE PACT ARC</Txt>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
-            <Txt size={52} w={600} ls={-0.04}>REI</Txt>
-            <Txt face="jp" size={26} w={500} color={C.label}>零</Txt>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 22 }}>
+        <Rise delay={1100} from={-20}><Core size={150} color={acc} /></Rise>
+        <Rise delay={1500} style={{ alignItems: 'center', gap: 10 }}>
+          <View style={{ alignItems: 'center' }}>
+            <Stamp text="Vol.01 · The Pact Arc" color={acc} tilt={-3} size={10} />
           </View>
+          <Txt size={52} w={600} ls={-0.04}>REI</Txt>
         </Rise>
       </View>
-      <Rise delay={2200} style={{ gap: 20 }}>
-        <Bubble acc={acc}>
-          <Txt size={18} w={500} color="#0A0B0D" lh={1.42}>{'You’re new. Good. I don’t do generic. Fifteen short chapters and I’ll know exactly who you want to become, and when you’re lying to yourself about it.'}</Txt>
-        </Bubble>
-        <View style={{ gap: 6 }}>
-          <Cta label="Begin chapter 1" kanji="第1話" acc={acc} onPress={onBegin} />
-          {signedIn ? null : (
-            <Tap onPress={() => router.push('/sign-in')} style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}>
-              <Txt size={14} color={C.muted}>I already have an account</Txt>
-            </Tap>
-          )}
+      <Rise delay={1900} style={{ gap: 18 }}>
+        <View style={{ padding: 16, borderRadius: 14, borderWidth: 1.5, borderColor: alpha(acc, 0.45), backgroundColor: '#0D0F13', ...comic(alpha(acc, 0.5), 4) }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <Icon name="rei" size={16} color={acc} />
+            <Txt face="mono" size={10.5} ls={0.18} color={acc}>REI</Txt>
+          </View>
+          <Txt size={17} w={500} lh={1.42}>{`You’re in. Good. I don’t do generic. ${({ 14: 'Fourteen', 15: 'Fifteen', 16: 'Sixteen', 17: 'Seventeen' } as Record<number, string>)[CHAPTERS] ?? CHAPTERS} short chapters and I’ll know exactly who you want to become, and when you’re lying to yourself about it.`}</Txt>
+        </View>
+        <View style={{ gap: 4 }}>
+          <Cta label="Begin chapter 1" icon="scroll" acc={acc} onPress={onBegin} />
+          <Tap onPress={onSignOut} style={{ height: 42, alignItems: 'center', justifyContent: 'center' }}>
+            <Txt size={13.5} color={C.dim}>Not you? Sign out</Txt>
+          </Tap>
         </View>
       </Rise>
     </View>
   );
 }
 
-/** The frame around every chapter: back, progress, REI's typed line, the answers, and the call to action. */
-function Chapter({ step, acc, motto, insetTop, insetBottom, line, typing, onBack, cta, children }: { step: number; acc: string; motto: string; insetTop: number; insetBottom: number; line: string; typing: boolean; onBack: () => void; cta: ReactNode; children: ReactNode }) {
+/** The frame around every chapter: back, progress, the chapter crest and title, REI's typed line, the answers, and the call to action. */
+function Chapter({ step, acc, insetTop, insetBottom, line, typing, onBack, cta, children }: { step: number; acc: string; insetTop: number; insetBottom: number; line: string; typing: boolean; onBack: () => void; cta: ReactNode; children: ReactNode }) {
   const st = STEPS[step];
-  const chapters = STEPS.filter(x => x.k);
+  const n = chapterOf(step);
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      {st.k ? <Outline text={st.k} size={300} color="rgba(255,255,255,0.06)" width={1} style={{ position: 'absolute', right: -30, bottom: 96 }} /> : null}
-      <View pointerEvents="none" style={{ position: 'absolute', left: 8, top: 200, alignItems: 'center' }}>
-        {[...motto.replace(/\s/g, '')].map((c, i) => <Txt key={i} face="jp" size={10} color="rgba(255,255,255,0.15)">{c}</Txt>)}
+      <View pointerEvents="none" style={{ position: 'absolute', right: -40, bottom: 70, opacity: 0.05 }}>
+        <Icon name={st.icon ?? 'rei'} size={280} color="#FFFFFF" tint={0.3} strokeWidth={0.9} />
       </View>
       <View style={{ flex: 1, paddingTop: insetTop + 8, paddingHorizontal: 20, paddingBottom: insetBottom + 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 40 }}>
-          <Tap onPress={onBack} style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center' }}>
-            <Txt size={20} color={C.body}>‹</Txt>
+          <Tap onPress={onBack} style={{ width: 40, height: 40, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.12)', backgroundColor: '#0D0F13', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="back" size={18} color={C.body} strokeWidth={2} />
           </Tap>
-          <View style={{ flex: 1, flexDirection: 'row', gap: 3 }}>
-            {chapters.map((c, i) => (
-              <View key={c.id} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: i < step ? acc : 'rgba(255,255,255,0.1)', shadowColor: acc, shadowOpacity: i === step - 1 ? 1 : 0, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } }} />
-            ))}
+          <View style={{ flex: 1 }}>
+            <Gauge pct={n / CHAPTERS} acc={acc} segments={CHAPTERS} height={6} />
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', minWidth: 58, justifyContent: 'flex-end' }}>
-            <Txt face="jp" size={13} w={500} color={C.body}>第</Txt>
-            <Txt face="mono" size={13} w={500} color={acc}>{String(Math.min(step, CHAPTERS)).padStart(2, '0')}</Txt>
-            <Txt face="jp" size={13} w={500} color={C.body}>話</Txt>
+          <Txt face="mono" size={12} w={500} color={acc} style={{ minWidth: 46, textAlign: 'right' }}>{`${String(n).padStart(2, '0')}/${CHAPTERS}`}</Txt>
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: solid(acc, 0.1, '#0D0F13'), borderWidth: 1.5, borderColor: alpha(acc, 0.45), transform: [{ rotate: '-4deg' }] }}>
+            <Icon name={st.icon ?? 'rei'} size={26} color={acc} tint={0.3} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Txt face="mono" size={10} ls={0.16} color={C.muted}>{`CHAPTER ${String(n).padStart(2, '0')}`}</Txt>
+            <Txt size={26} w={600} ls={-0.02} lh={1.1}>{(st.t ?? '').charAt(0) + (st.t ?? '').slice(1).toLowerCase()}</Txt>
           </View>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginTop: 18, minHeight: 116 }}>
-          <View style={{ width: 44, height: 44, marginTop: 20, alignItems: 'center', justifyContent: 'center' }}>
-            <Core size={44} speaking={typing} color={acc} />
+        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginTop: 14, padding: 14, minHeight: 92, borderRadius: 14, borderWidth: 1.5, borderColor: alpha(acc, 0.4), backgroundColor: '#0D0F13', ...comic(alpha(acc, 0.45), 4) }}>
+          <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
+            <Core size={34} speaking={typing} color={acc} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Txt face="mono" size={10.5} ls={0.18} color={acc}>REI</Txt>
-              <Txt face="mono" size={10.5} color={C.ghost}>／</Txt>
-              <Txt face="mono" size={10.5} ls={0.18} color={C.muted}>{st.t ?? 'ACCOUNT'}</Txt>
-            </View>
-            <Bubble acc={acc} tail="top" style={{ marginTop: 8, paddingVertical: 12, paddingHorizontal: 15, minHeight: 44 }}>
-              <Txt size={16} w={500} color="#0A0B0D" lh={1.42}>
-                {line}
-                {typing ? <Txt size={16} color="#0A0B0D">▍</Txt> : null}
-              </Txt>
-            </Bubble>
+            <Txt face="mono" size={10} ls={0.18} color={acc}>REI</Txt>
+            <Txt size={15.5} w={500} lh={1.42} style={{ marginTop: 3 }}>
+              {line}
+              {typing ? <Txt size={15.5} color={acc}>▍</Txt> : null}
+            </Txt>
           </View>
         </View>
 
-        <ScrollView style={{ flex: 1, marginTop: 16, marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24, gap: 18 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView style={{ flex: 1, marginTop: 14, marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 18 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {children}
         </ScrollView>
         {cta ? <View style={{ marginTop: 10 }}>{cta}</View> : null}
@@ -375,13 +327,14 @@ function IdealStep({ d, patch, acc }: { d: Intake; patch: (o: Partial<Intake>) =
           <Rise key={a.id} delay={200 + i * 70} style={{ width: '48.4%', flexGrow: 1 }}>
             <Tap
               onPress={() => patch({ arch: a.id, goal: a.goal, targetTouched: false, disc: { Hypertrophy: a.disc.includes('Hypertrophy'), Strength: a.disc.includes('Strength'), Calisthenics: a.disc.includes('Calisthenics'), Running: a.disc.includes('Running') } })}
-              style={{ height: 196, borderRadius: 10, borderWidth: 1.5, borderColor: p.borderColor, backgroundColor: p.backgroundColor, padding: 12, justifyContent: 'space-between', overflow: 'hidden', ...(sel ? comic(alpha(acc, 0.55), 3) : null) }}
+              style={{ height: 196, borderRadius: 12, borderWidth: 1.5, borderColor: p.borderColor, backgroundColor: p.backgroundColor, padding: 12, justifyContent: 'space-between', overflow: 'hidden', ...(sel ? comic(alpha(acc, 0.55), 3) : null) }}
             >
-              {sel ? <View pointerEvents="none" style={{ position: 'absolute', left: -150, top: -170 }}><SpeedLines size={480} color={acc} inner={0.1} outer={0.5} count={70} opacity={0.7} /></View> : null}
-              <Outline text={a.k} size={112} color={p.kStroke} width={1.5} style={{ position: 'absolute', right: -8, top: 18 }} />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View pointerEvents="none" style={{ position: 'absolute', right: -16, top: 14, opacity: sel ? 0.5 : 0.16 }}>
+                <Icon name={a.icon} size={104} color={sel ? acc : '#FFFFFF'} tint={0.2} strokeWidth={1.1} />
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Txt face="mono" size={9.5} ls={0.16} color={C.label}>{`TYPE ${String(i + 1).padStart(2, '0')}`}</Txt>
-                <Txt face="mono" size={9.5} ls={0.16} color={acc}>{p.check}</Txt>
+                <Picked on={sel} acc={acc} />
               </View>
               <View>
                 <Txt size={15.5} w={600} ls={-0.01} lh={1.2}>{a.name}</Txt>
@@ -403,13 +356,13 @@ function IdealStep({ d, patch, acc }: { d: Intake; patch: (o: Partial<Intake>) =
         );
       })}
       <Rise delay={750} style={{ width: '100%' }}>
-        <Tap onPress={() => d.arch !== 'none' && patch({ arch: 'none', targetTouched: false })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1.5, borderColor: own.borderColor, backgroundColor: own.backgroundColor }}>
-          <Outline text="我" size={30} color={own.kStroke} />
+        <Tap onPress={() => d.arch !== 'none' && patch({ arch: 'none', targetTouched: false })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1.5, borderColor: own.borderColor, backgroundColor: own.backgroundColor }}>
+          <Icon name="profile" size={28} color={d.arch === 'none' ? acc : C.muted} />
           <View style={{ flex: 1 }}>
             <Txt size={15.5} w={600}>None. My own vision.</Txt>
             <Txt size={12.5} color={C.sub} style={{ marginTop: 2 }}>Describe it in your vow. I’ll build the plan around it.</Txt>
           </View>
-          <Txt face="mono" size={9.5} ls={0.16} color={acc}>{own.check}</Txt>
+          <Picked on={d.arch === 'none'} acc={acc} />
         </Tap>
       </Rise>
     </View>
@@ -424,9 +377,11 @@ function VowStep({ d, set, acc }: StepProps) {
           {GOALS.map(g => {
             const p = pick(d.goal === g.id, acc);
             return (
-              <Tap key={g.id} onPress={() => set('goal', g.id)} style={{ width: '48.4%', flexGrow: 1, minHeight: 96, padding: 13, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1.5, borderColor: p.borderColor, backgroundColor: p.backgroundColor, justifyContent: 'space-between', overflow: 'hidden', ...(d.goal === g.id ? comic(alpha(acc, 0.55), 3) : null) }}>
-                <Outline text={g.k} size={66} color={p.kStroke} style={{ position: 'absolute', right: -4, top: -12 }} />
-                <Txt face="mono" size={9.5} ls={0.16} color={C.label}>{g.tag}</Txt>
+              <Tap key={g.id} onPress={() => set('goal', g.id)} style={{ width: '48.4%', flexGrow: 1, minHeight: 104, padding: 13, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: p.borderColor, backgroundColor: p.backgroundColor, justifyContent: 'space-between', overflow: 'hidden', ...(d.goal === g.id ? comic(alpha(acc, 0.55), 3) : null) }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Icon name={g.icon} size={24} color={d.goal === g.id ? acc : C.muted} tint={d.goal === g.id ? 0.3 : 0.12} />
+                  <Txt face="mono" size={9.5} ls={0.16} color={d.goal === g.id ? acc : C.label}>{g.tag}</Txt>
+                </View>
                 <View>
                   <Txt size={15.5} w={600}>{g.label}</Txt>
                   <Txt size={12} color={C.sub} lh={1.3} style={{ marginTop: 2 }}>{g.sub}</Txt>
@@ -485,9 +440,9 @@ function TargetStep({ d, patch, acc, acc2, bg }: { d: Intake; patch: (o: Partial
   ];
   return (
     <>
-      <Rise delay={250} style={{ flexDirection: 'row', gap: 1, borderRadius: 10, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.12)' }}>
+      <Rise delay={250} style={{ flexDirection: 'row', gap: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.12)' }}>
         {stats.map(([l, v, c]) => (
-          <View key={l} style={{ flex: 1, backgroundColor: bg, paddingVertical: 13, paddingHorizontal: 12 }}>
+          <View key={l} style={{ flex: 1, backgroundColor: '#0D0F13', paddingVertical: 13, paddingHorizontal: 12 }}>
             <Txt face="mono" size={9.5} ls={0.16} color={C.dim}>{l}</Txt>
             <Txt face="mono" size={19} w={500} color={c} style={{ marginTop: 5 }} numberOfLines={1}>{v}</Txt>
           </View>
@@ -495,8 +450,8 @@ function TargetStep({ d, patch, acc, acc2, bg }: { d: Intake; patch: (o: Partial
       </Rise>
       <Block i={1} acc={acc}><ScrubOf k="targetWeight" d={d} onChange={v => patch({ targetWeight: v, targetTouched: true })} acc={acc} /></Block>
       <Block i={2} acc={acc}><ScrubOf k="targetBf" d={d} onChange={v => patch({ targetBf: v, targetTouched: true })} acc={acc} /></Block>
-      <Rise delay={550} style={{ height: 88, borderRadius: 10, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
-        <Txt face="mono" size={9.5} ls={0.16} color={C.dim} style={{ position: 'absolute', left: 14, top: 11 }}>TRAJECTORY · 軌道</Txt>
+      <Rise delay={550} style={{ height: 88, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0D0F13', overflow: 'hidden' }}>
+        <Txt face="mono" size={9.5} ls={0.16} color={C.dim} style={{ position: 'absolute', left: 14, top: 11 }}>TRAJECTORY</Txt>
         <View style={{ position: 'absolute', left: 16, right: 16, top: 42, height: 2, backgroundColor: acc }} />
         <View style={{ position: 'absolute', right: 16, top: 42, width: '45%', height: 2, backgroundColor: acc2 }} />
         <View style={{ position: 'absolute', left: 12, top: 38, width: 10, height: 10, borderRadius: 5, backgroundColor: acc, shadowColor: acc, shadowOpacity: 1, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } }} />
@@ -569,18 +524,21 @@ function FuelStep({ d, set, acc }: StepProps) {
     return () => v.removeListener(id);
   }, []);
   const veg = ['Vegetarian', 'Vegan', 'Jain'].includes(d.diet);
-  const macros: [string, string, number, string, string, number][] = [
-    ['蛋', 'Protein', c.p, acc, `${(c.p / d.weight).toFixed(1)} g per kg. ${veg ? 'Paneer, dal, tofu, whey. Every meal.' : 'Non-negotiable. This keeps the muscle.'}`, 4],
-    ['炭', 'Carbs', c.c, C.carbs, `Around training. ${d.time === 'Morning' ? 'Breakfast after the session.' : `Bigger meal before ${trainTime(d)}.`}`, 4],
-    ['脂', 'Fat', c.f, C.fat, d.alcohol === 'None' ? 'Hormones need it. Do not go lower.' : `Alcohol comes out of this budget. ${d.alcohol} is noted.`, 9],
+  const macros: [IconKey, string, number, string, string, number][] = [
+    ['protein', 'Protein', c.p, acc, `${(c.p / d.weight).toFixed(1)} g per kg. ${veg ? 'Paneer, dal, tofu, whey. Every meal.' : 'Non-negotiable. This keeps the muscle.'}`, 4],
+    ['carbs', 'Carbs', c.c, C.carbs, `Around training. ${d.time === 'Morning' ? 'Breakfast after the session.' : `Bigger meal before ${trainTime(d)}.`}`, 4],
+    ['fat', 'Fat', c.f, C.fat, d.alcohol === 'None' ? 'Hormones need it. Do not go lower.' : `Alcohol comes out of this budget. ${d.alcohol} is noted.`, 9],
   ];
   const adj = `${c.adj > 0 ? '+' : ''}${Math.round(c.adj * 100)}% · ${g.tag}`;
   const math = `BMR ${c.bmr.toLocaleString('en-US')} × ${c.af.toFixed(2)} ACTIVITY ${c.adj > 0 ? '+' : '−'}${Math.abs(Math.round(c.adj * 100))}%${d.kcalAdj ? ` ${d.kcalAdj > 0 ? '+' : '−'}${Math.abs(d.kcalAdj)} YOU` : ''}`;
   return (
     <View style={{ gap: 10 }}>
-      <Rise delay={250} style={{ paddingTop: 20, paddingHorizontal: 18, paddingBottom: 18, borderRadius: 12, borderWidth: 1.5, borderColor: acc, backgroundColor: solid(acc, 0.06), ...comic(alpha(acc, 0.45), 4) }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Txt face="mono" size={10.5} ls={0.16} color={C.sub}>DAILY FUEL · 燃料</Txt>
+      <Rise delay={250} style={{ paddingTop: 20, paddingHorizontal: 18, paddingBottom: 18, borderRadius: 14, borderWidth: 1.5, borderColor: acc, backgroundColor: solid(acc, 0.06, '#0D0F13'), ...comic(alpha(acc, 0.45), 4) }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Icon name="kcal" size={16} color={acc} />
+            <Txt face="mono" size={10.5} ls={0.16} color={C.sub}>DAILY FUEL</Txt>
+          </View>
           <Txt face="mono" size={10.5} ls={0.16} color={acc}>{adj}</Txt>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 10 }}>
@@ -590,7 +548,7 @@ function FuelStep({ d, set, acc }: StepProps) {
           </View>
           <View style={{ flexDirection: 'row', gap: 6 }}>
             {[['−', -50], ['+', 50]].map(([l, dv]) => (
-              <Tap key={l as string} onPress={() => set('kcalAdj', d.kcalAdj + (dv as number))} style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' }}>
+              <Tap key={l as string} onPress={() => set('kcalAdj', Math.max(-600, Math.min(600, d.kcalAdj + (dv as number))))} style={{ width: 42, height: 42, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.14)', backgroundColor: '#0D0F13', alignItems: 'center', justifyContent: 'center' }}>
                 <Txt size={18} color={C.body}>{l as string}</Txt>
               </Tap>
             ))}
@@ -599,16 +557,16 @@ function FuelStep({ d, set, acc }: StepProps) {
         <Txt face="mono" size={10.5} ls={0.06} color={C.label} style={{ marginTop: 12 }}>{math}</Txt>
       </Rise>
       {macros.map(([k, label, grams, color, note, perG], i) => (
-        <Rise key={label} delay={400 + i * 100} style={{ paddingVertical: 13, paddingHorizontal: 16, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
-              <Txt face="jp" size={15} w={500} color={color}>{k}</Txt>
+        <Rise key={label} delay={400 + i * 100} style={{ paddingVertical: 13, paddingHorizontal: 16, borderRadius: 12, backgroundColor: '#0D0F13', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Icon name={k} size={20} color={color} />
               <Txt size={15} w={500}>{label}</Txt>
             </View>
             <Txt face="mono" size={18} w={500}>{Math.round(grams * count)}<Txt face="mono" size={12} color={C.dim}> g</Txt></Txt>
           </View>
-          <View style={{ height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.07)', marginTop: 9, overflow: 'hidden' }}>
-            <View style={{ height: 4, borderRadius: 2, width: `${Math.min(100, ((grams * perG) / c.kcal) * 100 * count * 2)}%`, backgroundColor: color }} />
+          <View style={{ marginTop: 9 }}>
+            <Gauge pct={Math.min(1, ((grams * perG) / Math.max(1, c.kcal)) * count * 2)} acc={color} segments={20} height={5} />
           </View>
           <Txt size={12.5} color={C.sub} lh={1.4} style={{ marginTop: 7 }}>{note}</Txt>
         </Rise>
@@ -633,16 +591,16 @@ function ToneStep({ d, set, acc }: StepProps) {
     <>
       <View style={{ gap: 8 }}>
         {TONES.map((o, i) => {
-          const p = pick(d.tone === o.id, acc);
+          const sel = d.tone === o.id, p = pick(sel, acc);
           return (
             <Rise key={o.id} delay={200 + i * 80}>
-              <Tap onPress={() => set('tone', o.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1.5, borderColor: p.borderColor, backgroundColor: p.backgroundColor, ...(d.tone === o.id ? comic(alpha(acc, 0.55), 3) : null) }}>
-                <Outline text={o.k} size={30} color={p.kStroke} />
+              <Tap onPress={() => set('tone', o.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1.5, borderColor: p.borderColor, backgroundColor: p.backgroundColor, ...(sel ? comic(alpha(acc, 0.55), 3) : null) }}>
+                <Icon name={o.icon} size={26} color={sel ? acc : C.muted} tint={sel ? 0.3 : 0.12} />
                 <View style={{ flex: 1 }}>
                   <Txt size={16} w={600}>{o.id}</Txt>
                   <Txt size={12.5} color={C.sub} style={{ marginTop: 2 }}>{o.sub}</Txt>
                 </View>
-                <Txt face="mono" size={9.5} ls={0.14} color={acc}>{p.check}</Txt>
+                <Picked on={sel} acc={acc} />
               </Tap>
             </Rise>
           );
@@ -651,29 +609,105 @@ function ToneStep({ d, set, acc }: StepProps) {
       <Block i={3} label="INTENSITY" right={['', 'GENTLE', 'STEADY', 'FIRM', 'HARD', 'RELENTLESS'][d.intensity]} acc={acc}>
         <Seg value={d.intensity} opts={[1, 2, 3, 4, 5].map(n => [n, String(n)] as [number, string])} onPick={v => set('intensity', v)} acc={acc} />
       </Block>
-      <Block i={4} label="WHOSE VOICE" right={characterOf(d.character).series.toUpperCase()} acc={acc}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {CHARACTERS.map(c => {
-            const on = (d.character || 'rei') === c.id;
-            return (
-              <Tap key={c.id} onPress={() => set('character', c.id)} style={{ width: '31%', flexGrow: 1 }}>
-                <View style={{ height: 84, borderRadius: 10, borderWidth: 1.5, borderColor: on ? c.acc : 'rgba(255,255,255,0.1)', backgroundColor: on ? solid(c.acc, 0.12) : '#0D0E11', padding: 10, justifyContent: 'space-between', overflow: 'hidden', ...(on ? comic(alpha(c.acc, 0.6), 3) : null) }}>
-                  <Icon name={c.icon} size={22} color={on ? c.acc : C.muted} tint={on ? 0.3 : 0.1} />
-                  <View>
-                    <Txt size={13} w={600} numberOfLines={1}>{c.name}</Txt>
-                    <Txt face="mono" size={8} ls={0.1} color={c.fish || c.id === 'rei' ? (on ? c.acc : C.dim) : C.faint} numberOfLines={1}>{c.fish || c.id === 'rei' ? c.series.toUpperCase() : 'VOICE SOON'}</Txt>
+      <Rise delay={600}>
+        <FieldLabel label="PREVIEW · TUESDAY 12:40 · 2 SESSIONS MISSED" acc={acc} />
+        <View style={{ paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1.5, borderColor: hard ? C.alertSoft : alpha(acc, 0.6), backgroundColor: '#0D0F13' }}>
+          <Txt size={15.5} lh={1.45} color={C.textSoft}>{toneSample(d.tone, d)}</Txt>
+        </View>
+      </Rise>
+    </>
+  );
+}
+
+/**
+ * Who's in their corner. Tapping a character picks them, repaints the chapters in their world and
+ * plays their hello in their own voice. Characters whose voice hasn't arrived show the line instead.
+ */
+function PartnerStep({ d, patch, acc }: { d: Intake; patch: (o: Partial<Intake>) => void; acc: string }) {
+  const voice = useStore(s => s.settings.voice);
+  const [playing, setPlaying] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const speaker = useRef<Speaker | null>(null);
+  /** Each tap gets a number; a clip that finishes loading after a newer tap is dropped. */
+  const seq = useRef(0);
+  useEffect(() => () => {
+    seq.current++;
+    speaker.current?.stop();
+  }, []);
+  const cur = characterOf(d.character);
+
+  const stop = () => {
+    seq.current++;
+    speaker.current?.stop();
+    speaker.current = null;
+    setPlaying(null);
+  };
+
+  const choose = async (id: string) => {
+    if (playing === id) return stop();
+    stop();
+    const c = characterOf(id);
+    patch({ character: id, theme: c.theme });
+    if (!hasVoice(c) && c.id !== 'rei') {
+      setNote(`${c.name}’s voice is on its way. Until then I speak for them in my own voice.`);
+      return;
+    }
+    setNote('');
+    const mine = seq.current;
+    setPlaying(id);
+    try {
+      const { speaker: sp, premium } = await previewVoice(speakVoice({ character: id, voice }), () => mine === seq.current && setPlaying(null), c.intro);
+      if (mine !== seq.current) {
+        sp.stop();
+        return;
+      }
+      speaker.current = sp;
+      if (!premium) setNote('Premium voices are off right now, so this used the iPhone’s voice.');
+    } catch {
+      if (mine === seq.current) setPlaying(null);
+    }
+  };
+
+  return (
+    <>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        {CHARACTERS.map((c, i) => {
+          const sel = (d.character || 'rei') === c.id, voiced = hasVoice(c) || c.id === 'rei', talking = playing === c.id;
+          return (
+            <Rise key={c.id} delay={200 + i * 60} style={{ width: '48.4%', flexGrow: 1 }}>
+              <Tap onPress={() => void choose(c.id)}>
+                <View style={{ height: 148, borderRadius: 12, borderWidth: 1.5, borderColor: sel ? c.acc : 'rgba(255,255,255,0.1)', backgroundColor: sel ? solid(c.acc, 0.12, '#0D0F13') : '#0D0F13', padding: 12, justifyContent: 'space-between', overflow: 'hidden', ...(sel ? comic(alpha(c.acc, 0.6), 3) : null) }}>
+                  <View pointerEvents="none" style={{ position: 'absolute', right: -18, bottom: -18, opacity: sel ? 0.4 : 0.12 }}>
+                    <Icon name={c.icon} size={104} color={c.acc} tint={0.2} strokeWidth={1.1} />
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    {voiced ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 3, paddingHorizontal: 7, borderRadius: 6, backgroundColor: talking ? c.acc : 'rgba(255,255,255,0.06)' }}>
+                        <Icon name="voice" size={12} color={talking ? C.ink : c.acc} strokeWidth={2} />
+                        <Txt face="mono" size={8.5} ls={0.12} color={talking ? C.ink : C.body}>{talking ? 'PLAYING' : 'HEAR'}</Txt>
+                      </View>
+                    ) : (
+                      <Stamp text="Voice soon" color={C.muted} tilt={0} size={8} />
+                    )}
+                    <Picked on={sel} acc={c.acc} />
+                  </View>
+                  <View style={{ gap: 1 }}>
+                    <Txt size={18} w={600}>{c.name}</Txt>
+                    <Txt face="mono" size={9} ls={0.12} color={sel ? c.acc : C.muted} numberOfLines={1}>{c.series.toUpperCase()}</Txt>
                   </View>
                 </View>
               </Tap>
-            );
-          })}
-        </View>
-      </Block>
+            </Rise>
+          );
+        })}
+      </View>
       <Rise delay={700}>
-        <FieldLabel label="PREVIEW · TUESDAY 12:40 · 2 SESSIONS MISSED" acc={acc} />
-        <View style={{ paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1.5, borderColor: hard ? C.alertSoft : acc, backgroundColor: 'rgba(255,255,255,0.03)' }}>
-          <Txt size={15.5} lh={1.45} color={C.textSoft}>{toneSample(d.tone, d)}</Txt>
+        <FieldLabel label={`${cur.name.toUpperCase()} SAYS`} right={playing ? 'PLAYING…' : undefined} acc={cur.acc} />
+        <View style={{ flexDirection: 'row', gap: 12, padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: alpha(cur.acc, 0.6), backgroundColor: '#0D0F13' }}>
+          <Icon name={cur.icon} size={30} color={cur.acc} tint={0.3} />
+          <Txt size={15} lh={1.45} color={C.textSoft} style={{ flex: 1 }}>{`“${cur.intro}”`}</Txt>
         </View>
+        <Txt size={12} color={note ? C.warn : C.faint} lh={1.4} style={{ marginTop: 8 }}>{note || 'Tap a card to hear them; tap again to stop. You can change partner any time in Settings.'}</Txt>
       </Rise>
     </>
   );
@@ -686,16 +720,16 @@ function WorldStep({ d, set }: { d: Intake; set: SetFn }) {
         const sel = d.theme === t.id;
         return (
           <Rise key={t.id} delay={200 + i * 60} style={{ width: '48.4%', flexGrow: 1 }}>
-            <Tap onPress={() => set('theme', t.id)} style={{ height: 146, padding: 13, borderRadius: 10, borderWidth: 1.5, borderColor: sel ? t.acc : 'rgba(255,255,255,0.1)', backgroundColor: sel ? solid(t.acc, 0.08) : '#0D0E11', justifyContent: 'space-between', overflow: 'hidden', ...(sel ? comic(t.acc, 3) : null) }}>
+            <Tap onPress={() => set('theme', t.id)} style={{ height: 146, padding: 13, borderRadius: 12, borderWidth: 1.5, borderColor: sel ? t.acc : 'rgba(255,255,255,0.1)', backgroundColor: sel ? solid(t.acc, 0.08) : '#0D0E11', justifyContent: 'space-between', overflow: 'hidden', ...(sel ? comic(t.acc, 3) : null) }}>
               <View style={{ position: 'absolute', right: -14, bottom: -18 }}>
-                <Icon name={t.icon} size={112} color={sel ? t.acc : 'rgba(255,255,255,0.14)'} tint={sel ? 0.16 : 0} strokeWidth={1.1} />
+                <Icon name={t.icon} size={112} color={sel ? alpha(t.acc, 0.45) : 'rgba(255,255,255,0.14)'} tint={sel ? 0.16 : 0} strokeWidth={1.1} />
               </View>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View style={{ flexDirection: 'row', gap: 4 }}>
                   <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.acc, shadowColor: t.acc, shadowOpacity: 1, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } }} />
                   <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.acc2 }} />
                 </View>
-                <Txt face="mono" size={9.5} ls={0.12} color={t.acc}>{sel ? '● ON' : ''}</Txt>
+                <Picked on={sel} acc={t.acc} />
               </View>
               <View>
                 <Txt size={15.5} w={600} lh={1.2}>{t.name}</Txt>
@@ -710,28 +744,31 @@ function WorldStep({ d, set }: { d: Intake; set: SetFn }) {
 }
 
 function LinkStep({ d, set, acc }: StepProps) {
-  const items: ['health' | 'nudge' | 'speak' | 'photo', string, string, string][] = [
-    ['health', '心', 'Apple Health', 'Steps, sleep, workouts and weight, read automatically. Coming soon.'],
-    ['nudge', '鐘', 'Check-ins', 'I message you when you slip. Late session, low protein, bedtime.'],
-    ['speak', '声', 'Voice', 'I speak replies out loud in voice mode.'],
-    ['photo', '眼', 'Camera meals', 'Snap a plate and I log the macros.'],
+  const items: ['health' | 'nudge' | 'speak' | 'photo', IconKey, string, string][] = [
+    ['health', 'heart', 'Apple Health', 'Steps, sleep, workouts and weight, read automatically. Coming soon.'],
+    ['nudge', 'bell', 'Check-ins', 'I message you when you slip. Late session, low protein, bedtime.'],
+    ['speak', 'voice', 'Voice', 'I speak replies out loud in voice mode.'],
+    ['photo', 'camera', 'Camera meals', 'Snap a plate and I log the macros.'],
   ];
   return (
     <View style={{ gap: 8 }}>
-      {items.map(([k, kj, label, sub], i) => (
-        <Rise key={k} delay={220 + i * 80}><ToggleRow k={kj} label={label} sub={sub} on={d[k]} onPress={() => set(k, !d[k])} acc={acc} /></Rise>
+      {items.map(([k, icon, label, sub], i) => (
+        <Rise key={k} delay={220 + i * 80}><ToggleRow icon={icon} label={label} sub={sub} on={d[k]} onPress={() => set(k, !d[k])} acc={acc} /></Rise>
       ))}
     </View>
   );
 }
 
 function PactStep({ d, acc, onSeal }: { d: Intake; acc: string; onSeal: () => void }) {
+  const partner = characterOf(d.character);
   return (
     <View style={{ gap: 16 }}>
-      <Rise delay={250} style={{ paddingTop: 18, paddingHorizontal: 18, paddingBottom: 14, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.22)', backgroundColor: '#0E0F12', overflow: 'hidden', ...comic(acc, 5) }}>
-        <Outline text="誓" size={150} color={alpha(acc, 0.3)} width={1} style={{ position: 'absolute', right: -12, top: -34 }} />
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Txt face="mono" size={10} ls={0.16} color={C.dim}>契約書 · PACT No.0001</Txt>
+      <Rise delay={250} style={{ paddingTop: 18, paddingHorizontal: 18, paddingBottom: 14, borderRadius: 14, borderWidth: 1.5, borderColor: alpha(acc, 0.5), backgroundColor: '#0D0F13', overflow: 'hidden', ...comic(alpha(acc, 0.6), 5) }}>
+        <View pointerEvents="none" style={{ position: 'absolute', right: -24, top: -20, opacity: 0.12 }}>
+          <Icon name="scroll" size={150} color={acc} tint={0.3} strokeWidth={1} />
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Stamp text="Pact No.0001" color={acc} tilt={-3} size={9} />
           <Txt face="mono" size={10} ls={0.16} color={C.dim}>{shortDate(new Date(), true)}</Txt>
         </View>
         <Txt size={14} color={C.sub} style={{ marginTop: 14 }}>I, <Txt size={14} w={600}>{nameOf(d)}</Txt>, will</Txt>
@@ -744,70 +781,30 @@ function PactStep({ d, acc, onSeal }: { d: Intake; acc: string; onSeal: () => vo
             </View>
           ))}
         </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+          <Icon name={partner.icon} size={18} color={partner.acc} />
+          <Txt size={12.5} color={C.sub}>{`Witnessed by ${partner.name}`}</Txt>
+        </View>
       </Rise>
       <Rise delay={500}><HoldSeal acc={acc} onSeal={onSeal} /></Rise>
     </View>
   );
 }
 
-/** New users make their account here, right after sealing the pact. */
-function AccountStep({ acc }: { acc: string }) {
-  const s = useStore();
-  const [mode, setMode] = useState<'up' | 'in'>('up');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState('');
-  const denied = s.account.status === 'denied';
-  const valid = /\S+@\S+\.\S+/.test(email) && password.length >= 6;
-  const submit = async () => {
-    if (!valid || busy) return;
-    setBusy(true);
-    setNote('');
-    try {
-      await (mode === 'up' ? s.signUp(email, password) : s.signIn(email, password));
-    } catch (e) {
-      setNote(authMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <>
-      <Block i={0} label="EMAIL" acc={acc}><Field value={email} onChange={setEmail} placeholder="you@example.com" keyboard="email-address" autoCapitalize="none" /></Block>
-      <Block i={1} label="PASSWORD · 6+ CHARACTERS" acc={acc}><Field value={password} onChange={setPassword} placeholder="Password" secure autoCapitalize="none" /></Block>
-      {denied ? <Txt size={13.5} color={C.alertSoft} lh={1.4}>{`${s.account.email ?? 'That email'} isn’t on the REI tester list yet. Ask for an invite, then sign in.`}</Txt> : null}
-      {note ? <Txt size={13.5} color={C.alertSoft} lh={1.4}>{note}</Txt> : null}
-      <Rise delay={380} style={{ gap: 6 }}>
-        <Cta label={busy ? 'Linking…' : mode === 'up' ? 'Create my account' : 'Sign in'} acc={acc} disabled={!valid || busy} onPress={submit} />
-        <Tap onPress={() => setMode(m => (m === 'up' ? 'in' : 'up'))} style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}>
-          <Txt size={14} color={C.muted}>{mode === 'up' ? 'I already have an account' : 'New here? Create an account'}</Txt>
-        </Tap>
-      </Rise>
-    </>
-  );
-}
-
-function Bond({ d, acc, acc2, bg, insetTop, insetBottom, onEnter, onReplay }: { d: Intake; acc: string; acc2: string; bg: string; insetTop: number; insetBottom: number; onEnter: () => void; onReplay: () => void }) {
-  const { width: W } = useWindowDimensions();
+function Bond({ d, acc, acc2, bg, insetTop, insetBottom, onEnter }: { d: Intake; acc: string; acc2: string; bg: string; insetTop: number; insetBottom: number; onEnter: () => void }) {
   const c = fuel(d);
+  const partner = characterOf(d.character);
   const [stamp] = useState(() => new Animated.Value(0));
   useEffect(() => {
     Animated.timing(stamp, { toValue: 1, duration: 800, delay: 150, easing: Easing.bezier(0.2, 0.9, 0.3, 1), useNativeDriver: true }).start();
   }, [stamp]);
-  const stats: [string, string][] = [['DAILY', c.kcal.toLocaleString('en-US')], ['PROTEIN', `${c.p} g`], ['WEEKS', String(d.weeks)]];
+  const stats: [IconKey, string, string][] = [['kcal', 'DAILY', c.kcal.toLocaleString('en-US')], ['protein', 'PROTEIN', `${c.p} g`], ['vow', 'WEEKS', String(d.weeks)]];
   return (
-    <View style={{ flex: 1, paddingTop: insetTop + 20, paddingHorizontal: 24, paddingBottom: insetBottom + 14 }}>
-      <View pointerEvents="none" style={{ position: 'absolute', left: W / 2 - 490, top: '34%', marginTop: -490 }}>
-        <SpeedLines size={980} color={acc} inner={0.11} outer={0.42} count={96} opacity={0.85} />
-      </View>
+    <View style={{ flex: 1, paddingTop: insetTop + 20, paddingHorizontal: 22, paddingBottom: insetBottom + 14 }}>
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24 }}>
-        <Rise delay={350} from={0} style={{ position: 'absolute', left: 4, top: 16 }}>
-          <Outline text="ドン!" size={86} color={acc} width={2} />
-        </Rise>
         <Animated.View
           style={{
-            width: 128, height: 128, borderRadius: 14, borderWidth: 3, borderColor: acc, backgroundColor: bg, alignItems: 'center', justifyContent: 'center',
+            width: 132, height: 132, borderRadius: 24, borderWidth: 3, borderColor: acc, backgroundColor: solid(acc, 0.12, bg), alignItems: 'center', justifyContent: 'center',
             ...comic(acc2, 6),
             opacity: stamp.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0, 1, 1] }),
             transform: [
@@ -816,29 +813,33 @@ function Bond({ d, acc, acc2, bg, insetTop, insetBottom, onEnter, onReplay }: { 
             ],
           }}
         >
-          <Txt face="jp" size={72} w={500} color={acc} lh={1}>絆</Txt>
+          <Icon name={partner.icon} size={80} color={acc} tint={0.3} strokeWidth={1.4} />
         </Animated.View>
-        <Rise delay={800} style={{ alignItems: 'center', gap: 8 }}>
-          <Txt face="mono" size={10.5} ls={0.26} color={acc}>契約成立 · PACT SEALED</Txt>
+        <Rise delay={800} style={{ alignItems: 'center', gap: 10 }}>
+          <View style={{ alignItems: 'center' }}>
+            <Stamp text="Pact sealed" color={acc} tilt={-3} size={10} />
+          </View>
           <Txt size={34} w={600} ls={-0.035}>Bond established.</Txt>
         </Rise>
         <Rise delay={1000} style={{ flexDirection: 'row', gap: 8, alignSelf: 'stretch' }}>
-          {stats.map(([k, v]) => (
-            <View key={k} style={{ flex: 1, paddingVertical: 11, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.14)', backgroundColor: alpha(bg, 0.7) }}>
-              <Txt face="mono" size={9} ls={0.16} color={C.dim}>{k}</Txt>
-              <Txt face="mono" size={17} w={500} style={{ marginTop: 4 }}>{v}</Txt>
+          {stats.map(([icon, k, v]) => (
+            <View key={k} style={{ flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: C.line3, backgroundColor: '#0D0F13', alignItems: 'center', gap: 5 }}>
+              <Icon name={icon} size={18} color={acc} />
+              <Txt size={17} w={500}>{v}</Txt>
+              <Txt face="mono" size={8.5} ls={0.12} color={C.muted}>{k}</Txt>
             </View>
           ))}
         </Rise>
       </View>
-      <Rise delay={1250} style={{ gap: 18 }}>
-        <Bubble acc={acc}><Txt size={16} w={500} color="#0A0B0D" lh={1.42}>{bondLine(d)}</Txt></Bubble>
-        <View style={{ gap: 4 }}>
-          <Cta label="Enter REI" kanji="入" acc={acc} onPress={onEnter} />
-          <Tap onPress={onReplay} style={{ height: 42, alignItems: 'center', justifyContent: 'center' }}>
-            <Txt size={14} color={C.dim}>Replay from the cover</Txt>
-          </Tap>
+      <Rise delay={1250} style={{ gap: 16 }}>
+        <View style={{ padding: 16, borderRadius: 14, borderWidth: 1.5, borderColor: alpha(acc, 0.45), backgroundColor: '#0D0F13', ...comic(alpha(acc, 0.5), 4) }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <Icon name="rei" size={16} color={acc} />
+            <Txt face="mono" size={10.5} ls={0.18} color={acc}>REI</Txt>
+          </View>
+          <Txt size={16} w={500} lh={1.42}>{bondLine(d)}</Txt>
         </View>
+        <Cta label="Enter REI" icon="today" acc={acc} onPress={onEnter} />
       </Rise>
     </View>
   );

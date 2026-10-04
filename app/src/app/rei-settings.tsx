@@ -47,7 +47,7 @@ export default function ReiSettings() {
     setNote('');
     const mine = seq.current;
     setPlaying(id);
-    const { speaker, premium } = await previewVoice(speakVoice({ character: id, voice: settings.voice }), () => mine === seq.current && setPlaying(null));
+    const { speaker, premium } = await previewVoice(speakVoice({ character: id, voice: settings.voice }), () => mine === seq.current && setPlaying(null), c.intro);
     if (mine !== seq.current) {
       speaker.stop();
       return;

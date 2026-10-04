@@ -5,12 +5,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { Core } from '../Core';
+import { Icon, type IconKey } from '../icons';
 import { Txt } from '../ui';
 import { alpha, C } from '../../lib/theme';
-import { Outline, SpeedLines } from './kit';
+import { Halftone } from './kit';
 
-/** Full-screen manga wipe that shows the next chapter's kanji. Calls `onSwap` mid-wipe, `onEnd` when gone. */
-export function ChapterCard({ n, k, t, total, acc, bg, onSwap, onEnd }: { n: number; k: string; t: string; total: number; acc: string; bg: string; onSwap: () => void; onEnd: () => void }) {
+/** Full-screen slanted wipe that shows the next chapter's crest and title. Calls `onSwap` mid-wipe, `onEnd` when gone. */
+export function ChapterCard({ n, icon, t, total, acc, bg, onSwap, onEnd }: { n: number; icon: IconKey; t: string; total: number; acc: string; bg: string; onSwap: () => void; onEnd: () => void }) {
   const { width: W, height: H } = useWindowDimensions();
   const [v] = useState(() => new Animated.Value(0));
   useEffect(() => {
@@ -34,16 +35,17 @@ export function ChapterCard({ n, k, t, total, acc, bg, onSwap, onEnd }: { n: num
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 60, overflow: 'hidden' }]}>
       <Animated.View style={[panel, { backgroundColor: bg }, wipe(0)]} />
-      <Animated.View style={[panel, { backgroundColor: acc, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, wipe(0.05)]}>
-        <SpeedLines size={Math.max(W, H) * 1.6} color={C.ink} inner={0.1} outer={0.5} count={90} opacity={0.8} />
+      <Animated.View style={[panel, { backgroundColor: acc, overflow: 'hidden' }, wipe(0.05)]}>
+        <View style={{ position: 'absolute', left: W * 0.4, top: H * 0.2 }}><Halftone width={W} height={H} color={C.ink} opacity={0.22} step={7} /></View>
       </Animated.View>
-      <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }, card]}>
-        <Txt face="jp" size={26} w={500} color={C.ink} ls={0.1}>{`第${n}話`}</Txt>
-        <Txt face="jp" size={170} w={500} color={C.ink} lh={1.04}>{k}</Txt>
-        <View style={{ backgroundColor: C.ink, paddingHorizontal: 14, paddingVertical: 2, transform: [{ skewX: '-8deg' }] }}>
-          <Txt size={28} w={600} color={acc} ls={-0.01}>{t}</Txt>
+      <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', gap: 14 }, card]}>
+        <Txt face="mono" size={12} w={500} ls={0.3} color={C.ink}>{`CHAPTER ${String(n).padStart(2, '0')} / ${total}`}</Txt>
+        <View style={{ width: 150, height: 150, borderRadius: 24, borderWidth: 3, borderColor: C.ink, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-6deg' }] }}>
+          <Icon name={icon} size={104} color={C.ink} tint={0.18} strokeWidth={1.5} />
         </View>
-        <Txt face="mono" size={11} w={500} ls={0.3} color={C.ink} style={{ marginTop: 12 }}>{`CHAPTER ${String(n).padStart(2, '0')} / ${total}`}</Txt>
+        <View style={{ backgroundColor: C.ink, paddingHorizontal: 16, paddingVertical: 4, marginTop: 6, transform: [{ skewX: '-8deg' }] }}>
+          <Txt size={30} w={600} color={acc} ls={-0.01}>{t}</Txt>
+        </View>
       </Animated.View>
     </View>
   );
@@ -102,11 +104,7 @@ export function HoldSeal({ acc, onSeal }: { acc: string; onSeal: () => void }) {
   const R = 52, len = 2 * Math.PI * R;
   return (
     <View style={{ alignItems: 'center', gap: 12 }}>
-      <Outline text="ゴゴゴ" size={40} color={acc} vertical style={{ position: 'absolute', right: 6, top: -6, opacity: hold }} />
       <View style={{ width: 112, height: 112, alignItems: 'center', justifyContent: 'center', transform: [{ scale: 1 + hold * 0.08 }] }}>
-        <View pointerEvents="none" style={{ position: 'absolute', opacity: hold }}>
-          <SpeedLines size={252} color={acc} inner={0.2} outer={0.48} count={80} />
-        </View>
         <Pressable onPressIn={start} onPressOut={end} style={{ width: 112, height: 112, alignItems: 'center', justifyContent: 'center' }}>
           <Svg width={112} height={112} style={{ position: 'absolute' }}>
             <Defs>
@@ -121,12 +119,12 @@ export function HoldSeal({ acc, onSeal }: { acc: string; onSeal: () => void }) {
           </Svg>
           <View style={{ shadowColor: acc, shadowOpacity: 0.55, shadowRadius: hold * 30, shadowOffset: { width: 0, height: 0 } }}>
             <Animated.View style={{ transform: [{ translateX: shake.interpolate({ inputRange: [-1, 1], outputRange: [-1.5, 1.5] }) }, { translateY: shake.interpolate({ inputRange: [-1, 1], outputRange: [1, -1] }) }] }}>
-              <Txt face="jp" size={40} w={500} color={acc}>誓</Txt>
+              <Icon name="scroll" size={44} color={acc} tint={0.25 + hold * 0.4} />
             </Animated.View>
           </View>
         </Pressable>
       </View>
-      <Txt face="mono" size={11} ls={0.2} color={C.muted}>{hold > 0 ? `SEALING · ${Math.round(hold * 100)}%` : 'HOLD TO SEAL · 長押し'}</Txt>
+      <Txt face="mono" size={11} ls={0.2} color={C.muted}>{hold > 0 ? `SEALING · ${Math.round(hold * 100)}%` : 'HOLD TO SEAL'}</Txt>
     </View>
   );
 }

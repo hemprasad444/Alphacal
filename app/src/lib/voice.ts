@@ -1,7 +1,7 @@
 // Premium voice: REI's replies spoken sentence by sentence as they stream in, and your
 // speech transcribed by the backend. Falls back to the iPhone's voice (expo-speech) and
 // keyboard dictation when the backend voice isn't configured or can't be reached.
-import { DEFAULT_VOICE, isVoice, stripTags, takeSentences, VOICE_PREVIEW } from '@rei/shared';
+import { DEFAULT_VOICE, isSpeakVoice, stripTags, takeSentences, VOICE_PREVIEW } from '@rei/shared';
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import { fetch } from 'expo/fetch';
 import { File, Paths } from 'expo-file-system';
@@ -267,14 +267,15 @@ export class Speaker {
 export async function newSpeaker(onIdle: () => void, voice: string): Promise<Speaker> {
   const premium = await premiumVoice();
   const token = premium ? (await fb().auth.currentUser?.getIdToken()) ?? null : null;
-  return new Speaker(premium, token, onIdle, isVoice(voice) ? voice : DEFAULT_VOICE);
+  // A character voice ("c:naruto") passes through; the server speaks it with Fish Audio.
+  return new Speaker(premium, token, onIdle, isSpeakVoice(voice) ? voice : DEFAULT_VOICE);
 }
 
-/** Says a short sample line in this voice; `premium` is false when the iPhone's voice was used instead. */
-export async function previewVoice(voice: string, onDone: () => void): Promise<{ speaker: Speaker; premium: boolean }> {
+/** Says a short line (a sample by default) in this voice; `premium` is false when the iPhone's voice was used instead. */
+export async function previewVoice(voice: string, onDone: () => void, text = VOICE_PREVIEW): Promise<{ speaker: Speaker; premium: boolean }> {
   await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
   const speaker = await newSpeaker(onDone, voice);
-  speaker.push(VOICE_PREVIEW);
+  speaker.push(text);
   speaker.end();
   return { speaker, premium: await premiumVoice() };
 }
