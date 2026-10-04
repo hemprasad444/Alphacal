@@ -4,7 +4,7 @@
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, ScrollView, TextInput, View } from 'react-native';
+import { Alert, Modal, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
 import { ExerciseSheet } from '../components/ExerciseSheet';
@@ -130,6 +130,18 @@ export default function Session() {
     Haptics.selectionAsync().catch(() => {});
     setExercises(cur => [...cur, e]);
     setRows(cur => [...cur, { reps: [...reps], kg: reps.map(() => kg), done: reps.map(() => false) }]);
+  };
+
+  /** Take an exercise back out from the picker; asks first when sets were already ticked. */
+  const unadd = (name: string) => {
+    const i = exercises.findIndex(e => liftKey(e.name) === liftKey(name));
+    if (i < 0) return;
+    const ticked = rows[i].done.filter(Boolean).length;
+    if (!ticked) return removeExercise(i);
+    Alert.alert(`Remove ${exercises[i].name}?`, `You've ticked ${ticked} set${ticked > 1 ? 's' : ''} on it.`, [
+      { text: 'Keep it', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => removeExercise(i) },
+    ]);
   };
 
   const swap = (i: number, to: LibExercise) => {
@@ -315,7 +327,7 @@ export default function Session() {
         )}
       </View>
 
-      <AddExercise open={adding} onClose={() => setAdding(false)} onAdd={add} have={exercises.map(e => liftKey(e.name))} planned={plan.exercises.map(e => e.name)} planTitle={today ? `${dayName()} · ${today.title}` : next ? `Next · ${next.day} · ${next.plan.title}` : plan.title} yours={Object.values(best).sort((a, b) => (a.lastDate < b.lastDate ? 1 : -1)).slice(0, 8).map(r => r.name)} />
+      <AddExercise open={adding} onClose={() => setAdding(false)} onAdd={add} onRemove={unadd} have={exercises.map(e => liftKey(e.name))} planned={plan.exercises.map(e => e.name)} planTitle={today ? `${dayName()} · ${today.title}` : next ? `Next · ${next.day} · ${next.plan.title}` : plan.title} yours={Object.values(best).sort((a, b) => (a.lastDate < b.lastDate ? 1 : -1)).slice(0, 8).map(r => r.name)} />
       <ExerciseSheet name={info === null ? null : exercises[info]?.name ?? null} onClose={() => setInfo(null)} onSwap={to => info !== null && swap(info, to)} />
     </View>
   );
@@ -447,7 +459,7 @@ function TodayPlan({ plan, next, acc, byRei, onUse, onBuild }: { plan: SessionPl
 }
 
 /** Pick exercises: your lifts, today's plan, a muscle group, or search the whole library. */
-function AddExercise({ open, onClose, onAdd, have, planned, planTitle, yours }: { open: boolean; onClose: () => void; onAdd: (name: string) => void; have: string[]; planned: string[]; planTitle: string; yours: string[] }) {
+function AddExercise({ open, onClose, onAdd, onRemove, have, planned, planTitle, yours }: { open: boolean; onClose: () => void; onAdd: (name: string) => void; onRemove: (name: string) => void; have: string[]; planned: string[]; planTitle: string; yours: string[] }) {
   const s = useStore();
   const { accent, theme } = s;
   const insets = useSafeAreaInsets();
@@ -469,7 +481,7 @@ function AddExercise({ open, onClose, onAdd, have, planned, planTitle, yours }: 
             </View>
             <View style={{ flex: 1 }}>
               <Txt size={22} w={600}>Add exercises</Txt>
-              <Txt face="mono" size={9.5} ls={0.14} color={C.muted}>{`${have.length} IN THIS WORKOUT`}</Txt>
+              <Txt face="mono" size={9.5} ls={0.14} color={C.muted}>{`${have.length} IN THIS WORKOUT · TAP AGAIN TO REMOVE`}</Txt>
             </View>
             <Tap onPress={onClose} style={{ height: 38, paddingHorizontal: 16, borderRadius: 10, backgroundColor: accent, justifyContent: 'center' }}>
               <Txt size={15} w={600} color={C.ink}>Done</Txt>
@@ -522,13 +534,14 @@ function AddExercise({ open, onClose, onAdd, have, planned, planTitle, yours }: 
               const added = have.includes(liftKey(name));
               const lib = findExercise(name);
               return (
-                <Tap key={`${name}-${i}`} onPress={() => onAdd(name)} disabled={added}>
+                <Tap key={`${name}-${i}`} onPress={() => (added ? onRemove(name) : onAdd(name))}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: added ? accent : C.line3, backgroundColor: added ? '#12171B' : '#0D0F13' }}>
                     <Icon name={isBodyweight(name) ? 'fist' : 'gym'} size={22} color={added ? accent : C.body} />
                     <View style={{ flex: 1 }}>
                       <Txt size={15} w={600} color={C.text}>{name}</Txt>
                       {lib ? <Txt face="mono" size={9.5} ls={0.06} color={C.dim}>{[lib.primary.join(', '), lib.equipment].filter(Boolean).join(' · ').toUpperCase()}</Txt> : null}
                     </View>
+                    {added ? <Txt face="mono" size={9} ls={0.12} color={accent}>ADDED</Txt> : null}
                     <View style={{ width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: added ? accent : '#14161A', borderWidth: 1.5, borderColor: added ? accent : C.line3 }}>
                       <Icon name={added ? 'check' : 'plus'} size={16} color={added ? C.ink : C.body} tint={0} strokeWidth={2.2} />
                     </View>
