@@ -14,7 +14,7 @@ import {
 import { Icon } from '../components/icons';
 import { Core } from '../components/Core';
 import { ChapterCard, EnterFx, Flash, HoldSeal, markArrival } from '../components/onboarding/fx';
-import { Bubble, Chips, comic, Cta, Field, FieldLabel, Halftone, Nums, Outline, pick, Rise, Scrub, Seg, SpeedLines, ToggleRow } from '../components/onboarding/kit';
+import { Bubble, Chips, comic, Cta, solid, Field, FieldLabel, Halftone, Nums, Outline, pick, Rise, Scrub, Seg, SpeedLines, ToggleRow } from '../components/onboarding/kit';
 import { Tap, Txt } from '../components/ui';
 import { alpha, C, EMBLEMS, fontFamily, THEMES } from '../lib/theme';
 import { authMessage } from '../state/account';
@@ -578,7 +578,7 @@ function FuelStep({ d, set, acc }: StepProps) {
   const math = `BMR ${c.bmr.toLocaleString('en-US')} × ${c.af.toFixed(2)} ACTIVITY ${c.adj > 0 ? '+' : '−'}${Math.abs(Math.round(c.adj * 100))}%${d.kcalAdj ? ` ${d.kcalAdj > 0 ? '+' : '−'}${Math.abs(d.kcalAdj)} YOU` : ''}`;
   return (
     <View style={{ gap: 10 }}>
-      <Rise delay={250} style={{ paddingTop: 20, paddingHorizontal: 18, paddingBottom: 18, borderRadius: 12, borderWidth: 1.5, borderColor: acc, backgroundColor: alpha(acc, 0.06), ...comic(alpha(acc, 0.45), 4) }}>
+      <Rise delay={250} style={{ paddingTop: 20, paddingHorizontal: 18, paddingBottom: 18, borderRadius: 12, borderWidth: 1.5, borderColor: acc, backgroundColor: solid(acc, 0.06), ...comic(alpha(acc, 0.45), 4) }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Txt face="mono" size={10.5} ls={0.16} color={C.sub}>DAILY FUEL · 燃料</Txt>
           <Txt face="mono" size={10.5} ls={0.16} color={acc}>{adj}</Txt>
@@ -657,7 +657,7 @@ function ToneStep({ d, set, acc }: StepProps) {
             const on = (d.character || 'rei') === c.id;
             return (
               <Tap key={c.id} onPress={() => set('character', c.id)} style={{ width: '31%', flexGrow: 1 }}>
-                <View style={{ height: 84, borderRadius: 10, borderWidth: 1.5, borderColor: on ? c.acc : 'rgba(255,255,255,0.1)', backgroundColor: on ? alpha(c.acc, 0.12) : 'rgba(255,255,255,0.02)', padding: 10, justifyContent: 'space-between', overflow: 'hidden', ...(on ? comic(alpha(c.acc, 0.6), 3) : null) }}>
+                <View style={{ height: 84, borderRadius: 10, borderWidth: 1.5, borderColor: on ? c.acc : 'rgba(255,255,255,0.1)', backgroundColor: on ? solid(c.acc, 0.12) : '#0D0E11', padding: 10, justifyContent: 'space-between', overflow: 'hidden', ...(on ? comic(alpha(c.acc, 0.6), 3) : null) }}>
                   <Icon name={c.icon} size={22} color={on ? c.acc : C.muted} tint={on ? 0.3 : 0.1} />
                   <View>
                     <Txt size={13} w={600} numberOfLines={1}>{c.name}</Txt>
@@ -686,7 +686,7 @@ function WorldStep({ d, set }: { d: Intake; set: SetFn }) {
         const sel = d.theme === t.id;
         return (
           <Rise key={t.id} delay={200 + i * 60} style={{ width: '48.4%', flexGrow: 1 }}>
-            <Tap onPress={() => set('theme', t.id)} style={{ height: 146, padding: 13, borderRadius: 10, borderWidth: 1.5, borderColor: sel ? t.acc : 'rgba(255,255,255,0.1)', backgroundColor: sel ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)', justifyContent: 'space-between', overflow: 'hidden', ...(sel ? comic(t.acc, 3) : null) }}>
+            <Tap onPress={() => set('theme', t.id)} style={{ height: 146, padding: 13, borderRadius: 10, borderWidth: 1.5, borderColor: sel ? t.acc : 'rgba(255,255,255,0.1)', backgroundColor: sel ? solid(t.acc, 0.08) : '#0D0E11', justifyContent: 'space-between', overflow: 'hidden', ...(sel ? comic(t.acc, 3) : null) }}>
               <View style={{ position: 'absolute', right: -14, bottom: -18 }}>
                 <Icon name={t.icon} size={112} color={sel ? t.acc : 'rgba(255,255,255,0.14)'} tint={sel ? 0.16 : 0} strokeWidth={1.1} />
               </View>
@@ -728,7 +728,7 @@ function LinkStep({ d, set, acc }: StepProps) {
 function PactStep({ d, acc, onSeal }: { d: Intake; acc: string; onSeal: () => void }) {
   return (
     <View style={{ gap: 16 }}>
-      <Rise delay={250} style={{ paddingTop: 18, paddingHorizontal: 18, paddingBottom: 14, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.22)', backgroundColor: 'rgba(255,255,255,0.035)', overflow: 'hidden', ...comic(acc, 5) }}>
+      <Rise delay={250} style={{ paddingTop: 18, paddingHorizontal: 18, paddingBottom: 14, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.22)', backgroundColor: '#0E0F12', overflow: 'hidden', ...comic(acc, 5) }}>
         <Outline text="誓" size={150} color={alpha(acc, 0.3)} width={1} style={{ position: 'absolute', right: -12, top: -34 }} />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Txt face="mono" size={10} ls={0.16} color={C.dim}>契約書 · PACT No.0001</Txt>

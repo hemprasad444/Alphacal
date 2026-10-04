@@ -1,5 +1,5 @@
 // REI: personality, whose voice REI speaks with, and how conversations work.
-import { CHARACTERS, hasVoice, speakVoice, type Tone } from '@rei/shared';
+import { CHARACTERS, characterOf, hasVoice, speakVoice, type Tone } from '@rei/shared';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
@@ -21,17 +21,39 @@ export default function ReiSettings() {
   const s = useStore();
   const { settings, accent } = s;
   const [playing, setPlaying] = useState<string | null>(null);
-  const [fallback, setFallback] = useState(false);
+  const [note, setNote] = useState('');
   const preview = useRef<Speaker | null>(null);
+  /** Each tap gets a number; a preview that finishes loading after a newer tap is dropped. */
+  const seq = useRef(0);
   useEffect(() => () => preview.current?.stop(), []);
 
-  const pick = async (id: string) => {
-    s.setOpt('character', id);
+  const stop = () => {
+    seq.current++;
     preview.current?.stop();
+    preview.current = null;
+    setPlaying(null);
+  };
+
+  const pick = async (id: string) => {
+    // Tapping the one that's talking just stops it.
+    if (playing === id) return stop();
+    stop();
+    s.setOpt('character', id);
+    const c = characterOf(id);
+    if (!hasVoice(c) && c.id !== 'rei') {
+      setNote(`${c.name}’s voice is on its way. REI speaks in its own voice until then.`);
+      return;
+    }
+    setNote('');
+    const mine = seq.current;
     setPlaying(id);
-    const { speaker, premium } = await previewVoice(speakVoice({ character: id, voice: settings.voice }), () => setPlaying(p => (p === id ? null : p)));
+    const { speaker, premium } = await previewVoice(speakVoice({ character: id, voice: settings.voice }), () => mine === seq.current && setPlaying(null));
+    if (mine !== seq.current) {
+      speaker.stop();
+      return;
+    }
     preview.current = speaker;
-    setFallback(!premium);
+    if (!premium) setNote('Premium voice is off right now, so this preview used the iPhone’s voice.');
   };
 
   return (
@@ -85,8 +107,7 @@ export default function ReiSettings() {
           );
         })}
       </View>
-      <Txt size={12} color={C.faint} style={{ marginTop: 10 }}>Characters marked Soon use REI’s voice until theirs is added.</Txt>
-      {fallback ? <Txt size={12} color={C.dim} style={{ marginTop: 6 }}>Premium voice is off right now, so this preview used the iPhone’s voice.</Txt> : null}
+      <Txt size={12} color={note ? C.warn : C.faint} style={{ marginTop: 10 }}>{note || 'Tap to hear a voice; tap again to stop. Characters marked Soon use REI’s voice until theirs is added.'}</Txt>
 
       <Heading icon="voice" title="Conversation" acc={accent} style={{ marginTop: 32 }} />
       <Panel acc={accent} tone={0.2} dots={false} style={{ marginTop: 14 }} pad={16}>

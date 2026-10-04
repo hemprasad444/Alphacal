@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, PanResponder, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, Line, LinearGradient, Mask, Pattern, Rect, Stop, Text as SvgText, Circle } from 'react-native-svg';
 import { Tap, Txt } from '../ui';
-import { alpha, C, fontFamily } from '../../lib/theme';
+import { alpha, C, fontFamily, mix } from '../../lib/theme';
 
 export const JP = 'ZenKakuGothicNew_500Medium';
 
@@ -90,6 +90,12 @@ export function Halftone({ width, height, color = '#FFFFFF', opacity = 0.11, cor
   );
 }
 
+/**
+ * A tint of `acc` over the dark page, as a solid colour. Use it behind `comic()`: iOS draws a shadow of
+ * every child of a see-through view, which doubles the text.
+ */
+export const solid = (acc: string, a: number, base = '#0A0B0E') => mix(acc, base, a);
+
 /** Solid offset "comic" shadow in the accent color (iOS draws it; elsewhere it's just a border). */
 export const comic = (acc: string, d = 4): ViewStyle => ({ shadowColor: acc, shadowOpacity: 1, shadowRadius: 0, shadowOffset: { width: d, height: d } });
 
@@ -130,8 +136,8 @@ export function FieldLabel({ label, right, acc }: { label: string; right?: strin
 /** Selected / unselected look for cards and chips. */
 export function pick(on: boolean, acc: string) {
   return on
-    ? { borderColor: acc, backgroundColor: alpha(acc, 0.12), ...comic(alpha(acc, 0.55), 3), kStroke: acc, fg: C.text, check: '● 選択' }
-    : { borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)', shadowOpacity: 0, kStroke: 'rgba(255,255,255,0.14)', fg: C.body, check: '' };
+    ? { borderColor: acc, backgroundColor: solid(acc, 0.12), ...comic(alpha(acc, 0.55), 3), kStroke: acc, fg: C.text, check: '● 選択' }
+    : { borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0E0F12', shadowOpacity: 0, kStroke: 'rgba(255,255,255,0.14)', fg: C.body, check: '' };
 }
 
 /** A segmented row: one choice. */

@@ -135,7 +135,7 @@ export default function Appearance() {
             const on = selected === e.id;
             return (
               <Tap key={e.id} onPress={() => s.setEmblem(e.id)} style={{ flex: 1, gap: 6 }}>
-                <View style={{ aspectRatio: 1, borderRadius: 14, borderWidth: 1.5, borderColor: on ? accent : C.line3, backgroundColor: 'rgba(255,255,255,0.04)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', shadowColor: accent, shadowOpacity: on ? 0.35 : 0, shadowRadius: 9, shadowOffset: { width: 0, height: 0 } }}>
+                <View style={{ aspectRatio: 1, borderRadius: 14, borderWidth: 1.5, borderColor: on ? accent : C.line3, backgroundColor: '#111317', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', shadowColor: accent, shadowOpacity: on ? 0.35 : 0, shadowRadius: 9, shadowOffset: { width: 0, height: 0 } }}>
                   <Image source={e.source} style={{ width: '78%', height: '78%' }} resizeMode="contain" />
                 </View>
                 <Label size={10} ls={0.12} color={on ? accent : C.label} style={{ textAlign: 'center' }}>{on ? 'IN USE' : `NO. ${String(i + 1).padStart(2, '0')}`}</Label>

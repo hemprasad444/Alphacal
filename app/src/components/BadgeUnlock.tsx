@@ -1,10 +1,10 @@
-// The unlock moment: speed lines burst, the medal slams in, a stamp lands. One badge at a time.
+// The unlock moment: the medal slams in with a chime, a stamp lands. One badge at a time.
 import type { GameBadge } from '@rei/shared';
+import { useAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
-import { Animated, Easing, Modal, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, Modal, StyleSheet, View } from 'react-native';
 import { Medal, Stamp, TIER } from './manga';
-import { SpeedLines } from './onboarding/kit';
 import { Tap, Txt } from './ui';
 import { alpha, C } from '../lib/theme';
 
@@ -24,30 +24,26 @@ export function BadgeUnlock({ badges, onDone }: { badges: GameBadge[]; onDone: (
 }
 
 function Burst({ b, more, onNext, onSkip }: { b: GameBadge; more: number; onNext: () => void; onSkip: () => void }) {
-  const { width: W, height: H } = useWindowDimensions();
   const col = TIER[b.tier];
   const [v] = useState(() => new Animated.Value(0));
-  const [spin] = useState(() => new Animated.Value(0));
+  const chime = useAudioPlayer(require('../../assets/sounds/unlock.wav'));
   useEffect(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     Animated.timing(v, { toValue: 1, duration: 1100, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-    const loop = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 24000, easing: Easing.linear, useNativeDriver: true }));
-    loop.start();
-    return () => loop.stop();
-  }, [v, spin]);
-  const size = Math.max(W, H) * 1.3;
+    // The chime and the buzz land with the medal (a third of the way in).
+    const t = setTimeout(() => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      try {
+        chime.volume = 0.8;
+        chime.seekTo(0);
+        chime.play();
+      } catch {
+        // No sound is fine.
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [v, chime]);
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(5,6,8,0.94)', alignItems: 'center', justifyContent: 'center' }]}>
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          opacity: v.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 1, 0.9] }),
-          transform: [{ scale: v.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0.4, 1.05, 1] }) }, { rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
-        }}
-      >
-        <SpeedLines size={size} color={col} inner={0.08} outer={0.5} count={96} />
-      </Animated.View>
       <Animated.View style={{ opacity: v.interpolate({ inputRange: [0, 0.15, 0.35], outputRange: [0, 0, 1] }), transform: [{ scale: v.interpolate({ inputRange: [0, 0.15, 0.4, 0.55, 1], outputRange: [3, 3, 0.9, 1.06, 1] }) }, { rotate: v.interpolate({ inputRange: [0, 0.4, 1], outputRange: ['-30deg', '6deg', '0deg'] }) }] }}>
         <View style={{ borderRadius: 75, shadowColor: col, shadowOpacity: 0.8, shadowRadius: 30, shadowOffset: { width: 0, height: 0 } }}>
           <Medal icon={b.icon} tier={b.tier} earned size={150} />

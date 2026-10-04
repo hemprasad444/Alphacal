@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { Icon, type IconKey } from './icons';
-import { comic, Halftone } from './onboarding/kit';
+import { comic, Halftone, solid } from './onboarding/kit';
 import { Tap, Txt } from './ui';
 import { alpha, C } from '../lib/theme';
 
@@ -74,7 +74,7 @@ export function Gauge({ pct, acc, segments = 20, height = 8 }: { pct: number; ac
 export function Tile({ icon, label, sub, acc, onPress, hot }: { icon: IconKey; label: string; sub?: string; acc: string; onPress: () => void; hot?: boolean }) {
   return (
     <Tap onPress={onPress} style={{ flex: 1 }}>
-      <View style={[{ height: 96, borderRadius: 12, borderWidth: 1.5, borderColor: hot ? acc : 'rgba(255,255,255,0.1)', backgroundColor: hot ? alpha(acc, 0.12) : '#0D0F13', padding: 12, justifyContent: 'space-between' }, hot ? comic(alpha(acc, 0.6), 3) : null]}>
+      <View style={[{ height: 96, borderRadius: 12, borderWidth: 1.5, borderColor: hot ? acc : 'rgba(255,255,255,0.1)', backgroundColor: hot ? solid(acc, 0.14, '#0D0F13') : '#0D0F13', padding: 12, justifyContent: 'space-between' }, hot ? comic(alpha(acc, 0.6), 3) : null]}>
         <Icon name={icon} size={28} color={hot ? acc : C.body} tint={hot ? 0.3 : 0.16} />
         <View>
           <Txt size={14} w={600}>{label}</Txt>
@@ -93,7 +93,7 @@ export function Medal({ icon, tier, earned, size = 64, progress = 0 }: { icon: I
   const col = earned ? TIER[tier] : 'rgba(255,255,255,0.22)';
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: col, borderStyle: earned ? 'solid' : 'dashed', backgroundColor: earned ? alpha(TIER[tier], 0.12) : 'rgba(255,255,255,0.02)', ...(earned ? comic(alpha(TIER[tier], 0.45), 3) : null) }} />
+      <View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: col, borderStyle: earned ? 'solid' : 'dashed', backgroundColor: earned ? solid(TIER[tier], 0.14, '#0D0F13') : '#0F1115', ...(earned ? comic(alpha(TIER[tier], 0.45), 3) : null) }} />
       <View style={{ position: 'absolute', width: size - 12, height: size - 12, borderRadius: (size - 12) / 2, borderWidth: 1, borderColor: alpha(earned ? TIER[tier] : '#FFFFFF', earned ? 0.5 : 0.08) }} />
       <Icon name={earned ? icon : 'lock'} size={size * 0.44} color={col} tint={earned ? 0.3 : 0.08} />
       {!earned && progress > 0 ? (
