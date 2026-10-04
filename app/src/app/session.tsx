@@ -54,6 +54,7 @@ export default function Session() {
   const [now, setNow] = useState(0);
   const [minutes, setMinutes] = useState(plan.minutes || 60);
   const [rest, setRest] = useState<Rest | null>(null);
+  const finished = useRef(false);
   const [info, setInfo] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const restDone = useRef(false);
@@ -151,7 +152,9 @@ export default function Session() {
   };
 
   const complete = () => {
-    if (!done) return;
+    // Finishing twice (a double tap before the screen closes) would log the workout twice.
+    if (!done || finished.current) return;
+    finished.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     s.finishSession(done, total, elapsed, setLogs, free ? titleFor(exercises) : plan.title);
     router.back();

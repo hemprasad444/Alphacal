@@ -127,16 +127,36 @@ const PROFILE_LABELS: Record<ProfileKey, string> = {
 };
 
 /** Apply an UPDATE payload to the profile. Returns null when nothing allowed changed. */
+/** "07:00" or "7:00" style 24-hour time. */
+export const isClock = (v: string) => /^([01]?\d|2[0-3]):[0-5]\d$/.test(v);
+
+const NUMERIC_KEYS: ProfileKey[] = ['weight', 'targetWeight', 'bf', 'targetBf', 'kcal', 'protein', 'carbs', 'fat', 'steps', 'sleep', 'sessions'];
+
+/** One update_vow call → a safe profile change, or null when it isn't one. */
+export function vowChange(field: unknown, value: unknown): [ProfileKey, string] | null {
+  if (typeof field !== 'string' || !(PROFILE_KEYS as string[]).includes(field)) return null;
+  const v = String(value ?? '').trim();
+  const k = field as ProfileKey;
+  if (NUMERIC_KEYS.includes(k) && !(parseFloat(v) > 0)) return null;
+  if (k === 'deadline' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  if (k === 'deadline' && Number.isNaN(new Date(`${v}T00:00:00`).getTime())) return null;
+  if ((k === 'sessionTime' || k === 'bedtime') && !isClock(v)) return null;
+  if (!v || v.length > 400) return null;
+  return [k, v];
+}
+
 export function applyUpdate(profile: Profile, upd: ParsedReply['upd']): { profile: Profile; note: string } | null {
   if (!upd) return null;
   const next = { ...profile };
   const keys: ProfileKey[] = [];
   for (const k of PROFILE_KEYS) {
     const v = upd[k];
-    if (v !== undefined && v !== null) {
-      next[k] = String(v);
-      keys.push(k);
-    }
+    if (v === undefined || v === null) continue;
+    // Same checks as the update_vow tool: no "abc" weights, half-typed times or impossible dates.
+    const ch = vowChange(k, v);
+    if (!ch) continue;
+    next[k] = ch[1];
+    keys.push(k);
   }
   if (!keys.length) return null;
   return { profile: next, note: 'VOW UPDATED · ' + keys.map(k => PROFILE_LABELS[k]).join(' · ') };

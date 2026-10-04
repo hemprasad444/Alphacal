@@ -1,4 +1,5 @@
-import { AGENT_TOOLS, agentGreeting, agentPrompt, historyBlock, LIVEKIT_TOOLS, mealIndex, memoryKind, recentTurns, vowChange } from '../agent';
+import { AGENT_TOOLS, agentGreeting, agentPrompt, historyBlock, LIVEKIT_TOOLS, mealIndex, memoryKind, recentTurns } from '../agent';
+import { vowChange } from '../rei';
 import { reiContext } from '../context';
 import { DEFAULT_DISCIPLINES, DEFAULT_PROFILE } from '../data';
 

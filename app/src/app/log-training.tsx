@@ -48,7 +48,8 @@ export default function LogTraining() {
   const kcal = !ok ? 0 : distance ? distanceKcal(kind, dist, secs!, kg) : movementKcal(sport!.met, kg, mins);
 
   const save = () => {
-    if (!ok) return;
+    // One save per visit: a quick double tap must not log it twice.
+    if (!ok || saved !== null) return;
     if (distance) s.logCardio(dist, secs!, kind);
     else s.logActivity(sport!, mins);
     setSaved(xp);

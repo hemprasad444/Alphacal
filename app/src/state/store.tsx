@@ -686,11 +686,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const prs = newPrs(log, s.sessions);
     const sum = sessionSummary(done, total, min, left, log.title ?? 'Session', missed);
     const prText = prs.length ? ` New PR${prs.length > 1 ? 's' : ''}: ${prs.slice(0, 2).map(p => p.text).join('; ')}.` : '';
-    patch({ sessionDone: true, loggedMin: min, sessions: [...s.sessions, log] });
+    // Added to anything already logged today (a run this morning, the gym tonight).
+    patch({ sessionDone: true, loggedMin: s.loggedMin + min, sessions: [...s.sessions, log] });
     pushMessages([msg('rei', sum.text + prText, { alert: sum.alert })]);
     const u = uidRef.current;
     if (u) {
-      write.day(u, s.day, { sessionDone: true, loggedMin: min });
+      write.day(u, s.day, { sessionDone: true, loggedMin: s.loggedMin + min });
       write.session(u, log);
     }
   }, [patch, msg, pushMessages, activityOf, history]);

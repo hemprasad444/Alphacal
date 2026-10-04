@@ -176,6 +176,8 @@ export function weekNote(w: Week, sessionDone: boolean): string {
 }
 
 export function sessionCountdown(now: Date = new Date(), time: string = SESSION_TIME): string {
+  // A half-typed or empty training time falls back to the default instead of showing "NaN".
+  if (Number.isNaN(minutesUntil(time, now))) time = SESSION_TIME;
   const m = minutesUntil(time, now);
   if (m > 0) return `${time} · IN ${m >= 120 ? Math.round(m / 60) + ' H' : m + ' MIN'}`;
   if (m > -15) return `${time} · NOW`;

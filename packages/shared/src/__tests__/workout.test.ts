@@ -1,4 +1,4 @@
-import { isClock, vowChange } from '../agent';
+import { isClock, vowChange } from '../rei';
 import { nudgeDue, quietHours, type CoachState } from '../coach';
 import { DEFAULT_PROFILE, SESSIONS } from '../data';
 import { week } from '../derive';

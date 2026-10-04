@@ -47,10 +47,16 @@ export function monthDay(d: Date): string {
   return `${MONTHS[d.getMonth()]} ${pad(d.getDate())}`;
 }
 
-/** Minutes from now until today's `HH:MM`, negative once it has passed. */
+/** Minutes after midnight for a 24-hour "HH:MM" (or "H:MM"), or null when it isn't one (e.g. half-typed "18:"). */
+export function clockMinutes(time: string | undefined | null): number | null {
+  const m = /^\s*([01]?\d|2[0-3]):([0-5]\d)\s*$/.exec(time ?? '');
+  return m ? +m[1] * 60 + +m[2] : null;
+}
+
+/** Minutes from now until today's `HH:MM`, negative once it has passed; NaN when the time isn't valid. */
 export function minutesUntil(time: string, now: Date = new Date()): number {
-  const [h, m] = time.split(':').map(Number);
-  return h * 60 + m - (now.getHours() * 60 + now.getMinutes());
+  const t = clockMinutes(time);
+  return t === null ? NaN : t - (now.getHours() * 60 + now.getMinutes());
 }
 
 export function longDate(d: Date = new Date()): string {

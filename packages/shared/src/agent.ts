@@ -90,23 +90,6 @@ export function historyBlock(turns: { role: 'user' | 'assistant'; content: strin
 /** The same tools as OpenAI-style function schemas, for the LiveKit agent (voice-agent/agent.py). */
 export const LIVEKIT_TOOLS = AGENT_TOOLS.map(({ name, description, parameters }) => ({ name, description, parameters }));
 
-/** "07:00" or "7:00" style 24-hour time. */
-export const isClock = (v: string) => /^([01]?\d|2[0-3]):[0-5]\d$/.test(v);
-
-const NUMERIC: ProfileKey[] = ['weight', 'targetWeight', 'bf', 'targetBf', 'kcal', 'protein', 'carbs', 'fat', 'steps', 'sleep', 'sessions'];
-
-/** One update_vow call → a safe profile change, or null when it isn't one. */
-export function vowChange(field: unknown, value: unknown): [ProfileKey, string] | null {
-  if (typeof field !== 'string' || !(PROFILE_KEYS as string[]).includes(field)) return null;
-  const v = String(value ?? '').trim();
-  const k = field as ProfileKey;
-  if (NUMERIC.includes(k) && !(parseFloat(v) > 0)) return null;
-  if (k === 'deadline' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
-  if ((k === 'sessionTime' || k === 'bedtime') && !isClock(v)) return null;
-  if (!v || v.length > 400) return null;
-  return [k, v];
-}
-
 export function memoryKind(kind: unknown): MemoryKind {
   return MEMORY_KINDS.includes(kind as MemoryKind) ? (kind as MemoryKind) : 'life';
 }
