@@ -25,4 +25,5 @@ Order: things everything else builds on first (icons, navigation, data), then be
 ## Status (stopped at usage limit)
 
 Done: 1 icons · 2 Dojo · 3 game layer (rules deployed) · 4 settings · 6 continuity (benchmark 12/24 → 23/24, deployed) · 7 voice characters (Fish key set as secret, deployed; voice IDs still placeholders except Naruto).
-Not started: 5 auth-first sign up (email + verification) · 8 calorie logging speed · 9 restyle Fuel / Vow / Talk in the manga look · 10 Apple Health and "Hey REI" research + deep links · 11 Simulator screenshots of everything.
+Night 2 (05 Oct): 5 auth-first done (sign-in restyled, email verification, chapters only after the account exists; activate requires a verified email, deployed) · onboarding restyled with icons, Partner chapter with character hellos · Fuel/Vow restyled earlier · bug round (validator, NaN countdown, double logs, minutes) with 195 shared tests.
+Not started: 8 calorie logging speed · 9 restyle Talk in the manga look · 10 Apple Health and "Hey REI" research + deep links · 11 Simulator screenshots of everything.
