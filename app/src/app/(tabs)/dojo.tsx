@@ -108,7 +108,7 @@ export default function Dojo() {
       </View>
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
         <Tile icon="sport" label="Sport" sub="any activity" acc={accent} onPress={() => router.push({ pathname: '/log-training', params: { kind: 'sport' } })} />
-        <Tile icon="gym" label="Gym" sub="quick log" acc={accent} onPress={() => router.push({ pathname: '/log-training', params: { kind: 'gym' } })} />
+        <Tile icon="gym" label="Gym" sub="sets · reps · kg" acc={accent} onPress={() => router.push({ pathname: '/session', params: { mode: 'free' } })} />
         <Tile icon="voice" label="Tell REI" sub="just say it" acc={accent} hot onPress={() => router.push('/talk')} />
       </View>
 

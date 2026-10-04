@@ -123,10 +123,14 @@ const LOOK: Record<string, { icon: IconKey; tier: BadgeTier }> = {
 
 const num = (s: string) => parseFloat(s) || 0;
 
-/** XP for one logged session: a full gym session is worth most, cardio and sports by size. */
+/** XP for one exercise in a gym session: something for showing up to it, more for every set done. */
+export const exerciseXp = (doneSets: number) => (doneSets > 0 ? 12 + 3 * doneSets : 0);
+
+/** XP for one logged session: gym sessions by exercises and sets done, cardio and sports by size. */
 export function sessionXp(s: SessionLog): number {
   if (s.cardio) return 30 + Math.min(40, Math.round(s.cardio.km * 6));
   if (s.activity) return 20 + Math.min(40, Math.round(s.activity.minutes / 2));
+  if (s.sets?.length) return Math.min(150, Math.max(20, s.sets.reduce((a, x) => a + exerciseXp(x.done.filter(Boolean).length), 0)));
   const share = s.total > 0 ? Math.min(1, s.done / s.total) : 1;
   return Math.max(20, Math.round(60 * share));
 }

@@ -22,3 +22,5 @@ export * from './icons';
 export * from './game';
 export * from './characters';
 export * from './continuity';
+export * from './benchmarks';
+export * from './picks';

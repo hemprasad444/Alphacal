@@ -32,6 +32,9 @@ describe('game', () => {
     expect(sessionXp(gym('2026-10-01', 9, 18))).toBe(30);
     expect(sessionXp({ ...gym('2026-10-01'), cardio: { km: 5, seconds: 1800, kind: 'run' } })).toBe(60);
     expect(sessionXp({ ...gym('2026-10-01'), activity: { id: 'football', name: 'Football', minutes: 60, kcal: 500 } })).toBe(50);
+    // Per exercise: 12 + 3 per done set; a set not done earns nothing.
+    const sets = [{ exercise: 'Bench press', reps: [8, 8, 8], kg: [60, 60, 60], done: [true, true, false] }, { exercise: 'Dips', reps: [10, 10], kg: [null, null], done: [true, true] }];
+    expect(sessionXp({ ...gym('2026-10-01'), sets })).toBe(18 + 18);
   });
 
   it('builds streaks and does not break them for a today not yet logged', () => {

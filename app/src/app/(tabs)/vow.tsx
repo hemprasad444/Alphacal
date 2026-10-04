@@ -1,6 +1,6 @@
 // The Vow: the goal you made REI hold you to, the deadline, your body and targets, your routine,
 // and this week's plan. Everything here is editable; REI uses exactly what's written.
-import { BENCHMARKS, isoDate, parseIsoDate, type ProfileKey, SESSION_ICON, SESSIONS, trajectory, week, WEEK_PLAN, weekdayIndex } from '@rei/shared';
+import { benchmarks, DEFAULT_BESTS, isoDate, parseIsoDate, type ProfileKey, SESSION_ICON, SESSIONS, trajectory, week, WEEK_PLAN, weekdayIndex } from '@rei/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, TextInput, View } from 'react-native';
@@ -172,15 +172,22 @@ export default function Vow() {
 
       <WeekPlan />
 
-      <Heading icon="strength" title="Benchmarks" acc={accent} style={{ marginTop: 30 }} />
-      <View style={{ marginTop: 14, gap: 14 }}>
-        {BENCHMARKS.map(([name, now, goal, f]) => (
-          <View key={name} style={{ gap: 8 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <Txt size={15} w={500}>{name}</Txt>
-              <Txt face="mono" size={12} color={C.value}>{`${now} → ${goal}`}</Txt>
+      <Heading icon="strength" title="Benchmarks" acc={accent} right="LOG A LIFT ›" onRight={() => router.push({ pathname: '/session', params: { mode: 'free' } })} style={{ marginTop: 30 }} />
+      <Txt size={12} color={C.dim} style={{ marginTop: 8 }}>Your best logged lift or run moves these. Chest press counts toward bench.</Txt>
+      <View style={{ marginTop: 14, gap: 10 }}>
+        {benchmarks(s.sessions, s.bests ?? DEFAULT_BESTS).map(b => (
+          <View key={b.id} style={{ padding: 13, borderRadius: 12, borderWidth: 1.5, borderColor: b.logged ? alpha(accent, 0.5) : C.line3, backgroundColor: '#0D0F13', gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Icon name={b.icon} size={20} color={b.logged ? accent : C.body} />
+              <Txt size={15} w={600} style={{ flex: 1 }}>{b.name}</Txt>
+              {b.logged ? <Stamp text="New best" color={C.warn} tilt={0} size={8.5} /> : null}
             </View>
-            <Gauge pct={f} acc={accent} segments={24} height={6} />
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+              <Txt size={22} w={500}>{b.now}</Txt>
+              <Txt face="mono" size={11} color={C.muted}>{`GOAL ${b.goal.toUpperCase()} · START ${b.start}`}</Txt>
+            </View>
+            <Gauge pct={b.pct} acc={accent} segments={24} height={6} />
+            {b.from ? <Txt face="mono" size={10} ls={0.08} color={C.dim}>{`FROM ${b.from.toUpperCase()}`}</Txt> : null}
           </View>
         ))}
       </View>

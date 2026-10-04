@@ -1,6 +1,6 @@
 // Log training by hand on its own page: a run, walk or ride by distance and time, a sport by minutes,
 // or a gym session by name and minutes. Shows the burn and the XP before you save.
-import { distanceKcal, type Movement, movementKcal, pace, parseClock, searchMovements, sessionXp, todaysPlan } from '@rei/shared';
+import { distanceKcal, type Movement, movementKcal, pace, parseClock, searchMovements, sessionXp } from '@rei/shared';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { TextInput, View } from 'react-native';
@@ -11,49 +11,46 @@ import { Tap, Txt } from '../components/ui';
 import { alpha, C, fontFamily } from '../lib/theme';
 import { useStore } from '../state/store';
 
-type Kind = 'run' | 'walk' | 'cycle' | 'sport' | 'gym';
+type Kind = 'run' | 'walk' | 'cycle' | 'sport';
 const KINDS: { id: Kind; icon: IconKey; label: string }[] = [
   { id: 'run', icon: 'run', label: 'Run' },
   { id: 'walk', icon: 'steps', label: 'Walk' },
   { id: 'cycle', icon: 'ride', label: 'Ride' },
   { id: 'sport', icon: 'sport', label: 'Sport' },
-  { id: 'gym', icon: 'gym', label: 'Gym' },
 ];
 const isKind = (k: unknown): k is Kind => KINDS.some(x => x.id === k);
 
 export default function LogTraining() {
   const s = useStore();
   const params = useLocalSearchParams<{ kind?: string }>();
+  // Opened for one activity (from the Dojo): just that one. Opened bare: pick one first.
+  const fixed = isKind(params.kind);
   const [kind, setKind] = useState<Kind>(isKind(params.kind) ? params.kind : 'run');
+  const meta = KINDS.find(k => k.id === kind)!;
   const [km, setKm] = useState('');
   const [time, setTime] = useState('');
   const [minutes, setMinutes] = useState('');
   const [q, setQ] = useState('');
   const [sport, setSport] = useState<Movement | null>(null);
-  const plan = todaysPlan(new Date(), s.program);
-  const [name, setName] = useState(plan?.title ?? '');
   const [saved, setSaved] = useState<number | null>(null);
   const { accent } = s;
   const kg = parseFloat(s.profile.weight) || 0;
 
   const dist = parseFloat(km.replace(',', '.')), secs = parseClock(time), mins = parseFloat(minutes.replace(',', '.'));
   const distance = kind === 'run' || kind === 'walk' || kind === 'cycle';
-  const ok = distance ? dist > 0 && dist < 400 && !!secs : kind === 'sport' ? !!sport && mins > 0 && mins < 600 : mins > 0 && mins < 600;
+  const ok = distance ? dist > 0 && dist < 400 && !!secs : !!sport && mins > 0 && mins < 600;
   const base = { date: s.day, plan: 'LOG', done: 1, total: 1, seconds: 0 };
   const xp = !ok
     ? 0
     : distance
       ? sessionXp({ ...base, cardio: { km: dist, seconds: secs!, kind } })
-      : kind === 'sport'
-        ? sessionXp({ ...base, activity: { id: sport!.id, name: sport!.name, minutes: mins, kcal: 0 } })
-        : sessionXp(base);
-  const kcal = !ok ? 0 : distance ? distanceKcal(kind, dist, secs!, kg) : kind === 'sport' ? movementKcal(sport!.met, kg, mins) : 0;
+      : sessionXp({ ...base, activity: { id: sport!.id, name: sport!.name, minutes: mins, kcal: 0 } });
+  const kcal = !ok ? 0 : distance ? distanceKcal(kind, dist, secs!, kg) : movementKcal(sport!.met, kg, mins);
 
   const save = () => {
     if (!ok) return;
     if (distance) s.logCardio(dist, secs!, kind);
-    else if (kind === 'sport') s.logActivity(sport!, mins);
-    else s.logWorkout({ kind: 'session', name: name.trim() || 'Gym session', minutes: Math.round(mins), km: 0 });
+    else s.logActivity(sport!, mins);
     setSaved(xp);
     setTimeout(() => (router.canGoBack() ? router.back() : router.replace('/dojo')), 1300);
   };
@@ -96,8 +93,19 @@ export default function LogTraining() {
 
   return (
     <Screen tabs={false}>
-      <SubHeader title="LOG TRAINING" onBack={() => router.back()} />
+      <SubHeader title={fixed ? `LOG A ${meta.label.toUpperCase()}` : 'LOG TRAINING'} onBack={() => router.back()} />
 
+      {fixed ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 22 }}>
+          <View style={{ width: 56, height: 56, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#12171B', borderWidth: 1.5, borderColor: accent }}>
+            <Icon name={meta.icon} size={32} color={accent} tint={0.3} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Txt size={24} w={600}>{kind === 'sport' ? 'Sport or activity' : `${meta.label}`}</Txt>
+            <Txt size={13} color={C.sub}>{kind === 'sport' ? 'Pick it, then how long.' : 'Distance and time. Pace and burn work themselves out.'}</Txt>
+          </View>
+        </View>
+      ) : (
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 22 }}>
         {KINDS.map(k => {
           const on = kind === k.id;
@@ -111,6 +119,7 @@ export default function LogTraining() {
           );
         })}
       </View>
+      )}
 
       <Panel acc={accent} tone={0.35} style={{ marginTop: 22 }}>
         {distance ? (
@@ -121,7 +130,7 @@ export default function LogTraining() {
             </View>
             {chips(kind === 'cycle' ? ['10', '20', '40'] : kind === 'walk' ? ['2', '4', '6'] : ['3', '5', '10'], setKm, 'km')}
           </View>
-        ) : kind === 'sport' ? (
+        ) : (
           sport ? (
             <View style={{ gap: 16 }}>
               <Tap onPress={() => setSport(null)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -151,13 +160,6 @@ export default function LogTraining() {
               ))}
             </View>
           )
-        ) : (
-          <View style={{ gap: 16 }}>
-            {field(name, setName, 'Upper body, legs, full body…', 'WHAT YOU TRAINED', 'default')}
-            {field(minutes, setMinutes, '60', 'MINUTES')}
-            {chips(['30', '45', '60', '75'], setMinutes, 'min')}
-            <Txt size={12} color={C.faint}>Want sets and weights tracked? Start today’s session from the Dojo instead.</Txt>
-          </View>
         )}
       </Panel>
 
