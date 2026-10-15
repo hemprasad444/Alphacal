@@ -145,3 +145,59 @@ describe('day intake edges', () => {
     expect(dayIntake([meal(0, { na: 5 })]).coverage.na).toBe(0);
   });
 });
+
+describe('weight goal both ways', () => {
+  const { trajectory, hero } = jest.requireActual('../derive') as typeof import('../derive');
+  const now = new Date(2026, 9, 12, 9, 0);
+  const prof = (weight: string, targetWeight: string) => ({ ...DEFAULT_PROFILE, weight, targetWeight, deadline: '2027-03-07' });
+  const w = (date: string, kg: number) => ({ date, kg });
+
+  it('a bulker below target is not "at the target"', () => {
+    const t = trajectory(prof('58.4', '64'), 0, now, [w('2026-10-04', 58)]);
+    expect(t.eta).not.toBe('TARGET HIT');
+    expect(t.reqPace).toBeGreaterThan(0);
+  });
+
+  it('counts gaining as progress for a bulker and losing for a cutter', () => {
+    const bulk = trajectory(prof('59', '64'), 0, now, [w('2026-10-01', 58), w('2026-10-04', 58.2)]);
+    expect(bulk.curPace).toBeGreaterThan(0);
+    expect(bulk.note).not.toMatch(/Losing/);
+    const cut = trajectory(prof('83', '76.5'), 0, now, [w('2026-10-01', 84), w('2026-10-04', 83.6)]);
+    expect(cut.curPace).toBeGreaterThan(0);
+  });
+
+  it('says target hit only once it is actually reached, in the right direction', () => {
+    expect(trajectory(prof('64.2', '64'), 0, now, [w('2026-09-01', 58)]).eta).toBe('TARGET HIT');
+    expect(trajectory(prof('76.4', '76.5'), 0, now, [w('2026-09-01', 84)]).eta).toBe('TARGET HIT');
+  });
+
+  it('does not claim the scale has not moved with under a week of weigh-ins', () => {
+    const t = trajectory(prof('84', '76.5'), 0, now, [w('2026-10-10', 84)]);
+    expect(t.note).not.toMatch(/hasn’t moved/);
+    expect(t.note).toMatch(/Weigh in/);
+  });
+
+  it('quotes their own training time and bedtime', () => {
+    const week = { days: [], done: 0, missed: 1, left: 2, yesterdayDone: false } as never;
+    const plan = { key: 'PUSH', title: 'Push', sub: '', minutes: 50, exercises: [] } as never;
+    const h = hero(week, plan, false, true, 50, 10000, { session: '06:30', bed: '22:30' });
+    expect(h.parts.map(p => p.t).join('')).toContain('06:30');
+    const rest = hero(week, null, false, true, 50, 10000, { session: '06:30', bed: '22:30' });
+    expect(rest.parts.map(p => p.t).join('')).toContain('bed by 22:30');
+  });
+});
+
+describe('a session hours late', () => {
+  const { hero } = jest.requireActual('../derive') as typeof import('../derive');
+  const week = { days: [], done: 2, missed: 0, left: 2, yesterdayDone: false } as never;
+  const plan = { key: 'PULL', title: 'Pull', sub: '', minutes: 40, exercises: [] } as never;
+  it('is called out instead of "clean so far"', () => {
+    const h = hero(week, plan, false, false, 50, 10000, { session: '06:30', bed: '23:15', lateMin: 17 * 60 });
+    expect(h.tag).toBe('CALL-OUT');
+    expect(h.parts.map(p => p.t).join('')).toContain('Pull was due at 06:30');
+  });
+  it('stays on track while the session is still ahead or just started', () => {
+    expect(hero(week, plan, false, false, 50, 10000, { session: '18:30', lateMin: -120 }).tag).toBe('ON TRACK');
+    expect(hero(week, plan, false, false, 50, 10000, { session: '18:30', lateMin: 30 }).tag).toBe('ON TRACK');
+  });
+});

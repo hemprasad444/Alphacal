@@ -36,7 +36,8 @@ export default function Talk() {
   const slipping = !!todaysPlan(new Date(), s.program) && !s.sessionDone && wk.missed > 0;
   const chips = [
     { t: `INTEGRITY ${integrity(wk)}%`, color: slipping ? C.alert : accent },
-    { t: wk.missed ? `${wk.missed} MISSED` : `STREAK ${wk.done}`, color: wk.missed ? C.alert : accent },
+    // Sessions done this week ("streak" means days logged in a row elsewhere in the app).
+    { t: wk.missed ? `${wk.missed} MISSED` : `${wk.done} DONE THIS WEEK`, color: wk.missed ? C.alert : accent },
     { t: `PROTEIN ${nu.protein}/${profile.protein}`, color: C.body },
     { t: `KCAL ${nu.kcal}/${profile.kcal}`, color: C.body },
     { t: `${trajectory(profile, wk.missed, new Date(), s.weighInsOrDemo).daysLeft} DAYS LEFT`, color: C.body },

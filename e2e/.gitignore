@@ -1,0 +1,6 @@
+.out/
+node_modules/
+voice/*.wav
+voice/*.m4a
+voice/*.json
+voice/*.log

@@ -2,23 +2,27 @@
 // your best logged so far, and a goal set from your start. A logged chest press or bench moves
 // the bench line; a 5 km+ run moves the 5K line.
 import type { IconKey } from './icons';
-import type { Intake } from './onboarding';
+import { gaveBest, type Intake } from './onboarding';
 import { e1rm } from './strength';
 import type { SessionLog } from './types';
 
+/** Starting bests; null where they skipped it in onboarding. */
 export interface Bests {
-  bench: number;
-  squat: number;
-  dead: number;
-  pullups: number;
+  bench: number | null;
+  squat: number | null;
+  dead: number | null;
+  pullups: number | null;
   /** 5K time in seconds. */
-  run5k: number;
+  run5k: number | null;
 }
 
 /** Starting numbers when nothing better is known (the demo's). */
 export const DEFAULT_BESTS: Bests = { bench: 82.5, squat: 120, dead: 150, pullups: 9, run5k: 1660 };
 
-export const bestsOf = (d: Pick<Intake, 'bench' | 'squat' | 'dead' | 'pullups' | 'run5k'>): Bests => ({ bench: d.bench, squat: d.squat, dead: d.dead, pullups: d.pullups, run5k: d.run5k });
+export const bestsOf = (d: Pick<Intake, 'bench' | 'squat' | 'dead' | 'pullups' | 'run5k' | 'tested'>): Bests => ({
+  bench: gaveBest(d, 'bench') ? d.bench : null, squat: gaveBest(d, 'squat') ? d.squat : null, dead: gaveBest(d, 'dead') ? d.dead : null,
+  pullups: gaveBest(d, 'pullups') ? d.pullups : null, run5k: gaveBest(d, 'run5k') ? d.run5k : null,
+});
 
 export interface Benchmark {
   id: keyof Bests;
@@ -64,9 +68,13 @@ export function benchmarks(sessions: SessionLog[], start: Bests = DEFAULT_BESTS)
         });
       }
     }
-    const goal = round(Math.max(start[l.id] * l.mult, start[l.id] + 5), 2.5);
-    const now = best > start[l.id] ? round(best, 0.5) : start[l.id];
-    return { id: l.id, name: l.name, icon: l.icon, start: `${start[l.id]}`, now: `${now} kg`, goal: `${goal} kg`, pct: Math.min(1, now / goal), logged: best > start[l.id], from: best > start[l.id] ? from : '' };
+    // Skipped in onboarding: the first logged lift becomes the starting point.
+    const base = start[l.id] ?? (best ? round(best, 0.5) : null);
+    if (base == null) return { id: l.id, name: l.name, icon: l.icon, start: '—', now: '—', goal: '—', pct: 0, logged: false, from: '' };
+    const goal = round(Math.max(base * l.mult, base + 5), 2.5);
+    const logged = best > 0 && (start[l.id] == null || best > start[l.id]!);
+    const now = logged ? round(best, 0.5) : base;
+    return { id: l.id, name: l.name, icon: l.icon, start: start[l.id] == null ? '—' : `${start[l.id]}`, now: `${now} kg`, goal: `${goal} kg`, pct: Math.min(1, now / goal), logged, from: logged ? from : '' };
   });
 
   let reps = 0, pullFrom = '';
@@ -81,8 +89,12 @@ export function benchmarks(sessions: SessionLog[], start: Bests = DEFAULT_BESTS)
       });
     }
   }
-  const pullGoal = start.pullups + 6, pullNow = Math.max(reps, start.pullups);
-  out.push({ id: 'pullups', name: 'Pull-ups', icon: 'fist', start: `${start.pullups}`, now: `${pullNow} reps`, goal: `${pullGoal} reps`, pct: Math.min(1, pullNow / pullGoal), logged: reps > start.pullups, from: reps > start.pullups ? pullFrom : '' });
+  const pullBase = start.pullups ?? (reps || null);
+  if (pullBase == null) out.push({ id: 'pullups', name: 'Pull-ups', icon: 'fist', start: '—', now: '—', goal: '—', pct: 0, logged: false, from: '' });
+  else {
+    const pullGoal = pullBase + 6, pullNow = Math.max(reps, pullBase), pullLogged = reps > 0 && (start.pullups == null || reps > start.pullups);
+    out.push({ id: 'pullups', name: 'Pull-ups', icon: 'fist', start: start.pullups == null ? '—' : `${start.pullups}`, now: `${pullNow} reps`, goal: `${pullGoal} reps`, pct: Math.min(1, pullNow / pullGoal), logged: pullLogged, from: pullLogged ? pullFrom : '' });
+  }
 
   let fastest = Infinity, runFrom = '';
   for (const s of sessions) {
@@ -94,7 +106,11 @@ export function benchmarks(sessions: SessionLog[], start: Bests = DEFAULT_BESTS)
       runFrom = `${c.km} km run · ${day(s.date)}`;
     }
   }
-  const runGoal = round(start.run5k * 0.88, 5), runNow = Math.min(fastest, start.run5k);
-  out.push({ id: 'run5k', name: '5K run', icon: 'run', start: clock(start.run5k), now: clock(runNow), goal: clock(runGoal), pct: Math.min(1, runGoal / runNow), logged: fastest < start.run5k, from: fastest < start.run5k ? runFrom : '' });
+  const runBase = start.run5k ?? (Number.isFinite(fastest) ? fastest : null);
+  if (runBase == null) out.push({ id: 'run5k', name: '5K run', icon: 'run', start: '—', now: '—', goal: '—', pct: 0, logged: false, from: '' });
+  else {
+    const runGoal = round(runBase * 0.88, 5), runNow = Math.min(fastest, runBase), runLogged = Number.isFinite(fastest) && (start.run5k == null || fastest < start.run5k);
+    out.push({ id: 'run5k', name: '5K run', icon: 'run', start: start.run5k == null ? '—' : clock(start.run5k), now: clock(runNow), goal: clock(runGoal), pct: Math.min(1, runGoal / runNow), logged: runLogged, from: runLogged ? runFrom : '' });
+  }
   return out;
 }

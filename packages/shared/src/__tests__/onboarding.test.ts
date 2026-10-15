@@ -68,7 +68,7 @@ describe('onboarding', () => {
   });
 
   it('remembers diet, injuries, equipment, schedule, bests and weak points', () => {
-    const m = intakeMemory(d({ injuries: { Knee: true }, quit: { Weekends: true }, note: 'Night shifts on Thursdays' }));
+    const m = intakeMemory(d({ injuries: { Knee: true }, quit: { Weekends: true }, note: 'Night shifts on Thursdays', tested: { bench: true } }));
     const text = m.map(x => `${x.kind}: ${x.text}`).join('\n');
     expect(text).toContain('diet: Non-veg; 4 meals a day');
     expect(text).toContain('health: Knee injury');
@@ -160,5 +160,38 @@ describe('characters', () => {
     expect(isSpeakVoice(DEFAULT_VOICE)).toBe(true);
     expect(isSpeakVoice('someone-else')).toBe(false);
     expect(isSpeakVoice(42)).toBe(false);
+  });
+});
+
+describe('current bests', () => {
+  const { bestsOf, benchmarks } = jest.requireActual('../benchmarks') as typeof import('../benchmarks');
+  const { suggestedBest } = jest.requireActual('../onboarding') as typeof import('../onboarding');
+  it('remembers only the bests they set; skipped ones are not invented', () => {
+    const skipped = d({ exp: 'New', sex: 'Female' });
+    expect(intakeMemory(skipped).map(x => x.text).join('\n')).toContain('Training age New; no current bests given yet');
+    expect(bestsOf(skipped)).toEqual({ bench: null, squat: null, dead: null, pullups: null, run5k: null });
+    expect(intakeMemory(d({ tested: { run5k: true }, run5k: 1800 })).map(x => x.text).join('\n')).toContain('bests: 5K 30:00');
+  });
+
+  it('keeps every best for intakes from before skipping existed', () => {
+    const old = { ...d(), tested: undefined };
+    expect(bestsOf(old).bench).toBe(80);
+  });
+
+  it('starts a best from what is typical for them', () => {
+    expect(suggestedBest('bench', { sex: 'Female', exp: 'New' })).toBe(20);
+    expect(suggestedBest('bench', { sex: 'Male', exp: '3+ yrs' })).toBe(100);
+    expect(suggestedBest('pullups', { sex: 'Female', exp: 'New' })).toBe(0);
+  });
+
+  it('shows a skipped lift as a dash until one is logged, then starts from it', () => {
+    const none = { bench: null, squat: null, dead: null, pullups: null, run5k: null };
+    const empty = benchmarks([], none);
+    expect(empty.every(b => b.now === '—' && b.pct === 0)).toBe(true);
+    const lifted = benchmarks([{ date: '2026-10-05', plan: 'GYM', done: 3, total: 3, seconds: 2400, sets: [{ exercise: 'Bench press', reps: [5, 5, 5], kg: [40, 40, 40], done: [true, true, true] }] }], none);
+    const bench = lifted.find(b => b.id === 'bench')!;
+    expect(bench.now).not.toBe('—');
+    expect(bench.logged).toBe(true);
+    expect(bench.start).toBe('—');
   });
 });

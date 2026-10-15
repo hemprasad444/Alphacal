@@ -4,6 +4,7 @@
 import { CHARACTERS, characterOf, greeting, hasVoice, speakVoice } from '@rei/shared';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { File, Paths } from 'expo-file-system';
+import { Platform } from 'react-native';
 import { fb, functionsUrl } from './firebase';
 import { premiumVoice, previewVoice } from './voice';
 
@@ -18,6 +19,8 @@ const hash = (s: string) => {
 };
 
 async function make(id: string, text: string, name: string): Promise<File | null> {
+  // No file storage in the web preview: it streams the greeting instead.
+  if (Platform.OS === 'web') return null;
   try {
     if (!(await premiumVoice())) return null;
     const file = new File(Paths.cache, name);

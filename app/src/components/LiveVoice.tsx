@@ -11,7 +11,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { hhmm, mealIndex, memoryKind, type Message, parseWorkout, splitLead, stripTags, todayLine, vowChange } from '@rei/shared';
+import { hhmm, isoDate, mealIndex, memoryKind, type Message, parseWorkout, shouldLogMeal, shouldLogWorkout, splitLead, workoutLog, stripTags, todayLine, vowChange } from '@rei/shared';
 import { Backdrop } from './Backdrop';
 import { Core, Wave } from './Core';
 import { Icon } from './icons';
@@ -24,18 +24,30 @@ import { type Store, useStore } from '../state/store';
 type Params = Record<string, unknown>;
 
 const n = (v: unknown) => Math.max(0, Math.round(Number(v) || 0));
+/**
+ * Appended to what a tool tells REI: after a tool call the live model otherwise talks only about the
+ * tool (the meal) and skips the rest of what they said ("it was awesome" after "how was the movie?").
+ */
+const AND_THE_REST = ' Before talking about this, react to anything else they just said, an answer to your question included.';
 
-/** What REI can do mid-conversation. Each returns a line the agent hears back. */
-function tools(store: RefObject<Store>) {
+/**
+ * What REI can do mid-conversation. Each returns a line the agent hears back. `heard` is what they
+ * said last on this call, so a meal from earlier in the day isn't logged a second time.
+ */
+function tools(store: RefObject<Store>, heard: RefObject<string>) {
   return {
     log_meal: (p: Params) => {
       const name = String(p.name ?? '').trim().slice(0, 60);
       if (!name || !n(p.kcal)) return 'Not logged: need a meal name and calories.';
       const fib = Number(p.fiber);
       const meal = { time: hhmm(), name, kcal: n(p.kcal), p: n(p.protein), c: n(p.carbs), f: n(p.fat), src: 'ai' as const, ...(fib > 0 && fib < 200 ? { n: { fib: Math.round(fib * 10) / 10 } } : {}) };
+      // Same check as chat: food they're talking about now, and not one already in today's log.
+      const said = heard.current ?? '';
+      const check = said ? shouldLogMeal(said, meal, store.current.meals, hhmm()) : { ok: true };
+      if (!check.ok) return check.why === 'already logged' ? `Not logged: ${name} is already in today's log. Ask if they had it again.` : 'Not logged: they didn’t say they ate that just now. Ask before logging it.';
       store.current.repeatMeal(meal);
       // The agent's prompt was written at the start; hand it the new totals so it never works from stale numbers.
-      return `Logged ${name}, ${meal.kcal} kcal. ${todayLine(store.current.profile, [...store.current.meals, meal])}`;
+      return `Logged ${name}, ${meal.kcal} kcal. ${todayLine(store.current.profile, [...store.current.meals, meal])}${AND_THE_REST}`;
     },
     remove_meal: (p: Params) => {
       const meals = store.current.meals;
@@ -48,20 +60,24 @@ function tools(store: RefObject<Store>) {
     log_workout: (p: Params) => {
       const w = parseWorkout(p);
       if (!w) return 'Not logged: need what they did and for how long.';
+      // Already saved today (the sets in the app, or earlier on this call): don't log it twice.
+      const today = store.current.sessions.filter(x => x.date === isoDate());
+      const check = shouldLogWorkout(heard.current ?? '', workoutLog(w, { date: isoDate(), plan: null, kg: 0, now: 0 }), today);
+      if (!check.ok) return `Not logged again: today's ${w.name || w.kind} is already in the log.${AND_THE_REST}`;
       store.current.logWorkout(w);
-      return `Logged ${w.name || w.kind}, ${w.minutes} min${w.km ? `, ${w.km} km` : ''}. Today counts as trained.`;
+      return `Logged ${w.name || w.kind}, ${w.minutes} min${w.km ? `, ${w.km} km` : ''}. Today counts as trained.${AND_THE_REST}`;
     },
     update_vow: (p: Params) => {
       const change = vowChange(p.field, p.value);
       if (!change) return 'Not changed: that value isn’t valid.';
       store.current.setProfileField(change[0], change[1]);
-      return `Updated ${change[0]} to ${change[1]}. ${todayLine({ ...store.current.profile, [change[0]]: change[1] }, store.current.meals)}`;
+      return `Updated ${change[0]} to ${change[1]}. ${todayLine({ ...store.current.profile, [change[0]]: change[1] }, store.current.meals)}${AND_THE_REST}`;
     },
     remember: (p: Params) => {
       const fact = String(p.fact ?? '').trim().slice(0, 160);
       if (fact.length < 3) return 'Nothing to remember.';
       store.current.remember(fact, memoryKind(p.kind));
-      return 'Remembered.';
+      return `Remembered.${AND_THE_REST}`;
     },
     rebuild_program: (p: Params) => {
       store.current.rebuildProgram(typeof p.focus === 'string' ? p.focus.slice(0, 200) : undefined).catch(() => {});
@@ -172,6 +188,7 @@ function Live() {
   const [attempt, setAttempt] = useState(0);
   // Tools, callbacks and the watchdog outlive renders, so they read through refs.
   const store = useRef<Store>(s);
+  const heard = useRef('');
   const connectedNow = useRef(connected);
   useEffect(() => {
     store.current = s;
@@ -236,12 +253,14 @@ function Live() {
             next[i] = { ...l[i], text };
             return next;
           });
+          // What they just said, for the meal check (their last two lines).
+          if (final && who === 'user') heard.current = `${heard.current.split('\n').slice(-1)[0]}\n${text}`.trim();
           // Finished lines go into the chat history too, like any other conversation.
           if (final) store.current.appendMessages([{ id: newId(), role: who, text, time: hhmm(), createdAt: Date.now() }]);
         };
         if (data.engine === 'livekit') {
           setLk({ on: true, connected: false, speaking: false });
-          const stop = await startLiveKit(data, tools(store), {
+          const stop = await startLiveKit(data, tools(store, heard), {
             log,
             onText: addText,
             onState: (c, sp) => {
@@ -259,7 +278,7 @@ function Live() {
           conversationToken: data.token,
           connectionType: 'webrtc',
           overrides: { agent: { prompt: { prompt: data.prompt }, firstMessage: data.firstMessage }, tts: { voiceId: data.voiceId } },
-          clientTools: tools(store),
+          clientTools: tools(store, heard),
           onMessage: ({ message, role }) => addText(role === 'agent' ? 'agent' : 'user', newId(), message, true),
           onStatusChange: ({ status: st }) => log(`status ${st}`),
           onConnect: () => log('connected'),

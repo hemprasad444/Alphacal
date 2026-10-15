@@ -60,7 +60,7 @@ export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET, 
     usage.set({ voice: FieldValue.increment(1) }, { merge: true }).catch(e => logger.warn('usage write failed', e));
     const data = await loadUser(uid);
     const ctx = reiContext(data.input);
-    const flow = thread(data.messages);
+    const flow = thread(data.messages, Date.now(), data.timeZone);
     const prompt = `${agentPrompt(ctx)}\n\n${continuityNote(flow)}`;
     const session = {
       prompt,
@@ -97,7 +97,7 @@ export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET, 
   const { token } = (await res.json()) as { token?: string };
   if (!token) throw new HttpsError('unavailable', 'Live voice is unavailable right now.');
   const ctx = reiContext(data.input);
-  const flow = thread(data.messages);
+  const flow = thread(data.messages, Date.now(), data.timeZone);
   const prompt = `${agentPrompt(ctx)}\n\n${continuityNote(flow)}${historyBlock(recentTurns(data.messages))}`;
   const firstMessage = await opener(prompt, flow, ctx, '');
   logger.info('voiceSession', { uid, engine, ms: Date.now() - t0, used: used + 1, gap: flow.gap });
@@ -110,7 +110,7 @@ export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET, 
   };
 });
 
-const OPENER = `They just opened a live voice call with you. Write ONLY your first spoken line: 4 to 16 words, in your personality. Follow the CONVERSATION note first: if it's your first conversation, start by introducing yourself as REI; if they've been away for days, call out the gap first; if it's the same conversation, carry on mid-thread. Then mention one concrete thing: what they said last, or what's open today (protein left, tonight's session, a meal not logged). Never "how are you", "what's up" or "what's good". Plain words, at most one audio tag like [laughs].`;
+const OPENER = `They just opened a live voice call with you. Write ONLY your first spoken line: 4 to 16 words, in your personality. In this order: 1) If the CONVERSATION note has an OPEN PLAN, ask how it went; it has already happened, so never wish them luck or tell them to enjoy it. 2) If it's your first conversation, introduce yourself as REI. 3) If they've been away for days, call out the gap. 4) Otherwise pick up what they said last. Bring up food, protein or today's session only when nothing above applies. Never "how are you", "what's up" or "what's good". Plain words, at most one audio tag like [laughs].`;
 
 /**
  * REI's first line for a call, written for this moment by the fast live model (~0.5 s, while the

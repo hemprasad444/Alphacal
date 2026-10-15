@@ -62,6 +62,12 @@ export function useAccount() {
         setAccount(a => ({ ...a, status: 'unverified', uid: user.uid, email: user.email }));
         return;
       }
+      // Just verified, but this token predates it: refresh first (this listener runs again), so
+      // activation isn't refused with "verify your email first".
+      if (token.claims.email_verified !== true) {
+        await user.getIdToken(true).catch(() => {});
+        return;
+      }
       // First sign-in on this account: ask the backend for the tester claim, then
       // refresh the token, which fires this listener again with the claim set.
       try {

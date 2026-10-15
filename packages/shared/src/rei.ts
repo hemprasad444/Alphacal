@@ -50,11 +50,11 @@ const BRO = `You are REI (零, "zero", as in zero excuses), living in one person
 
 export function systemRules(o: { tough: boolean; nudge: boolean; tools: boolean; voice?: boolean; bro?: boolean; actions?: string }): string {
   const actions = o.actions ?? (o.tools
-    ? `If the user reports eating something, react to how it fits the remaining budget (numbers after this meal), then call log_meal with one item per food. For a food on the Food list, use its id and one of its portions or grams, and take its numbers from the list. For anything else use food_id "none" and estimate realistically for Indian home portions unless they say otherwise.
-If the user explicitly asks to change their goal, deadline, a stat or target, or their usual training time or bedtime, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it), then call update_vow with only the fields that change.
+    ? `If the user's latest message says they ate or are eating something, react to how it fits the remaining budget (numbers after this meal), then call log_meal with one item per food. Only food from their latest message: everything earlier in the conversation has already been handled, and today's meals are already logged, so never log any of those again (unless they say they had it again). Don't turn a message about something else into a food lecture. For a food on the Food list, use its id and one of its portions or grams, and take its numbers from the list. For anything else use food_id "none" and estimate realistically for Indian home portions unless they say otherwise.
+If the user explicitly asks to change their goal, deadline, a stat or target, or their usual training time or bedtime, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it), then call update_vow with only the fields that change. When they tell you what they weighed today ("weighed 83.5 this morning"), call update_vow with that weight: it's their weigh-in.
 If the user says they trained, played a sport, ran, walked or cycled today, react to it, then call log_workout once per activity with their minutes (and distance when they give one). Don't log plans or past days, only what they did today.
 When they tell you a lasting fact about themselves (diet or allergies, an injury or health condition, their schedule, the equipment they have, what they love or hate doing, a life constraint), call remember with a short third-person note. Not moods, today's numbers or one-off plans. If something you remember stops being true, call forget with its id. Respect what you remember in every answer: never suggest food they don't eat or a movement their injury rules out.
-Always write your complete reply first; a tool call ends your turn. Never mention the tools.`
+Always write your complete reply first; a tool call ends your turn. Never mention the tools. Never say you've logged, changed, saved or remembered something unless you make that call in this same reply.`
     : `If the user reports eating something, estimate its macros realistically, react to how it fits the remaining budget (numbers after this meal), and append a final line exactly: MEAL {"name":"short name","kcal":n,"p":n,"c":n,"f":n}.
 If the user explicitly asks to change their goal, deadline, or a stat/target, reply briefly (if they're lowering the bar to dodge effort, say so once, but respect it) and append a final line exactly: UPDATE {json} using only these keys: goal (string), deadline (YYYY-MM-DD), weight, targetWeight, bf, targetBf, kcal, protein, carbs, fat, steps, sleep, sessions (numbers), sessionTime, bedtime (HH:MM).`);
   const persona = o.bro
@@ -162,6 +162,39 @@ export function applyUpdate(profile: Profile, upd: ParsedReply['upd']): { profil
   return { profile: next, note: 'VOW UPDATED · ' + keys.map(k => PROFILE_LABELS[k]).join(' · ') };
 }
 
+/**
+ * A reply that says something twice in a row, said once: a repeated line, or a repeated run of
+ * sentences ("How was Dune? Worth the hype? How was Dune? Worth the hype?"). Models do this now and then.
+ */
+export function dropRepeats(text: string): string {
+  const norm = (l: string) => l.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  // Two drafts of one reply, one after the other, open the same way: keep the first.
+  const opening = (l: string) => norm(l).split(' ').slice(0, 5).join(' ');
+  const lines: string[] = [];
+  for (const line of text.split('\n')) {
+    const prev = [...lines].reverse().find(l => l.trim());
+    if (line.trim() && prev !== undefined && (norm(prev) === norm(line) || (opening(line).split(' ').length === 5 && opening(prev) === opening(line)))) continue;
+    lines.push(line);
+  }
+  return lines
+    .map(line => {
+      const parts = line.split(/(?<=[.!?])\s+/);
+      for (let k = Math.floor(parts.length / 2); k >= 1; k--) {
+        for (let i = 0; i + 2 * k <= parts.length; i++) {
+          const a = parts.slice(i, i + k).map(norm).join(' '), b = parts.slice(i + k, i + 2 * k).map(norm).join(' ');
+          if (a && a === b) {
+            parts.splice(i + k, k);
+            i--;
+          }
+        }
+      }
+      return parts.join(' ');
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /** Rough macro guess for when REI is offline. */
 export function estimateMeal(text: string): MealEstimate {
   const s = text.toLowerCase();
@@ -212,7 +245,7 @@ export function offlineReply(text: string, x: Pick<ReiContext, 'profile' | 'nutr
   if (/left|what.*today|status/.test(s)) {
     const pL = Math.max(0, num(x.profile.protein) - x.nutrition.protein);
     const stepsL = Math.max(0, num(x.profile.steps) - (x.nutrition.steps ?? 0));
-    return `${x.todayLine}. ${pL} g protein. ${stepsL.toLocaleString('en-US')} steps. Bed by 23:30. Four things. None of them optional.`;
+    return `${x.todayLine}. ${pL} g protein. ${stepsL.toLocaleString('en-US')} steps. Bed by ${x.profile.bedtime || '23:00'}. Four things. None of them optional.`;
   }
   return tough
     ? 'Noted. Now stop talking to me and go do the thing you already know you need to do.'

@@ -84,7 +84,7 @@ describe('offlineReply', () => {
   it('uses the real sleep and today line', () => {
     const x = { profile: DEFAULT_PROFILE, nutrition: nu(), tough: true, todayLine: 'Pull session at 18:30' };
     expect(offlineReply("I'm too tired", x)).toContain('You slept 6 hours');
-    expect(offlineReply("What's left today?", x)).toBe('Pull session at 18:30. 78 g protein. 5,788 steps. Bed by 23:30. Four things. None of them optional.');
+    expect(offlineReply("What's left today?", x)).toBe('Pull session at 18:30. 78 g protein. 5,788 steps. Bed by 23:00. Four things. None of them optional.');
   });
 });
 
@@ -125,5 +125,25 @@ describe('memory', () => {
     expect(forgetMemory(list, ['a']).list.map(m => m.id)).toEqual(['b']);
     expect(memoryLines(list)).toBe('[a] (schedule) Trains at 6 am\n[b] (preference) Hates running');
     expect(readMemory([...list, { nope: 1 }, null, { id: 'c', text: 'x', kind: 'weird', source: 'admin' }])).toEqual([...list, { id: 'c', text: 'x', kind: 'life', source: 'rei', createdAt: 0 }]);
+  });
+});
+
+describe('dropRepeats', () => {
+  const { dropRepeats } = jest.requireActual('../rei') as typeof import('../rei');
+  it('says a repeated line once', () => {
+    expect(dropRepeats('How’d legs go, Hem? Give me the damage.\nHow’d legs go, Hem? Give me the damage.')).toBe('How’d legs go, Hem? Give me the damage.');
+    expect(dropRepeats('Nice.\n\nNice!\nNow eat.')).toBe('Nice.\n\nNow eat.');
+  });
+  it('keeps the first of two drafts that open the same way', () => {
+    expect(dropRepeats('85 for 5, hell yeah Hem. That’s strong work. How’d the rest of push day go?\n85 for 5, hell yeah Hem. Strong work. How long was the session?')).toBe('85 for 5, hell yeah Hem. That’s strong work. How’d the rest of push day go?');
+    expect(dropRepeats('Eat now.\nEat now and sleep.')).toBe('Eat now.\nEat now and sleep.');
+  });
+  it('says a repeated run of sentences on one line once', () => {
+    expect(dropRepeats('How was Dune 3 with the boys? Was it worth the hype? How was Dune 3 with the boys? Was it worth the hype?')).toBe('How was Dune 3 with the boys? Was it worth the hype?');
+    expect(dropRepeats('Nice. Nice. Now eat.')).toBe('Nice. Now eat.');
+    expect(dropRepeats('Eat. Train. Sleep.')).toBe('Eat. Train. Sleep.');
+  });
+  it('keeps different lines and repeats that are not next to each other', () => {
+    expect(dropRepeats('Eat.\nTrain.\nEat.')).toBe('Eat.\nTrain.\nEat.');
   });
 });

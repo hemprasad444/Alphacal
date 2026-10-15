@@ -20,7 +20,7 @@ const itemsProp = {
     properties: {
       food_id: { type: 'string', description: 'The id from the Food list, or "none" when it is not on the list' },
       name: { type: 'string', description: 'Short name of this food' },
-      qty: { type: 'number', description: 'How many of `unit`, e.g. 2 (rotis) or 150 (g)' },
+      qty: { type: 'number', description: 'How many of `unit`: 2 with unit "roti" is two rotis; 150 with unit "g" is 150 grams. Never grams with a portion unit (100 "banana" means a hundred bananas).' },
       unit: { type: 'string', description: 'One of the food’s listed portions, or "g". For foods not on the list: "serving", "katori", "piece" or "g"' },
       kcal: { type: 'integer', description: 'Your estimate for this amount' },
       p: { type: 'integer' },
@@ -74,7 +74,7 @@ export const logWorkoutTool: Tool = {
 
 export const updateVowTool: Tool = {
   name: 'update_vow',
-  description: 'Change the user’s goal, deadline, body stats or daily targets when they explicitly ask. Include only fields that change.',
+  description: 'Change the user’s goal, deadline, body stats or daily targets when they explicitly ask, and record their weight whenever they tell you what they weighed today. Include only fields that change.',
   input_schema: {
     type: 'object',
     properties: {

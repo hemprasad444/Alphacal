@@ -52,6 +52,25 @@ describe('program-aware plans', () => {
 });
 
 describe('programPrompt', () => {
+  it('never uses the demo numbers; a beginner without bests starts light', () => {
+    const { user } = programPrompt({ profile: { ...DEFAULT_PROFILE, weight: '58' }, disciplines: ['Strength'], logs: [], adherence: { kept: 0, planned: 3 }, week: '2026-W41',
+      athlete: { sex: 'Female', age: '24', height: '162', exp: 'New' }, bests: { bench: null, squat: null, dead: null, pullups: null, run5k: null } });
+    expect(user).not.toMatch(/82\.5|Bench press 82/);
+    expect(user).toContain('About them: female, 24 years old, 162 cm, training age New.');
+    expect(user).toContain('They gave no starting bests');
+    expect(user).toContain('Never prescribe a load above');
+  });
+  it('does not judge adherence in the first week', () => {
+    const { user } = programPrompt({ profile: DEFAULT_PROFILE, disciplines: ['Strength'], logs: [], adherence: { kept: 0, planned: 0 }, week: '2026-W41' });
+    expect(user).toContain('this is their first week');
+    expect(user).not.toContain('Adherence is low');
+  });
+  it('lists only the bests they gave', () => {
+    const { user } = programPrompt({ profile: DEFAULT_PROFILE, disciplines: ['Strength'], logs: [], adherence: { kept: 0, planned: 4 }, week: '2026-W41',
+      bests: { bench: 85, squat: null, dead: null, pullups: null, run5k: 1680 } });
+    expect(user).toContain('Starting bests they gave: bench 85 kg, 5K 28:00.');
+  });
+
   it('mentions low adherence and the request', () => {
     const { user } = programPrompt({ profile: DEFAULT_PROFILE, disciplines: ['Strength'], logs: [], adherence: { kept: 2, planned: 5 }, week: '2026-W41', focus: 'more legs' });
     expect(user).toContain('Adherence is low');

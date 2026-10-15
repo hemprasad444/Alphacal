@@ -54,3 +54,62 @@ describe('voice tags', () => {
     expect(stripTags('[ warm? ] Hey, [laughs] fine.')).toBe('Hey, fine.');
   });
 });
+
+describe('open plans', () => {
+  const { openPlan, thread: th, continuityNote: note, fallbackOpener: fb } = jest.requireActual('../continuity') as typeof import('../continuity');
+  const T = new Date(2026, 8, 21, 22, 45).getTime();
+  const m = (role: 'user' | 'rei', text: string, minAgo: number) => ({ role, text, time: '', createdAt: T - minAgo * 60000 });
+
+  it('finds the plan they left for, even when "ok bye" came after it', () => {
+    const p = openPlan([m('user', 'going to watch Dune 3 with the boys at 7', 275), m('rei', 'Enjoy it.', 274), m('user', 'ok bye', 273)], T);
+    expect(p?.topic).toBe('movie');
+    expect(p?.minutes).toBe(275);
+  });
+
+  it('reaches back past "gotta go prep" to the driving test', () => {
+    const p = openPlan([m('user', 'Got my driving test at 2 pm, wish me luck', 585), m('rei', 'You got this.', 584), m('user', 'gotta go prep', 583)], T);
+    expect(p?.topic).toBe('test');
+    expect(p?.text).toMatch(/driving test/);
+  });
+
+  it('closes the plan once they talk about it', () => {
+    expect(openPlan([m('user', 'going to watch Dune 3 tonight', 300), m('user', 'dune was insane bro', 10)], T)).toBeUndefined();
+  });
+
+  it('ignores ordinary messages and plans older than 36 hours', () => {
+    expect(openPlan([m('user', 'I ate 2 eggs', 60), m('user', 'protein is hard', 30)], T)).toBeUndefined();
+    expect(openPlan([m('user', 'going to a wedding tonight', 40 * 60)], T)).toBeUndefined();
+  });
+
+  it('puts the plan first in REI’s note and the scripted opener', () => {
+    const t = th([m('user', 'Off to my cousin’s wedding tonight, gonna be a long one', 14 * 60)], T, 'Asia/Kolkata');
+    expect(note(t)).toMatch(/OPEN PLAN: .*wedding.*asks how it went.*before anything about food/s);
+    expect(fb(t, { name: 'Hem', bro: true, tough: true, seed: 0 })).toMatch(/How was the wedding/);
+  });
+
+  it('does not ask about a plan made a few minutes ago', () => {
+    const t = th([m('user', 'heading to the gym now, legs day', 10)], T);
+    expect(note(t)).not.toMatch(/OPEN PLAN/);
+  });
+
+  it('works out today and yesterday in the user’s time zone, not the server’s', () => {
+    // 01:30 India on the 22nd is still the 21st in UTC.
+    const now = Date.UTC(2026, 8, 21, 20, 0);
+    const late = { role: 'user' as const, text: 'night', time: '', createdAt: Date.UTC(2026, 8, 21, 14, 0) };
+    expect(th([late], now, 'Asia/Kolkata').gap).toBe('yesterday');
+  });
+});
+
+describe('open plans: asked once', () => {
+  const { openPlan } = jest.requireActual('../continuity') as typeof import('../continuity');
+  const T = new Date(2026, 9, 5, 20, 30).getTime();
+  const m = (role: 'user' | 'rei', text: string, minAgo: number) => ({ role, text, time: '', createdAt: T - minAgo * 60000 });
+  it('stops asking after REI has asked how it went', () => {
+    const msgs = [m('user', 'going to a movie with my friends, Dune 3 at 7. talk later', 26 * 60 + 20), m('rei', 'Enjoy Dune.', 26 * 60 + 19), m('user', 'yo im back', 21 * 60 + 45), m('rei', 'How was the movie?', 21 * 60 + 44)];
+    expect(openPlan(msgs, T)).toBeUndefined();
+  });
+  it('still asks when REI only said enjoy it before they left', () => {
+    const msgs = [m('user', 'going to a movie with my friends at 7', 270), m('rei', 'Enjoy the movie.', 269)];
+    expect(openPlan(msgs, T)?.topic).toBe('movie');
+  });
+});

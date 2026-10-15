@@ -1,0 +1,15 @@
+{
+  "name": "rei-e2e",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests for REI: two users through sign-up, onboarding and 12 simulated days on the Firebase emulators, plus real-AI trials and a live voice call.",
+  "scripts": {
+    "onboard": "TZ=Asia/Kolkata node run-onboard.mjs",
+    "days": "TZ=Asia/Kolkata node run-days.mjs",
+    "isolation": "node isolation.mjs",
+    "same-phone": "TZ=Asia/Kolkata node shared-phone.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

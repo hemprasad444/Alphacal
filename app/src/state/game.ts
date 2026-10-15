@@ -1,7 +1,7 @@
 // The game layer on the device: XP, rank and badges from the store (game.ts in shared does the
 // maths), which badges this account has already celebrated, and posting the week's XP to the board.
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { game, type GameState, isoWeek, newBadges, type GameBadge } from '@rei/shared';
+import { game, type GameState, isoDate, isoWeek, newBadges, type GameBadge } from '@rei/shared';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { postScore } from '../lib/sync';
 import { useStore } from './store';
@@ -56,13 +56,17 @@ export function useGame(): GameState & { fresh: GameBadge[]; ready: boolean; mar
   const uid = useStore(s => s.account.uid), demo = useStore(s => !s.cloud);
   const today = useStore(s => s.day), profile = useStore(s => s.profile), meals = useStore(s => s.meals), sessionDone = useStore(s => s.sessionDone);
   const pastDays = useStore(s => s.pastDays), sessions = useStore(s => s.sessions), weighIns = useStore(s => s.weighIns);
-  const photos = useStore(s => s.photos.length), memory = useStore(s => s.memory.length);
+  const photoList = useStore(s => s.photos), memoryList = useStore(s => s.memory);
+  const photos = photoList.length, memory = memoryList.length;
+  // When each came in, so those badges show the day they were earned.
+  const photoDates = useMemo(() => photoList.map(p => p.date), [photoList]);
+  const memoryDates = useMemo(() => memoryList.map(m => (m.createdAt ? isoDate(new Date(m.createdAt)) : today)), [memoryList, today]);
   const who = demo ? 'demo' : uid ?? 'demo';
   useEffect(() => seen.load(who), [who]);
   const st = useSyncExternalStore(subscribe, getSnap, getSnap);
   const g = useMemo(
-    () => game({ today, profile, meals, sessionDone, pastDays, sessions, weighIns, photos, memory }, st.ids),
-    [today, profile, meals, sessionDone, pastDays, sessions, weighIns, photos, memory, st.ids],
+    () => game({ today, profile, meals, sessionDone, pastDays, sessions, weighIns, photos, memory, photoDates, memoryDates }, st.ids),
+    [today, profile, meals, sessionDone, pastDays, sessions, weighIns, photos, memory, photoDates, memoryDates, st.ids],
   );
   return { ...g, fresh: st.loaded ? newBadges(g, st.ids) : [], ready: st.loaded, markSeen: ids => seen.add(ids) };
 }

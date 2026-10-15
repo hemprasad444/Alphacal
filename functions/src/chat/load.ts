@@ -1,4 +1,4 @@
-import { activityFromDay, type ContextInput, type Food, type MemoryItem, readMemory, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type DayDoc, isoDate, isoWeek, type Message, type Profile, type Settings, type WeekProgram, weekdayIndex, zonedNow } from '@rei/shared';
+import { activityFromDay, type ContextInput, type Food, type MemoryItem, readMemory, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type DayDoc, isoDate, isoWeek, type Message, type Profile, type SessionLog, type Settings, type WeekProgram, weekdayIndex, zonedNow } from '@rei/shared';
 import { FieldPath } from 'firebase-admin/firestore';
 import { db } from '../admin';
 
@@ -14,6 +14,8 @@ export const usageDay = () => new Date().toISOString().slice(0, 10);
 
 export interface Loaded {
   input: ContextInput;
+  /** Training already logged today (to avoid logging the same workout twice from chat). */
+  todaySessions: SessionLog[];
   settings: Settings;
   /** Visible chat, oldest first. */
   messages: Message[];
@@ -36,13 +38,14 @@ export async function loadUser(uid: string): Promise<Loaded> {
   const since = new Date(Date.now() - 8 * 86400000);
   // The user's ISO week depends on their zone; fetch the candidates around now in the same round.
   const weeks = [...new Set([-1, 0, 1].map(d => isoWeek(new Date(Date.now() + d * 86400000))))];
-  const [userSnap, daySnaps, msgSnaps, usage, programSnaps, foodSnaps] = await Promise.all([
+  const [userSnap, daySnaps, msgSnaps, usage, programSnaps, foodSnaps, sessionSnaps] = await Promise.all([
     user.get(),
     user.collection('days').where(FieldPath.documentId(), '>=', isoDate(since)).get(),
     user.collection('messages').orderBy('createdAt', 'desc').limit(HISTORY + 10).get(),
     user.collection('usage').doc(usageDay()).get(),
     db.getAll(...weeks.map(w => user.collection('programs').doc(w))),
     user.collection('foods').limit(MAX_FOODS).get(),
+    user.collection('sessions').where('date', '>=', isoDate(since)).get(),
   ]);
   const u = userSnap.data() ?? {};
   const timeZone: string = typeof u.timezone === 'string' ? u.timezone : 'Asia/Kolkata';
@@ -81,6 +84,7 @@ export async function loadUser(uid: string): Promise<Loaded> {
     memory,
     settings,
     messages: messages.slice(-HISTORY),
+    todaySessions: sessionSnaps.docs.map(d => d.data() as SessionLog).filter(s => s.date === today),
     today,
     timeZone,
     usedToday: Number(usage.data()?.chat ?? 0),

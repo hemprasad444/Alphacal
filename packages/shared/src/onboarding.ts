@@ -102,6 +102,8 @@ export interface Intake {
   pullups: number;
   /** 5K time in seconds. */
   run5k: number;
+  /** Which bests they actually set; the rest were skipped. Missing on intakes from before this existed (all count). */
+  tested?: Partial<Record<BestKey, boolean>>;
   disc: Record<string, boolean>;
   sessions: number;
   length: number;
@@ -133,9 +135,30 @@ export interface Intake {
   photo: boolean;
 }
 
+export type BestKey = 'bench' | 'squat' | 'dead' | 'pullups' | 'run5k';
+export const BEST_KEYS: BestKey[] = ['bench', 'squat', 'dead', 'pullups', 'run5k'];
+
+/** Did they give this best? Old intakes (no `tested`) count everything. */
+export const gaveBest = (d: Pick<Intake, 'tested'>, k: BestKey) => !d.tested || !!d.tested[k];
+
+/** Where a best starts the first time they set it: typical for their sex and training age. */
+export function suggestedBest(k: BestKey, d: Pick<Intake, 'sex' | 'exp'>): number {
+  const lvl = d.exp === 'New' ? 0 : d.exp === '3+ yrs' ? 2 : 1;
+  const man = d.sex !== 'Female';
+  const table: Record<BestKey, [number, number, number][]> = {
+    // [new, 1–3 yrs, 3+ yrs] for men, then women.
+    bench: [[40, 80, 100], [20, 40, 50]],
+    squat: [[60, 100, 140], [35, 60, 80]],
+    dead: [[70, 120, 170], [40, 75, 100]],
+    pullups: [[2, 8, 14], [0, 2, 6]],
+    run5k: [[2100, 1680, 1500], [2340, 1980, 1800]],
+  } as never;
+  return table[k][man ? 0 : 1][lvl];
+}
+
 export const DEFAULT_INTAKE: Intake = {
   name: '', arch: null, goal: 'lean', weeks: 22, why: '', sex: 'Male', height: 178, weight: 81.6, age: 26, bf: 19, waist: 86, targetWeight: 74, targetBf: 12, targetTouched: false,
-  exp: '1–3 yrs', bench: 80, squat: 120, dead: 150, pullups: 9, run5k: 1660,
+  exp: '1–3 yrs', bench: 80, squat: 120, dead: 150, pullups: 9, run5k: 1660, tested: {},
   disc: { Hypertrophy: true, Strength: true, Calisthenics: true, Running: true }, sessions: 5, length: 60, time: 'Evening', equip: { 'Full gym': true, 'Pull-up bar': true },
   job: 'Desk', wake: 405, bed: 1395, stress: 3, steps: 10000,
   diet: 'Non-veg', meals: 4, cook: 'Sometimes', alcohol: 'Weekends', cuisine: { Indian: true }, kcalAdj: 0,
@@ -281,6 +304,15 @@ export function intakeProfile(d: Intake, now: Date): Profile {
   };
 }
 
+/** "bests: bench 60 kg, 5K 31:00", only the ones they gave. */
+function bestsLine(d: Intake): string {
+  const parts = [
+    gaveBest(d, 'bench') && `bench ${d.bench} kg`, gaveBest(d, 'squat') && `squat ${d.squat} kg`, gaveBest(d, 'dead') && `deadlift ${d.dead} kg`,
+    gaveBest(d, 'pullups') && `${d.pullups} pull-ups`, gaveBest(d, 'run5k') && `5K ${mmss(d.run5k)}`,
+  ].filter(Boolean);
+  return parts.length ? `bests: ${parts.join(', ')}` : 'no current bests given yet';
+}
+
 /** Lasting facts REI should always know, from their answers. */
 export function intakeMemory(d: Intake): { kind: MemoryKind; text: string }[] {
   const a = archetypeOf(d);
@@ -291,7 +323,7 @@ export function intakeMemory(d: Intake): { kind: MemoryKind; text: string }[] {
     ...(picked(d.equip).length ? [{ kind: 'equipment' as const, text: `Trains with: ${picked(d.equip).join(', ')}` }] : []),
     { kind: 'schedule', text: `Trains ${d.time.toLowerCase()} (${trainTime(d)}), ${d.length} min, ${d.sessions}× a week; wakes ${clockOf(d.wake)}, bed ${clockOf(d.bed)}; ${d.job.toLowerCase()} job; stress ${d.stress}/5` },
     { kind: 'preference', text: a ? `Ideal physique: ${a.name} (${a.ref})` : 'Ideal physique: their own reference' },
-    { kind: 'life', text: `Training age ${d.exp}; bests: bench ${d.bench} kg, squat ${d.squat} kg, deadlift ${d.dead} kg, ${d.pullups} pull-ups, 5K ${mmss(d.run5k)}` },
+    { kind: 'life', text: `Training age ${d.exp}; ${bestsLine(d)}` },
     ...(picked(d.quit).length ? [{ kind: 'life' as const, text: `Usually quits when: ${picked(d.quit).join(', ').toLowerCase()}` }] : []),
   ];
   if (d.why.trim()) facts.push({ kind: 'life', text: `Why it matters: ${d.why.trim()}` });

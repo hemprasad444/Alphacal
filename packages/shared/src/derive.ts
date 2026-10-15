@@ -117,11 +117,13 @@ export interface Hero {
   parts: { t: string; hl?: boolean }[];
 }
 
-export function hero(w: Week, plan: SessionPlan | null, sessionDone: boolean, tough: boolean, proteinLeft: number, stepsTarget: number): Hero {
+/** `times`: their own training time and bedtime (the profile's), so REI never quotes someone else's schedule. */
+export function hero(w: Week, plan: SessionPlan | null, sessionDone: boolean, tough: boolean, proteinLeft: number, stepsTarget: number, times: { session?: string; bed?: string; lateMin?: number } = {}): Hero {
+  const at = times.session || SESSION_TIME, bed = times.bed || '23:00';
   if (!plan) {
     return {
       tag: 'RECOVERY', tone: 'acc',
-      parts: [{ t: 'Rest day. ' }, { t: 'Recovery is training too.', hl: true }, { t: ` ${stepsTarget.toLocaleString('en-US')} steps, protein, bed by 23:30.` }],
+      parts: [{ t: 'Rest day. ' }, { t: 'Recovery is training too.', hl: true }, { t: ` ${stepsTarget.toLocaleString('en-US')} steps, protein, bed by ${bed}.` }],
     };
   }
   const n = w.missed;
@@ -129,8 +131,8 @@ export function hero(w: Week, plan: SessionPlan | null, sessionDone: boolean, to
     return {
       tag: 'CALL-OUT', tone: 'alert',
       parts: tough
-        ? [{ t: 'You said this mattered. ' }, { t: `${word(n)} ${plural(n, 'session', 'sessions')} missed`, hl: true }, { t: ` this week. Stop negotiating with yourself. ${plan.title} day. Tonight, ${SESSION_TIME}.` }]
-        : [{ t: `${word(n)} ${plural(n, 'session', 'sessions')} slipped this week. ` }, { t: 'Tonight decides the week.', hl: true }, { t: ` ${plan.title} day at ${SESSION_TIME}. ${plan.minutes} minutes, that’s all I’m asking.` }],
+        ? [{ t: 'You said this mattered. ' }, { t: `${word(n)} ${plural(n, 'session', 'sessions')} missed`, hl: true }, { t: ` this week. Stop negotiating with yourself. ${plan.title} day, ${at}.` }]
+        : [{ t: `${word(n)} ${plural(n, 'session', 'sessions')} slipped this week. ` }, { t: 'Tonight decides the week.', hl: true }, { t: ` ${plan.title} day at ${at}. ${plan.minutes} minutes, that’s all I’m asking.` }],
     };
   }
   if (n > 0 && proteinLeft === 0) {
@@ -138,7 +140,7 @@ export function hero(w: Week, plan: SessionPlan | null, sessionDone: boolean, to
       tag: 'ACKNOWLEDGED', tone: 'acc',
       parts: tough
         ? [{ t: 'Good. That\u2019s one back and ' }, { t: 'protein is hit.', hl: true }, { t: ` The week is still ${word(n).toLowerCase()} down. Don\u2019t celebrate yet.` }]
-        : [{ t: 'Strong session, and ' }, { t: 'protein is hit.', hl: true }, { t: ' Bed by 23:30 and the week is back on track.' }],
+        : [{ t: 'Strong session, and ' }, { t: 'protein is hit.', hl: true }, { t: ` Bed by ${bed} and the week is back on track.` }],
     };
   }
   if (n > 0) {
@@ -149,6 +151,15 @@ export function hero(w: Week, plan: SessionPlan | null, sessionDone: boolean, to
         : [{ t: 'Strong session. ' }, { t: `${proteinLeft} g of protein`, hl: true }, { t: ' left. Make dinner count and the week is back on track.' }],
     };
   }
+  // Hours past the session time and not done: it isn't "clean so far" any more.
+  if (!sessionDone && (times.lateMin ?? 0) >= 180) {
+    return {
+      tag: 'CALL-OUT', tone: 'alert',
+      parts: tough
+        ? [{ t: `${plan.title} was due at ${at}. ` }, { t: 'It’s still not done.', hl: true }, { t: ' Get it in tonight, even a short version, or tell me what happened.' }]
+        : [{ t: `${plan.title} was due at ${at}. ` }, { t: 'There’s still time today.', hl: true }, { t: ` A ${Math.min(plan.minutes, 30)}-minute version keeps the week clean.` }],
+    };
+  }
   if (!sessionDone) {
     return {
       tag: 'ON TRACK', tone: 'acc',
@@ -157,7 +168,7 @@ export function hero(w: Week, plan: SessionPlan | null, sessionDone: boolean, to
   }
   return {
     tag: 'ON TRACK', tone: 'acc',
-    parts: [{ t: `${word(w.done)} for ${word(w.done).toLowerCase()}. ` }, { t: 'This is the version of you we agreed on.', hl: true }, { t: ' Protein, then bed by 23:30.' }],
+    parts: [{ t: `${word(w.done)} for ${word(w.done).toLowerCase()}. ` }, { t: 'This is the version of you we agreed on.', hl: true }, { t: ` Protein, then bed by ${bed}.` }],
   };
 }
 
@@ -209,28 +220,38 @@ export function trajectory(profile: Profile, missed: number, now: Date = new Dat
   const history = [...past.slice(-11).map(x => x.kg), w];
   const deadline = parseIsoDate(profile.deadline);
   const daysLeft = deadline ? Math.max(0, daysBetween(now, deadline)) : 0;
-  const reqPace = daysLeft ? (w - tw) / (daysLeft / 7) : 0;
+  // Losing (target below where they started) or gaining (bulking): paces count towards the target.
+  const startKg = past[0]?.kg ?? w;
+  const dir = tw < startKg ? -1 : 1;
+  const verb = dir < 0 ? 'Losing' : 'Gaining';
+  const reqPace = daysLeft ? ((tw - w) * dir) / (daysLeft / 7) : 0;
   const cutoff = new Date(now);
   cutoff.setDate(now.getDate() - 28);
   const base = past.find(x => x.date >= isoDate(cutoff)) ?? past[past.length - 1];
   const span = base ? daysBetween(parseIsoDate(base.date) ?? now, now) : 0;
-  const curPace = base && span >= 7 ? (base.kg - w) / (span / 7) : 0;
+  const curPace = base && span >= 7 ? ((w - base.kg) * dir) / (span / 7) : 0;
   const behind = curPace < reqPace;
   let eta = 'NO TREND', etaAlert = true, note: string;
-  if (w <= tw) {
+  if ((dir < 0 && w <= tw) || (dir > 0 && w >= tw)) {
     eta = 'TARGET HIT';
     etaAlert = false;
     note = 'You’re at the target weight. Now hold it while the lifts climb.';
+  } else if (!base || span < 7) {
+    // Under a week of weigh-ins: there's no trend yet, so don't claim one.
+    etaAlert = false;
+    note = `You need ${reqPace.toFixed(2)} kg a week. Weigh in a few mornings this week and I’ll show your trend.`;
   } else if (curPace > 0) {
-    const etaDate = new Date(now.getTime() + ((w - tw) / curPace) * 7 * 86400000);
+    const etaDate = new Date(now.getTime() + ((Math.abs(tw - w)) / curPace) * 7 * 86400000);
     const diffWeeks = deadline ? Math.round(daysBetween(deadline, etaDate) / 7) : 0;
     eta = `ETA ${monthDay(etaDate)} · ${diffWeeks > 0 ? `+${diffWeeks} WK` : diffWeeks < 0 ? 'AHEAD' : 'ON PACE'}`;
     etaAlert = diffWeeks > 0;
     note = behind
       ? `You need ${reqPace.toFixed(2)} kg a week. Last month averaged ${curPace.toFixed(2)}.${missed ? ' Missed sessions are why.' : ''}`
-      : `Losing ${curPace.toFixed(2)} kg a week. Hold this and you arrive ${Math.max(1, -Math.round(daysBetween(deadline ?? now, etaDate)))} days early.`;
+      : `${verb} ${curPace.toFixed(2)} kg a week. Hold this and you arrive ${Math.max(1, -Math.round(daysBetween(deadline ?? now, etaDate)))} days early.`;
   } else {
-    note = `You need ${reqPace.toFixed(2)} kg a week and the scale hasn’t moved this month. Tighten the food first.`;
+    note = dir < 0
+      ? `You need ${reqPace.toFixed(2)} kg a week and the scale hasn’t moved the right way. Tighten the food first.`
+      : `You need to gain ${reqPace.toFixed(2)} kg a week and the scale isn’t moving up. Eat more, starting with carbs around training.`;
   }
   return { weight: w, target: tw, history, reqPace, curPace, behind, daysLeft, eta, etaAlert, note };
 }

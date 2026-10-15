@@ -142,7 +142,8 @@ export async function complete(o: CompleteOpts): Promise<LlmResult> {
     const ch = c.choices?.[0];
     if (!ch) return;
     if (ch.finish_reason) finish = ch.finish_reason;
-    const d = ch.delta ?? ch.message;
+    // Streamed, the text comes in deltas only; a full `message` as well would repeat it.
+    const d = o.onText ? ch.delta : (ch.delta ?? ch.message);
     if (d?.content) {
       text += d.content;
       if (o.onText && ch.delta) o.onText(d.content);
@@ -153,7 +154,7 @@ export async function complete(o: CompleteOpts): Promise<LlmResult> {
       if (t.function?.name) calls[k].name += t.function.name;
       if (t.function?.arguments) calls[k].args += t.function.arguments;
     }
-    for (const t of ch.message?.tool_calls ?? []) calls.push({ name: t.function.name, args: t.function.arguments });
+    if (!o.onText) for (const t of ch.message?.tool_calls ?? []) calls.push({ name: t.function.name, args: t.function.arguments });
   };
 
   if (o.onText && res.body) {

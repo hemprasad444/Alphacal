@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ARCHETYPES, bondLine, CHAPTERS, CHARACTERS, characterOf, clockOf, deadlineOf, DEFAULT_INTAKE, fuel, goalOf, GOALS, greeting, hasVoice, type Intake, mmss, nameOf, pactRows, reiLine, shortDate,
+  ARCHETYPES, type BestKey, bondLine, gaveBest, suggestedBest, CHAPTERS, CHARACTERS, characterOf, clockOf, deadlineOf, DEFAULT_INTAKE, fuel, goalOf, GOALS, greeting, hasVoice, type Intake, mmss, nameOf, pactRows, reiLine, shortDate,
   sleepHours, STEPS, suggestedTarget, TONES, toneSample, trainTime, vowSentence, weeklyRate,
 } from '@rei/shared';
 import { Icon, type IconKey } from '../components/icons';
@@ -421,9 +421,22 @@ function ScrubOf({ k, d, onChange, acc }: { k: keyof typeof SCRUB; d: Intake; on
   return <Scrub label={c.label} unit={c.unit} value={d[k]} step={c.step} min={c.min} max={c.max} dp={c.dp} onChange={onChange} acc={acc} />;
 }
 
-const stepper = (d: Intake, set: SetFn, k: 'age' | 'waist' | 'bench' | 'squat' | 'dead' | 'pullups' | 'run5k' | 'wake' | 'bed' | 'steps', label: string, unit: string, step: number, min: number, max: number, show?: (v: number) => string) => {
+const stepper = (d: Intake, set: SetFn, k: 'age' | 'waist' | 'wake' | 'bed' | 'steps', label: string, unit: string, step: number, min: number, max: number, show?: (v: number) => string) => {
   const v = d[k], clamp = (x: number) => Math.min(max, Math.max(min, +x.toFixed(2)));
   return { label, unit, value: show ? show(v) : String(v), minus: () => set(k, clamp(v - step)), plus: () => set(k, clamp(v + step)) };
+};
+
+/** A best from the power chapter: "—" until they set it; the first tap starts from what's typical for them. */
+const best = (d: Intake, set: SetFn, k: BestKey, label: string, unit: string, step: number, min: number, max: number, show?: (v: number) => string) => {
+  const on = gaveBest(d, k), v = d[k];
+  const clamp = (x: number) => Math.min(max, Math.max(min, +x.toFixed(2)));
+  const go = (dv: number) => {
+    if (!on) {
+      set(k, suggestedBest(k, d));
+      set('tested', { ...d.tested, [k]: true });
+    } else set(k, clamp(v + dv));
+  };
+  return { label, unit: on ? unit : '', value: on ? (show ? show(v) : String(v)) : '—', minus: () => go(-step), plus: () => go(step) };
 };
 
 function BodyStep({ d, set, acc }: StepProps) {
@@ -474,11 +487,11 @@ function PowerStep({ d, set, acc }: StepProps) {
   return (
     <>
       <Block i={0} label="TRAINING AGE" acc={acc}><Seg value={d.exp} opts={[['New', 'New'], ['1–3 yrs', '1–3 yrs'], ['3+ yrs', '3+ yrs']]} onPick={v => set('exp', v)} acc={acc} /></Block>
-      <Block i={1} label="CURRENT BESTS · SKIP WHAT YOU DON’T DO" acc={acc}>
+      <Block i={1} label="CURRENT BESTS · TAP + TO SET · SKIP THE REST" acc={acc}>
         <Nums items={[
-          stepper(d, set, 'bench', 'BENCH', 'kg', 2.5, 0, 300), stepper(d, set, 'squat', 'SQUAT', 'kg', 2.5, 0, 400),
-          stepper(d, set, 'dead', 'DEADLIFT', 'kg', 2.5, 0, 450), stepper(d, set, 'pullups', 'PULL-UPS', 'reps', 1, 0, 60),
-          stepper(d, set, 'run5k', '5K RUN', '', 15, 900, 3600, mmss),
+          best(d, set, 'bench', 'BENCH', 'kg', 2.5, 0, 300), best(d, set, 'squat', 'SQUAT', 'kg', 2.5, 0, 400),
+          best(d, set, 'dead', 'DEADLIFT', 'kg', 2.5, 0, 450), best(d, set, 'pullups', 'PULL-UPS', 'reps', 1, 0, 60),
+          best(d, set, 'run5k', '5K RUN', '', 15, 900, 3600, mmss),
         ]} />
       </Block>
     </>

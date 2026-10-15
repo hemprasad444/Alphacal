@@ -1,5 +1,6 @@
 // REI writing the week: the output schema, the prompt, and validation of what comes back.
-import { BENCHMARKS, type SessionKey, type SessionPlan, type WeekProgram } from './data';
+import type { Bests } from './benchmarks';
+import { type SessionKey, type SessionPlan, type WeekProgram } from './data';
 import { pace, records } from './strength';
 import type { Profile, SessionLog } from './types';
 
@@ -135,6 +136,27 @@ export interface ProgramInput {
   report?: string;
   /** Lasting facts: injuries, equipment, schedule, likes and dislikes. */
   memory?: string;
+  /** Who they are, from onboarding. */
+  athlete?: { sex?: string; age?: string; height?: string; exp?: string };
+  /** Starting bests from onboarding; null where they skipped one. Undefined when unknown (older accounts). */
+  bests?: Bests;
+}
+
+const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+
+/** Their own starting point, never someone else's: what they told us, or that they told us nothing. */
+function startingPoint(i: ProgramInput): string {
+  const a = i.athlete;
+  const who = a ? [a.sex?.toLowerCase(), a.age && `${a.age} years old`, a.height && `${a.height} cm`, a.exp && `training age ${a.exp}`].filter(Boolean).join(', ') : '';
+  const lines = who ? [`About them: ${who}.`] : [];
+  if (i.bests) {
+    const b = i.bests;
+    const given = [b.bench != null && `bench ${b.bench} kg`, b.squat != null && `squat ${b.squat} kg`, b.dead != null && `deadlift ${b.dead} kg`, b.pullups != null && `${b.pullups} pull-ups`, b.run5k != null && `5K ${mmss(b.run5k)}`].filter(Boolean);
+    lines.push(given.length
+      ? `Starting bests they gave: ${given.join(', ')}. Lifts not listed are unknown: start those light.`
+      : 'They gave no starting bests. Assume nothing: start every lift light (empty bar or light dumbbells), coach the form, and let their logged sets set the loads from here.');
+  }
+  return lines.join('\n');
 }
 
 export function programPrompt(i: ProgramInput): { system: string; user: string } {
@@ -144,10 +166,10 @@ export function programPrompt(i: ProgramInput): { system: string; user: string }
     user: `Write the plan for ${i.week} (Monday first, exactly 7 days).
 Goal (their words): "${p.goal}". Deadline ${p.deadline}. Weight ${p.weight} kg → ${p.targetWeight} kg, body fat ${p.bf}% → ${p.targetBf}%.
 Train ${p.sessions} days; the rest are rest days. Disciplines: ${i.disciplines.join(', ') || 'general fitness'}.
-Benchmarks now → goal: ${BENCHMARKS.map(([n, now, goal]) => `${n} ${now} → ${goal}`).join('; ')}.
-Last four weeks: kept ${i.adherence.kept} of ${i.adherence.planned} planned sessions.${i.adherence.planned && i.adherence.kept / i.adherence.planned < 0.7 ? ' Adherence is low: make sessions shorter and harder to skip, not easier.' : ''}
+${startingPoint(i)}
+${i.adherence.planned ? `Last four weeks: kept ${i.adherence.kept} of ${i.adherence.planned} planned sessions.${i.adherence.kept / i.adherence.planned < 0.7 ? ' Adherence is low: make sessions shorter and harder to skip, not easier.' : ''}` : 'They just started: this is their first week, so there is no track record yet. Don’t mention missed sessions.'}
 Logged sessions:
 ${summarize(i.logs)}
-${bests(i.logs) ? `Estimated one-rep maxes from their logs: ${bests(i.logs)}.\n` : ''}${i.memory ? `What you know about them (respect it: injuries, equipment, schedule, dislikes): ${i.memory}\n` : ''}${i.report ? `Latest weekly report: ${i.report}\n` : ''}${i.focus ? `They asked for: "${i.focus}".\n` : ''}Progress loads by about 2.5 kg on lifts where every set was completed last time; hold or drop where reps were missed.`,
+${bests(i.logs) ? `Estimated one-rep maxes from their logs: ${bests(i.logs)}.\n` : ''}${i.memory ? `What you know about them (respect it: injuries, equipment, schedule, dislikes): ${i.memory}\n` : ''}${i.report ? `Latest weekly report: ${i.report}\n` : ''}${i.focus ? `They asked for: "${i.focus}".\n` : ''}Never prescribe a load above what their stated bests or logged sets support; for a beginner, or a lift with no numbers, pick a conservative starting weight for their sex, size and training age. Progress loads by about 2.5 kg on lifts where every set was completed last time; hold or drop where reps were missed.`,
   };
 }

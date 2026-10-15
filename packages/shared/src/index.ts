@@ -26,3 +26,4 @@ export * from './benchmarks';
 export * from './picks';
 export * from './nutrients';
 export * from './intake';
+export * from './mealGuard';

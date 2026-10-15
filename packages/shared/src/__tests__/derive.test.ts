@@ -63,7 +63,7 @@ describe('hero copy', () => {
   it('calls out the missed sessions on a slipping day', () => {
     const h = hero(week(SLIP, false, FRI), SESSIONS.PUSH, false, true, 78, 10000);
     expect(h.tag).toBe('CALL-OUT');
-    expect(h.parts.map(p => p.t).join('')).toBe('You said this mattered. Two sessions missed this week. Stop negotiating with yourself. Push day. Tonight, 18:30.');
+    expect(h.parts.map(p => p.t).join('')).toBe('You said this mattered. Two sessions missed this week. Stop negotiating with yourself. Push day, 18:30.');
   });
 
   it('rest day copy', () => {

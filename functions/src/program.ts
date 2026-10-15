@@ -1,6 +1,7 @@
 import {
   DEFAULT_DISCIPLINES, DEFAULT_PROFILE, isoDate, memorySummary, readMemory, isoWeek, normalizeProgram, PROGRAM_SCHEMA, programPrompt, type Profile, type SessionLog,
-  type WeeklyReport, type WeekProgram, zonedNow,
+  type WeeklyReport, type WeekProgram, zonedNow, bestsOf, type Intake,
+  weekdayIndex,
 } from '@rei/shared';
 import { logger } from 'firebase-functions';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
@@ -48,10 +49,14 @@ export async function generateProgram(uid: string, opts: { next?: boolean; focus
     profile,
     disciplines: Object.keys(disc).filter(k => disc[k]),
     logs,
-    adherence: { kept: new Set(logs.map(l => l.date)).size, planned: weeksActive * (parseInt(profile.sessions, 10) || 4) },
+    // Under a week in, nothing was planned before them: no adherence to judge yet.
+    adherence: { kept: new Set(logs.map(l => l.date)).size, planned: now.getTime() - new Date(startedOn).getTime() < 7 * 86400000 ? 0 : weeksActive * (parseInt(profile.sessions, 10) || 4) },
     week,
     focus: opts.focus,
     memory: memorySummary(readMemory(u.memory)) || undefined,
+    // Their own starting point (never the demo numbers): who they are and the bests they gave.
+    athlete: { sex: (u.intake as Intake | undefined)?.sex, age: profile.age, height: profile.height, exp: (u.intake as Intake | undefined)?.exp },
+    bests: u.intake ? bestsOf(u.intake as Intake) : undefined,
     report: report ? `${report.headline}. Held back by: ${report.fix} Focus: ${report.focus}` : undefined,
   });
 
@@ -104,8 +109,13 @@ export const rebuildProgram = onCall({ secrets: [OPENROUTER_API_KEY], timeoutSec
   if (!req.auth || req.auth.token.tester !== true) throw new HttpsError('permission-denied', 'Not on the tester list.');
   const focus = typeof req.data?.focus === 'string' ? req.data.focus.slice(0, 200) : undefined;
   try {
+    const first = req.data?.first === true;
     const result = await generateProgram(req.auth.uid, { focus });
-    await announce(req.auth.uid, result, 'Week rebuilt.');
+    await announce(req.auth.uid, result, first ? 'Your first week is ready:' : 'Week rebuilt.');
+    // Joined on a Sunday: this week is over by tomorrow, and Sunday night's job may already have run.
+    if (first && weekdayIndex(zonedNow(result.timeZone)) === 6) {
+      await generateProgram(req.auth.uid, { next: true }).catch(e => logger.warn('first next week failed', { uid: req.auth?.uid, error: e instanceof Error ? e.message : String(e) }));
+    }
     return { week: result.program.week, note: result.program.note };
   } catch (e) {
     logger.error('rebuild failed', { uid: req.auth.uid, error: e instanceof Error ? e.message : String(e), status: e instanceof LlmError ? e.status : undefined });

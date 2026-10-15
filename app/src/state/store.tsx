@@ -485,8 +485,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     pushMessages([msg('rei', `${nameOf(d)}. Pact sealed, I have your vow. Now we find out if you meant it. What’s first today?`)]);
     const u = uidRef.current;
     if (u) {
-      write.user(u, { profile, settings, disc, memory, onboarded: true, intake: d, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+      const saved = write.user(u, { profile, settings, disc, memory, onboarded: true, intake: d, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
       write.weighIn(u, cur.day, d.weight);
+      // Their own week from what they just told REI, instead of the starter template until Sunday.
+      void saved
+        .then(() => httpsCallable(fb().functions, 'rebuildProgram', { timeout: 300000 })({ first: true }))
+        .catch(e => console.warn('REI: first program failed', e));
     }
   }, [patch, pushMessages, msg]);
 

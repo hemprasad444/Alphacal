@@ -79,3 +79,18 @@ describe('game', () => {
     expect(g.xp).toBeGreaterThan(g.weekXp);
   });
 });
+
+describe('badge dates', () => {
+  const { game: g } = jest.requireActual('../game') as typeof import('../game');
+  const meal = { time: '12:00', name: 'x', kcal: 500, p: 30, c: 50, f: 10 };
+  const day = (date: string, meals = 1) => ({ date, meals, kcal: 500 * meals, protein: 30 * meals, session: false });
+  it('dates a badge by the day it was reached, not today', () => {
+    const x = { today: '2026-10-15', profile: { kcal: '2100', protein: '185', sessions: '4' }, meals: [meal], sessionDone: false,
+      pastDays: [day('2026-10-04'), day('2026-10-05'), day('2026-10-06')], sessions: [], weighIns: [{ date: '2026-10-04', kg: 84 }, { date: '2026-10-05', kg: 83.6 }, { date: '2026-10-10', kg: 83.2 }, { date: '2026-10-12', kg: 82.9 }],
+      photos: 0, memory: 10, memoryDates: ['2026-10-04', '2026-10-04', '2026-10-04', '2026-10-04', '2026-10-04', '2026-10-04', '2026-10-04', '2026-10-04', '2026-10-04', '2026-10-07'] };
+    const by = (id: string) => g(x as never).earned.find(b => b.id === id)?.earned;
+    expect(by('first-bowl')).toBe('2026-10-04');
+    expect(by('mirror-check')).toBe('2026-10-12');
+    expect(by('open-book')).toBe('2026-10-07');
+  });
+});

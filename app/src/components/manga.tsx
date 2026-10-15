@@ -95,7 +95,10 @@ export function Medal({ icon, tier, earned, size = 64, progress = 0 }: { icon: I
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: col, borderStyle: earned ? 'solid' : 'dashed', backgroundColor: earned ? solid(TIER[tier], 0.14, '#0D0F13') : '#0F1115', ...(earned ? comic(alpha(TIER[tier], 0.45), 3) : null) }} />
       <View style={{ position: 'absolute', width: size - 12, height: size - 12, borderRadius: (size - 12) / 2, borderWidth: 1, borderColor: alpha(earned ? TIER[tier] : '#FFFFFF', earned ? 0.5 : 0.08) }} />
-      <Icon name={earned ? icon : 'lock'} size={size * 0.44} color={col} tint={earned ? 0.3 : 0.08} />
+      {/* In a view, so it draws above the rings on the web too (a bare svg paints under positioned rings). */}
+      <View>
+        <Icon name={earned ? icon : 'lock'} size={size * 0.44} color={col} tint={earned ? 0.3 : 0.08} />
+      </View>
       {!earned && progress > 0 ? (
         <View style={{ position: 'absolute', bottom: -2, left: size * 0.2, right: size * 0.2, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)' }}>
           <View style={{ width: `${Math.round(progress * 100)}%`, height: 3, borderRadius: 2, backgroundColor: C.muted }} />

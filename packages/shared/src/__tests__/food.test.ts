@@ -74,7 +74,7 @@ describe('portions', () => {
 
 describe('typed meals', () => {
   it('splits amounts, portions and foods', () => {
-    expect(splitMealText('Just ate: 2 rotis and a katori of dal, 200g chicken + half plate rice')).toEqual([
+    expect(splitMealText('Just ate: 2 rotis and a katori of dal, 200g chicken + half plate rice')).toMatchObject([
       { text: '2 rotis', qty: 2, unit: undefined, query: 'rotis' },
       { text: 'a katori of dal', qty: 1, unit: 'katori', query: 'dal' },
       { text: '200g chicken', qty: 200, unit: 'g', query: 'chicken' },
@@ -173,5 +173,62 @@ describe('nutrients', () => {
 
   it('leaves meals without any nutrient data without an n', () => {
     expect(mealFromItems([{ food: '', name: 'Mystery', qty: 1, unit: 'serving', g: 0, kcal: 300, p: 10, c: 30, f: 10 }], '09:00', 'ai').n).toBeUndefined();
+  });
+});
+
+describe('one food named twice', () => {
+  it('logs "whey protein shake" as one serving of whey, not two', () => {
+    const r = matchMealText('whey protein shake', catalog());
+    expect(r.items).toHaveLength(1);
+    expect(r.items[0].name).toBe('Whey protein');
+    expect(r.items[0].p).toBe(24);
+  });
+  it('still splits two different foods', () => {
+    expect(matchMealText('rajma chawal', catalog()).items.length).toBeGreaterThanOrEqual(1);
+    expect(matchMealText('2 roti dal', catalog()).items.map(i => i.name)).toEqual(expect.arrayContaining(['Roti']));
+  });
+});
+
+describe('REI’s portions, checked against its own estimate', () => {
+  const banana = catalog().find(f => f.id === 'i:E009')!, pb = catalog().find(f => f.id === 'd:peanut-butter')!, roti = catalog().find(f => /^roti$/i.test(f.name))!;
+  const ai = (food: { id: string }, qty: number, unit: string, kcal: number) => ({ food_id: food.id, name: 'x', qty, unit, kcal, p: 1, c: 1, f: 1 });
+  it('reads "100 banana" as 100 g when REI itself said about 105 kcal', () => {
+    const [i] = resolveAiItems([ai(banana, 100, 'banana', 105)], catalog());
+    expect(i.kcal).toBeLessThan(150);
+  });
+  it('reads "16 tbsp" peanut butter as 16 g when REI said 95 kcal', () => {
+    const [i] = resolveAiItems([ai(pb, 16, 'tbsp', 95)], catalog());
+    expect(i.kcal).toBeLessThan(150);
+  });
+  it('keeps the list’s numbers when the portion is right', () => {
+    const [i] = resolveAiItems([ai(roti, 2, roti.units[0].n, 240)], catalog());
+    expect(i.food).toBe(roti.id);
+    expect(i.qty).toBe(2);
+  });
+  it('keeps a believable list reading even when REI’s own guess is off', () => {
+    const [i] = resolveAiItems([ai(banana, 3, 'banana', 2000)], catalog());
+    expect(i.food).toBe('i:E009');
+    expect(i.kcal).toBeLessThan(400);
+  });
+  it('uses REI’s estimate when the only list reading is kilos of one food', () => {
+    const [i] = resolveAiItems([ai(banana, 100, 'banana', 300)], catalog());
+    expect(i.food).toBe('');
+    expect(i.kcal).toBe(300);
+    // Even when REI's own number agrees with the absurd reading, kilos of banana are never logged from the list.
+    expect(resolveAiItems([ai(banana, 100, 'banana', 9000)], catalog())[0].food).toBe('');
+  });
+});
+
+describe('no amount typed', () => {
+  it('logs a dish as a helping, not one piece', () => {
+    const r = matchMealText('paneer tikka', catalog());
+    expect(r.items[0].unit).toBe('plate');
+    expect(r.items[0].kcal).toBeGreaterThan(300);
+  });
+  it('keeps typed amounts and countable foods as they are', () => {
+    expect(matchMealText('2 paneer tikka', catalog()).items[0].unit).toBe('piece');
+    expect(matchMealText('3 idli', catalog()).items[0].qty).toBe(3);
+    expect(matchMealText('idli', catalog()).items[0].unit).toBe('idli');
+    expect(matchMealText('chicken biryani', catalog()).items[0].unit).toBe('plate');
   });
 });

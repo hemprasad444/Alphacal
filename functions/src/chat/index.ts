@@ -1,4 +1,4 @@
-import { addMemory, applyUpdate, catalog, continuityNote, thread, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, stripTags, systemContext, type SessionLog, todaysPlan, parseWorkout, workoutLog, workoutNote, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
+import { addMemory, applyUpdate, catalog, dropRepeats, shouldLogMeal, shouldLogWorkout, continuityNote, thread, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, stripTags, systemContext, type SessionLog, todaysPlan, parseWorkout, workoutLog, workoutNote, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineInt } from 'firebase-functions/params';
@@ -84,7 +84,7 @@ export const chat = onRequest(
     const candidates = foodCandidates(body.text, foods);
     const history = data.messages.filter(m => m.id !== body.userMessageId);
     // Where the conversation stands, so REI picks the thread up instead of greeting every time.
-    const flow = body.mode === 'chat' ? [continuityNote(thread(history))] : [];
+    const flow = body.mode === 'chat' ? [continuityNote(thread(history, Date.now(), data.timeZone))] : [];
     const system = [systemRules({ tough: ctx.tough, bro: ctx.bro, nudge: ctx.nudge, tools: true, voice: body.voice }), systemContext(ctx), ...flow, ...(candidates.length ? [foodListPrompt(candidates)] : [])].join('\n\n');
     const userText = body.mode === 'meal' ? `Just ate: ${body.text}` : body.text;
     const turns = toTurns([...history, { role: 'user', text: userText, time: '' }]);
@@ -99,6 +99,7 @@ export const chat = onRequest(
     let rebuild: string | null = null;
     const workouts: SessionLog[] = [];
     const memory: Memory = { remember: [], forget: [] };
+    let mealBlocked = false;
     try {
       const final = await (body.mode === 'meal' ? mealCall(system, turns) : chatCall(tier, canRebuild, system, turns, d => {
         if (!ttft) ttft = Date.now() - t0;
@@ -117,12 +118,26 @@ export const chat = onRequest(
           if (b.name === 'log_meal') {
             const m = parseMealItems(b.input);
             if (m) {
-              meal = mealFromItems(resolveAiItems(m.items, foods), hhmm(data.input.now), 'ai', m.name);
-              if (m.verdict) text = m.verdict;
+              const next = mealFromItems(resolveAiItems(m.items, foods), hhmm(data.input.now), 'ai', m.name);
+              // From Fuel, logging is the point. From chat, only food this message is about, and not twice.
+              const check = body.mode === 'meal' ? { ok: true } : shouldLogMeal(body.text, next, data.input.meals, hhmm(data.input.now));
+              if (check.ok) {
+                meal = next;
+                if (m.verdict) text = m.verdict;
+              } else {
+                mealBlocked = true;
+                logger.info('meal not logged', { uid, why: check.why, meal: next.name });
+              }
             }
           } else if (b.name === 'log_workout') {
             const w = parseWorkout(b.input);
-            if (w) workouts.push(workoutLog(w, { date: data.today, plan: todaysPlan(data.input.now, data.input.program), kg: parseFloat(data.input.profile.weight) || 0, now: Date.now() }));
+            if (w) {
+              const log = workoutLog(w, { date: data.today, plan: todaysPlan(data.input.now, data.input.program), kg: parseFloat(data.input.profile.weight) || 0, now: Date.now() });
+              // Already saved in the app ("just smashed push day" after logging the sets): not twice.
+              const check = shouldLogWorkout(body.text, log, [...data.todaySessions, ...workouts]);
+              if (check.ok) workouts.push(log);
+              else logger.info('workout not logged', { uid, why: check.why, workout: log.title });
+            }
           } else if (b.name === 'update_vow') {
             vow = parseVow(b.input);
           } else if (b.name === 'remember') {
@@ -135,7 +150,13 @@ export const chat = onRequest(
           }
         }
       }
-      text = stripTags(parseReply(text).text);
+      text = dropRepeats(stripTags(parseReply(text).text));
+      // Nothing to say (only a refused re-log, or a tool call that did nothing): get a real answer instead of "Noted.".
+      if ((mealBlocked && text.trim().length < 40) || (!text.trim() && !meal)) {
+        const again = await complete({ task: 'fast', system: `${system}\n\nAnswer their latest message in your own words. Meals mentioned earlier are already logged.`, messages: turns, maxTokens: 512 }).catch(() => null);
+        const retry = again ? stripTags(parseReply(again.content.map(b => (b.type === 'text' ? b.text : '')).join('')).text) : '';
+        if (retry) text = dropRepeats(retry);
+      }
       if (!text && meal) text = fuelLine(data.input.profile, nutrition([...data.input.meals, meal], data.input.activity));
       if (!text) text = 'Noted.';
 

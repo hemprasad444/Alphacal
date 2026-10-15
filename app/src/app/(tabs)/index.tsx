@@ -7,7 +7,7 @@ import { Screen } from '../../components/Screen';
 import { Icon } from '../../components/icons';
 import { Gauge, Heading, Panel, Stamp } from '../../components/manga';
 import { Tap, Txt } from '../../components/ui';
-import { CLEARED, dayStamp, hero as calcHero, integrity as calcIntegrity, nutrition, programWeek, protocol, sessionCountdown, todaysPlan, trajectory, week as calcWeek } from '@rei/shared';
+import { CLEARED, dayStamp, minutesUntil, hero as calcHero, integrity as calcIntegrity, nutrition, programWeek, protocol, sessionCountdown, todaysPlan, trajectory, week as calcWeek } from '@rei/shared';
 import { alpha, C } from '../../lib/theme';
 import { useGame } from '../../state/game';
 import { useStore } from '../../state/store';
@@ -25,7 +25,7 @@ export default function Today() {
   const protT = parseFloat(profile.protein) || 0;
   const protLeft = Math.max(0, protT - nu.protein);
   const slipping = !!plan && !sessionDone && wk.missed > 0;
-  const hero = calcHero(wk, plan, sessionDone, tough, protLeft, parseFloat(profile.steps) || 0);
+  const hero = calcHero(wk, plan, sessionDone, tough, protLeft, parseFloat(profile.steps) || 0, { session: profile.sessionTime, bed: profile.bedtime, lateMin: plan && !sessionDone ? -minutesUntil(profile.sessionTime || '18:30', now) : 0 });
   const integrity = calcIntegrity(wk);
   const rows = protocol(plan, nu, profile, sessionDone, s.loggedMin, strong);
   const traj = trajectory(profile, wk.missed, now, s.weighInsOrDemo);

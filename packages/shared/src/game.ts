@@ -17,6 +17,9 @@ export interface GameInput {
   weighIns: WeighIn[];
   photos: number;
   memory: number;
+  /** When each progress photo was taken and each memory was added (YYYY-MM-DD), to date those badges. */
+  photoDates?: string[];
+  memoryDates?: string[];
 }
 
 export interface DayScore {
@@ -265,13 +268,40 @@ export function game(x: GameInput, seen: string[] = []): GameState {
   };
 }
 
+/** The nth date in a list, sorted (when the nth photo or memory came in). */
+const nth = (dates: string[] | undefined, n: number) => (dates && dates.length >= n ? [...dates].sort()[n - 1] : null);
+
+/** Everything as it stood at the end of `d`: the day after, empty, so day `d` counts in full. */
+function asOf(x: GameInput, d: string): GameInput {
+  const next = isoDate(new Date((parseIsoDate(d) ?? new Date()).getTime() + 36 * 3600000));
+  return {
+    ...x, today: next, meals: [], sessionDone: false,
+    pastDays: x.pastDays.filter(p => p.date <= d), sessions: x.sessions.filter(l => l.date <= d), weighIns: x.weighIns.filter(w => w.date <= d),
+  };
+}
+
+/** The first day an extra badge's count reached its target (today when it can't be told). */
+function earnedOn(e: (typeof EXTRA)[number], x: GameInput): string {
+  if (e.id === 'open-book') return nth(x.memoryDates, e.need) ?? x.today;
+  if (e.id === 'before-arc') return nth(x.photoDates, e.need) ?? x.today;
+  const dates = [...new Set([...x.pastDays.map(p => p.date), ...x.sessions.map(l => l.date), ...x.weighIns.map(w => w.date)])].filter(d => d < x.today).sort();
+  // Counts only grow with time, so the first day it was reached can be found by halving.
+  let lo = 0, hi = dates.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (e.have(stats(asOf(x, dates[mid]))) >= e.need) hi = mid;
+    else lo = mid + 1;
+  }
+  return dates[lo] ?? x.today;
+}
+
 /** progress.ts's badges and the extra ones, each with its picture and tier. */
 export function allBadges(x: GameInput, s = stats(x)): GameBadge[] {
   const days = [...x.pastDays.filter(d => d.date < x.today), { date: x.today, meals: x.meals.length, kcal: x.meals.reduce((a, m) => a + m.kcal, 0), protein: x.meals.reduce((a, m) => a + m.p, 0), session: x.sessionDone }];
   const base = badges({ days, sessions: x.sessions, weighIns: x.weighIns, profile: { ...x.profile } as Profile });
   const extra: Badge[] = EXTRA.map(e => {
     const have = e.have(s);
-    return { id: e.id, title: e.title, desc: e.desc, earned: have >= e.need ? x.today : null, progress: Math.min(1, have / e.need) };
+    return { id: e.id, title: e.title, desc: e.desc, earned: have >= e.need ? earnedOn(e, x) : null, progress: Math.min(1, have / e.need) };
   });
   return [...base, ...extra].map(b => ({ ...b, ...(LOOK[b.id] ?? { icon: 'badge' as IconKey, tier: 'bronze' as BadgeTier }) }));
 }

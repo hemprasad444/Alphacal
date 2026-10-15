@@ -315,7 +315,13 @@ export interface ParsedPiece {
   qty: number;
   unit?: string;
   query: string;
+  /** They typed an amount ("2", "two", "a"); otherwise qty is the 1 we assumed. */
+  counted?: boolean;
 }
+
+/** With no amount typed, a dish means a helping of it ("paneer tikka" is a plate, not one piece). */
+const MEAL_UNIT = /^(plate|bowl|katori|serving|glass|cup|thali)$/i;
+const defaultUnit = (food: Food, p: ParsedPiece) => p.unit ?? (p.counted ? undefined : food.units.find(u => MEAL_UNIT.test(u.n))?.n);
 
 /** "2 rotis and a katori of dal, 200g chicken" → pieces with amounts. */
 export function splitMealText(text: string): ParsedPiece[] {
@@ -328,7 +334,7 @@ export function splitMealText(text: string): ParsedPiece[] {
       const m = PIECE_RE.exec(p)!;
       const [, num, word, unit, rest] = m;
       const qty = num ? (num.includes('/') ? +num.split('/')[0] / +num.split('/')[1] : parseFloat(num)) : word ? WORD_QTY[word] : 1;
-      return { text: p, qty: qty > 0 ? qty : 1, unit: unit || undefined, query: (rest ?? '').trim() };
+      return { text: p, qty: qty > 0 ? qty : 1, unit: unit || undefined, query: (rest ?? '').trim(), counted: !!(num || word) };
     })
     .filter(p => p.query);
 }
@@ -355,7 +361,9 @@ function splitPair(p: ParsedPiece, foods: Food[]): MealItem[] | null {
   for (let i = 1; i < words.length; i++) {
     const left = words.slice(0, i).join(' '), right = words.slice(i).join(' ');
     const a = confident(searchFoods(left, foods, 3), left), b = a && confident(searchFoods(right, foods, 3), right);
-    if (a && b) return [itemFor(a.food, p.qty, p.unit), itemFor(b.food, 1)];
+    // "whey protein shake": both halves name the same food, so it's one serving of it, not two.
+    if (a && b && a.food.id === b.food.id) return [itemFor(a.food, p.qty, defaultUnit(a.food, p))];
+    if (a && b) return [itemFor(a.food, p.qty, defaultUnit(a.food, p)), itemFor(b.food, 1, defaultUnit(b.food, { ...p, unit: undefined, counted: false }))];
   }
   return null;
 }
@@ -366,7 +374,7 @@ export function matchMealText(text: string, foods: Food[]): TextMatch {
   for (const p of splitMealText(text)) {
     const m = confident(searchFoods(p.query, foods, 3), p.query);
     const pair = m ? null : splitPair(p, foods);
-    if (m) items.push(itemFor(m.food, p.qty, p.unit));
+    if (m) items.push(itemFor(m.food, p.qty, defaultUnit(m.food, p)));
     else if (pair) items.push(...pair);
     else unmatched.push(p.text);
   }
@@ -409,8 +417,22 @@ export function resolveAiItems(items: AiItem[], foods: Food[]): MealItem[] {
   const byId = new Map(foods.map(f => [f.id, f]));
   return items.map(i => {
     const food = byId.get(i.food_id);
-    if (food && i.qty > 0) return itemFor(food, i.qty, i.unit);
     const n = cleanNutrients({ fib: i.fib, sug: i.sug, sfa: i.sfa, na: i.na });
+    if (food && i.qty > 0) {
+      const listed = itemFor(food, i.qty, i.unit);
+      if (!(i.kcal > 0)) return listed;
+      // REI sometimes sends grams with a portion unit ("100 banana" for 100 g, "16 tbsp" for 16 g).
+      // Its own estimate for the item is the check: take the reading closest to it, or its estimate.
+      const off = (k: number) => Math.abs(Math.log((k + 10) / (i.kcal + 10)));
+      /** Up to 2 kg and 2,000 kcal of one food: anything more is a mix-up, not a meal. */
+      const believable = (x: MealItem) => x.kcal <= 2000 && (food.serving || x.g <= 2000);
+      const readings = (unitFor(food, i.unit).n === 'g' ? [listed] : [listed, itemFor(food, i.qty, 'g')]).filter(believable);
+      const best = readings.length ? readings.reduce((x, y) => (off(y.kcal) < off(x.kcal) ? y : x)) : null;
+      if (best && off(best.kcal) <= Math.log(2.5)) return best;
+      // Nothing agrees: the list wins while its amount is believable (REI's guess may be the wrong one);
+      // otherwise REI's own estimate is kept.
+      if (believable(listed)) return listed;
+    }
     return { food: '', name: i.name, qty: i.qty > 0 ? i.qty : 1, unit: i.unit || 'serving', g: 0, kcal: Math.round(i.kcal), p: r1(i.p), c: r1(i.c), f: r1(i.f), ...(n ? { n } : {}) };
   });
 }
