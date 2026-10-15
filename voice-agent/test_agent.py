@@ -40,7 +40,15 @@ def test_streaming_matches_whole_text() -> None:
             assert "[ " not in out and not re.search(r"\d \d{3}\b", out), out
 
 
+def test_rei_is_spoken_as_a_name():
+    from agent import for_speech
+
+    assert for_speech("I'm REI. REI's got you.") == "I'm Rei. Rei's got you."
+    assert for_speech("REIGN and BREI stay") == "REIGN and BREI stay"
+
+
 if __name__ == "__main__":
+    test_rei_is_spoken_as_a_name()
     test_clean_text()
     test_streaming_matches_whole_text()
     print("ok")

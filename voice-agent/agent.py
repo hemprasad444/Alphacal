@@ -65,6 +65,14 @@ _GROUPED = re.compile(r"(?<=\d)[ \u00a0\u202f\u2009](?=\d{3}(?!\d))")
 _MARKDOWN = re.compile(r"`+|\*{1,3}|_{2,}|^#+\s*|^\s*[-•]\s+", re.M)
 
 
+_REI = re.compile(r"\bREI\b")
+
+
+def for_speech(text: str) -> str:
+    """"REI" is a name ("Rei"), not three letters. Only for what's spoken: the transcript keeps REI."""
+    return _REI.sub("Rei", text)
+
+
 def clean_text(text: str) -> str:
     """What fast models get wrong for a voice: "[ warm]" tags, "1 250" numbers, runs of "… ... …" and markdown."""
     text = _MARKDOWN.sub("", text)
@@ -131,6 +139,14 @@ class Rei(Agent):
         tail = cleaner.flush()
         if tail.strip():
             yield tail
+
+    async def tts_node(self, text, model_settings):
+        async def spoken():
+            async for chunk in text:
+                yield for_speech(chunk)
+
+        async for frame in Agent.default.tts_node(self, spoken(), model_settings):
+            yield frame
 
 
 def rpc_tool(room: rtc.Room, user: str, schema: dict[str, Any]):

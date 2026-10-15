@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv(".env.local")
 
 key = os.environ.get("FISH_API_KEY")
-voice = os.environ.get("FISH_VOICE_ID", "d34183dcf4a041f5a82aa3dd19644329")
+voice = os.environ.get("FISH_VOICE_ID", "6870e7b6e1f54a0a9d6a4c29b7ac7105")
 model = os.environ.get("FISH_MODEL", "s2.1-pro-free")
 text = sys.argv[1] if len(sys.argv) > 1 else "[laughs] Yo, what's good? You hit legs today or are we skipping again? [whispers] Don't lie to me."
 if not key:

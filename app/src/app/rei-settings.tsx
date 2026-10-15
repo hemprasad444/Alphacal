@@ -1,5 +1,5 @@
 // REI: personality, whose voice REI speaks with, and how conversations work.
-import { CHARACTERS, characterOf, hasVoice, speakVoice, type Tone } from '@rei/shared';
+import { CHARACTERS, characterOf, hasVoice, type Tone } from '@rei/shared';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
@@ -8,7 +8,7 @@ import { Heading, Panel, Stamp } from '../components/manga';
 import { Screen, SubHeader } from '../components/Screen';
 import { Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
 import { alpha, C } from '../lib/theme';
-import { previewVoice, type Speaker } from '../lib/voice';
+import { playGreeting, prefetchGreetings } from '../lib/greetings';
 import { useStore } from '../state/store';
 
 const TONES: { id: Tone; icon: IconKey; title: string; sub: string }[] = [
@@ -22,10 +22,15 @@ export default function ReiSettings() {
   const { settings, accent } = s;
   const [playing, setPlaying] = useState<string | null>(null);
   const [note, setNote] = useState('');
-  const preview = useRef<Speaker | null>(null);
+  const preview = useRef<{ stop: () => void } | null>(null);
   /** Each tap gets a number; a preview that finishes loading after a newer tap is dropped. */
   const seq = useRef(0);
   useEffect(() => () => preview.current?.stop(), []);
+  // Each partner's hello with your name, ready before you tap.
+  const name = s.profile.name.trim();
+  useEffect(() => {
+    void prefetchGreetings(name);
+  }, [name]);
 
   const stop = () => {
     seq.current++;
@@ -40,20 +45,24 @@ export default function ReiSettings() {
     stop();
     s.setOpt('character', id);
     const c = characterOf(id);
-    if (!hasVoice(c) && c.id !== 'rei') {
+    if (!hasVoice(c)) {
       setNote(`${c.name}’s voice is on its way. REI speaks in its own voice until then.`);
       return;
     }
     setNote('');
     const mine = seq.current;
     setPlaying(id);
-    const { speaker, premium } = await previewVoice(speakVoice({ character: id, voice: settings.voice }), () => mine === seq.current && setPlaying(null), c.intro);
-    if (mine !== seq.current) {
-      speaker.stop();
-      return;
+    try {
+      const speaker = await playGreeting(id, s.profile.name, settings.voice, () => mine === seq.current && setPlaying(null));
+      if (mine !== seq.current) {
+        speaker.stop();
+        return;
+      }
+      preview.current = speaker;
+      if (!speaker.premium) setNote('Premium voice is off right now, so this preview used the iPhone’s voice.');
+    } catch {
+      if (mine === seq.current) setPlaying(null);
     }
-    preview.current = speaker;
-    if (!premium) setNote('Premium voice is off right now, so this preview used the iPhone’s voice.');
   };
 
   return (
@@ -95,7 +104,7 @@ export default function ReiSettings() {
                     <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c.acc }} />
                     <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c.acc2 }} />
                   </View>
-                  {hasVoice(c) || c.id === 'rei' ? (on ? <Icon name="voice" size={16} color={c.acc} /> : null) : <Stamp text="Soon" color={C.muted} tilt={0} size={8.5} />}
+                  {hasVoice(c) ? (on ? <Icon name="voice" size={16} color={c.acc} /> : null) : <Stamp text="Soon" color={C.muted} tilt={0} size={8.5} />}
                 </View>
                 <View style={{ gap: 2 }}>
                   <Txt size={18} w={600}>{c.name}</Txt>
@@ -107,7 +116,7 @@ export default function ReiSettings() {
           );
         })}
       </View>
-      <Txt size={12} color={note ? C.warn : C.faint} style={{ marginTop: 10 }}>{note || 'Tap to hear a voice; tap again to stop. Characters marked Soon use REI’s voice until theirs is added.'}</Txt>
+      <Txt size={12} color={note ? C.warn : C.faint} style={{ marginTop: 10 }}>{note || 'Tap a partner to hear them say hello; tap again to stop.'}</Txt>
 
       <Heading icon="voice" title="Conversation" acc={accent} style={{ marginTop: 32 }} />
       <Panel acc={accent} tone={0.2} dots={false} style={{ marginTop: 14 }} pad={16}>

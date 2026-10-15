@@ -8,8 +8,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ARCHETYPES, bondLine, CHAPTERS, CHARACTERS, characterOf, clockOf, deadlineOf, DEFAULT_INTAKE, fuel, goalOf, GOALS, hasVoice, type Intake, mmss, nameOf, pactRows, reiLine, shortDate,
-  sleepHours, speakVoice, STEPS, suggestedTarget, TONES, toneSample, trainTime, vowSentence, weeklyRate,
+  ARCHETYPES, bondLine, CHAPTERS, CHARACTERS, characterOf, clockOf, deadlineOf, DEFAULT_INTAKE, fuel, goalOf, GOALS, greeting, hasVoice, type Intake, mmss, nameOf, pactRows, reiLine, shortDate,
+  sleepHours, STEPS, suggestedTarget, TONES, toneSample, trainTime, vowSentence, weeklyRate,
 } from '@rei/shared';
 import { Icon, type IconKey } from '../components/icons';
 import { Core } from '../components/Core';
@@ -18,7 +18,7 @@ import { ChapterCard, EnterFx, Flash, HoldSeal, markArrival } from '../component
 import { Atmosphere, Chips, comic, Cta, Field, FieldLabel, Nums, pick, Picked, Rise, Scrub, Seg, solid, ToggleRow } from '../components/onboarding/kit';
 import { Tap, Txt } from '../components/ui';
 import { alpha, C, EMBLEMS, fontFamily, THEMES } from '../lib/theme';
-import { previewVoice, type Speaker } from '../lib/voice';
+import { playGreeting, prefetchGreetings } from '../lib/greetings';
 import { useStore } from '../state/store';
 
 const DRAFT_KEY = 'rei-onboarding-draft';
@@ -111,6 +111,13 @@ export default function Onboarding() {
       setCard({ to: i, key: Date.now() });
     } else arrive();
   };
+
+  // Past the name chapter, every partner's greeting with their name is made in the background,
+  // so the Partner chapter plays it the moment a card is tapped.
+  const named = step > idx('name') ? d.name.trim() : '';
+  useEffect(() => {
+    if (named) void prefetchGreetings(named);
+  }, [named]);
 
   const blocked = (st.id === 'name' && !d.name.trim()) || (st.id === 'ideal' && !d.arch);
   const next = () => {
@@ -627,7 +634,7 @@ function PartnerStep({ d, patch, acc }: { d: Intake; patch: (o: Partial<Intake>)
   const voice = useStore(s => s.settings.voice);
   const [playing, setPlaying] = useState<string | null>(null);
   const [note, setNote] = useState('');
-  const speaker = useRef<Speaker | null>(null);
+  const speaker = useRef<{ stop: () => void } | null>(null);
   /** Each tap gets a number; a clip that finishes loading after a newer tap is dropped. */
   const seq = useRef(0);
   useEffect(() => () => {
@@ -635,6 +642,9 @@ function PartnerStep({ d, patch, acc }: { d: Intake; patch: (o: Partial<Intake>)
     speaker.current?.stop();
   }, []);
   const cur = characterOf(d.character);
+  useEffect(() => {
+    if (d.name.trim()) void prefetchGreetings(d.name.trim());
+  }, [d.name]);
 
   const stop = () => {
     seq.current++;
@@ -648,7 +658,7 @@ function PartnerStep({ d, patch, acc }: { d: Intake; patch: (o: Partial<Intake>)
     stop();
     const c = characterOf(id);
     patch({ character: id, theme: c.theme });
-    if (!hasVoice(c) && c.id !== 'rei') {
+    if (!hasVoice(c)) {
       setNote(`${c.name}’s voice is on its way. Until then I speak for them in my own voice.`);
       return;
     }
@@ -656,13 +666,13 @@ function PartnerStep({ d, patch, acc }: { d: Intake; patch: (o: Partial<Intake>)
     const mine = seq.current;
     setPlaying(id);
     try {
-      const { speaker: sp, premium } = await previewVoice(speakVoice({ character: id, voice }), () => mine === seq.current && setPlaying(null), c.intro);
+      const sp = await playGreeting(id, d.name, voice, () => mine === seq.current && setPlaying(null));
       if (mine !== seq.current) {
         sp.stop();
         return;
       }
       speaker.current = sp;
-      if (!premium) setNote('Premium voices are off right now, so this used the iPhone’s voice.');
+      if (!sp.premium) setNote('Premium voices are off right now, so this used the iPhone’s voice.');
     } catch {
       if (mine === seq.current) setPlaying(null);
     }
@@ -672,7 +682,7 @@ function PartnerStep({ d, patch, acc }: { d: Intake; patch: (o: Partial<Intake>)
     <>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {CHARACTERS.map((c, i) => {
-          const sel = (d.character || 'rei') === c.id, voiced = hasVoice(c) || c.id === 'rei', talking = playing === c.id;
+          const sel = (d.character || 'rei') === c.id, voiced = hasVoice(c), talking = playing === c.id;
           return (
             <Rise key={c.id} delay={200 + i * 60} style={{ width: '48.4%', flexGrow: 1 }}>
               <Tap onPress={() => void choose(c.id)}>
@@ -705,7 +715,7 @@ function PartnerStep({ d, patch, acc }: { d: Intake; patch: (o: Partial<Intake>)
         <FieldLabel label={`${cur.name.toUpperCase()} SAYS`} right={playing ? 'PLAYING…' : undefined} acc={cur.acc} />
         <View style={{ flexDirection: 'row', gap: 12, padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: alpha(cur.acc, 0.6), backgroundColor: '#0D0F13' }}>
           <Icon name={cur.icon} size={30} color={cur.acc} tint={0.3} />
-          <Txt size={15} lh={1.45} color={C.textSoft} style={{ flex: 1 }}>{`“${cur.intro}”`}</Txt>
+          <Txt size={15} lh={1.45} color={C.textSoft} style={{ flex: 1 }}>{`“${greeting(cur, d.name)}”`}</Txt>
         </View>
         <Txt size={12} color={note ? C.warn : C.faint} lh={1.4} style={{ marginTop: 8 }}>{note || 'Tap a card to hear them; tap again to stop. You can change partner any time in Settings.'}</Txt>
       </Rise>

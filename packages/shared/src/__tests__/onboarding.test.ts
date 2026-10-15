@@ -1,5 +1,5 @@
 import { ARCHETYPES, DEFAULT_INTAKE, fuel, GOALS, intakeDisciplines, intakeMemory, intakeProfile, pactRows, reiLine, sleepHours, STEPS, CHAPTERS, suggestedTarget, TONES, trainTime, vowSentence, weeklyRate, type Intake } from '../onboarding';
-import { CHARACTERS, characterOf, isSpeakVoice, speakVoice } from '../characters';
+import { CHARACTERS, characterOf, forSpeech, greeting, hasVoice, isSpeakVoice, speakVoice, spokenName } from '../characters';
 import { DEFAULT_PROFILE } from '../data';
 import { DEFAULT_VOICE } from '../voices';
 
@@ -113,12 +113,36 @@ describe('onboarding', () => {
 });
 
 describe('characters', () => {
-  it('each has a hello, a world and unique id', () => {
+  it('each has a voice, a hello with the name in it, a world and a unique id', () => {
     expect(new Set(CHARACTERS.map(c => c.id)).size).toBe(CHARACTERS.length);
+    expect(CHARACTERS.map(c => c.id)).toEqual(expect.arrayContaining(['rei', 'naruto', 'rem', 'tanjiro', 'gojo', 'luffy', 'allmight', 'asta', 'toji']));
     for (const c of CHARACTERS) {
-      expect(c.intro.length).toBeGreaterThan(20);
+      expect(hasVoice(c)).toBe(true);
+      expect(c.fish).toMatch(/^[0-9a-f]{32}$/);
+      expect(c.intro).toContain('{name}');
+      // A voice swallows the first word of a clip, so the name never comes first.
+      expect(c.intro.startsWith('{name}')).toBe(false);
       expect(['zero', 'shinobi', 'voyager', 'hero', 'cursed', 'slayer']).toContain(c.theme);
     }
+    expect(new Set(CHARACTERS.map(c => c.fish)).size).toBe(CHARACTERS.length);
+  });
+
+  it('greets by name, cleaned up for speaking', () => {
+    const allMight = characterOf('allmight');
+    expect(greeting(allMight, 'Hem')).toBe('Hey, Hem! Fear not, for I am here! From today, you and I go beyond. Plus Ultra!');
+    expect(greeting(allMight, '  hem ')).toMatch(/^Hey, Hem!/);
+    expect(greeting(allMight, '')).toMatch(/^Hey, friend!/);
+    expect(greeting(allMight, null)).toMatch(/^Hey, friend!/);
+    expect(greeting(characterOf('toji'), 'Hem')).toMatch(/^So you’re Hem\. Toji/);
+    expect(spokenName('  ravi   kumar 🔥 ')).toBe('Ravi kumar');
+    expect(spokenName("d'souza-ann")).toBe("D'souza-ann");
+    expect(spokenName('ಹೇಮ್')).toBe('ಹೇಮ್');
+    expect(spokenName('123 <b>')).toBe('B');
+    expect(spokenName('x'.repeat(40))).toHaveLength(24);
+  });
+
+  it('says REI as a name, not letters', () => {
+    expect(forSpeech('I’m REI. REI’s got you. REIGN stays.')).toBe('I’m Rei. Rei’s got you. REIGN stays.');
   });
 
   it('falls back to REI for unknown ids', () => {
@@ -126,12 +150,13 @@ describe('characters', () => {
     expect(characterOf(undefined).id).toBe('rei');
   });
 
-  it('speaks a character only once its voice exists, and lets that through the voice check', () => {
+  it('speaks through the character’s own voice and lets only known voiced characters through', () => {
     expect(speakVoice({ character: 'naruto', voice: DEFAULT_VOICE })).toBe('c:naruto');
-    expect(speakVoice({ character: 'gojo', voice: DEFAULT_VOICE })).toBe(DEFAULT_VOICE);
-    expect(isSpeakVoice('c:naruto')).toBe(true);
-    expect(isSpeakVoice('c:gojo')).toBe(false);
+    expect(speakVoice({ character: 'toji', voice: DEFAULT_VOICE })).toBe('c:toji');
+    expect(speakVoice({ character: undefined, voice: DEFAULT_VOICE })).toBe('c:rei');
+    expect(isSpeakVoice('c:asta')).toBe(true);
     expect(isSpeakVoice('c:')).toBe(false);
+    expect(isSpeakVoice('c:nobody')).toBe(false);
     expect(isSpeakVoice(DEFAULT_VOICE)).toBe(true);
     expect(isSpeakVoice('someone-else')).toBe(false);
     expect(isSpeakVoice(42)).toBe(false);
