@@ -1,6 +1,6 @@
 """Live call with the deployed REI agent, the way the phone does it: join with the session token,
 speak recorded lines, answer REI's tool calls like the app, and record what happened."""
-import asyncio, json, sys, time, wave
+import asyncio, json, os, sys, time, wave
 from livekit import rtc
 
 TOKEN = json.load(open(sys.argv[1]))
@@ -16,6 +16,7 @@ async def main():
     room = rtc.Room()
     agent_text = {}
     first_audio = {"at": None, "frames": 0}
+    recordings = []
 
     async def on_text(reader, who):
         attrs = reader.info.attributes or {}
@@ -32,8 +33,16 @@ async def main():
             async def pull():
                 import array, math
                 quiet = 100
-                async for e in rtc.AudioStream(track):
+                # REI_RECORD=path.wav keeps REI's side of the call, to check what the voice actually said.
+                rec = None
+                if os.environ.get("REI_RECORD"):
+                    rec = wave.open(os.environ["REI_RECORD"], "wb")
+                    rec.setnchannels(1), rec.setsampwidth(2), rec.setframerate(48000)
+                    recordings.append(rec)
+                async for e in rtc.AudioStream(track, sample_rate=48000, num_channels=1):
                     f = e.frame
+                    if rec and rec in recordings:
+                        rec.writeframes(bytes(f.data))
                     first_audio["frames"] += 1
                     if first_audio["at"] is None:
                         first_audio["at"] = time.time() - t0
@@ -50,11 +59,23 @@ async def main():
 
     await room.connect(TOKEN["url"], TOKEN["token"])
     ev("connected", room=room.name)
+    # Stands in for the phone: answers like the app (LiveVoice.tsx), with today's totals after a meal.
+    goal = {k: float(v) for k, v in TOKEN.get("targets", {"kcal": 2100, "protein": 185, "carbs": 195, "fat": 65}).items()}
+    eaten = {"kcal": 0, "protein": 0, "carbs": 0, "fat": 0}
+    rest = " Before talking about this, react to anything else they just said, an answer to your question included."
     for name in ["log_meal", "remove_meal", "log_workout", "update_vow", "remember", "rebuild_program", "forget"]:
         def make(n):
             async def handler(data: rtc.RpcInvocationData):
-                ev("tool", name=n, payload=json.loads(data.payload))
-                return "Logged. Before talking about the food, react to anything else they just said (an answer to your question included)."
+                p = json.loads(data.payload)
+                ev("tool", name=n, payload=p)
+                if n != "log_meal":
+                    return "Done." + rest
+                for k in eaten:
+                    eaten[k] += round(float(p.get(k) or 0))
+                e, g = eaten, {k: round(v) for k, v in goal.items()}
+                return (f"Logged {p.get('name')}, {round(float(p.get('kcal') or 0))} kcal, protein {round(float(p.get('protein') or 0))} g. "
+                        f"Today now: {e['kcal']} of {g['kcal']} kcal, protein {e['protein']} of {g['protein']} g, carbs {e['carbs']} of {g['carbs']} g, "
+                        f"fat {e['fat']} of {g['fat']} g ({g['kcal'] - e['kcal']} kcal and {max(0, g['protein'] - e['protein'])} g protein left).{rest}")
             return handler
         room.local_participant.register_rpc_method(name, make(name))
 
@@ -85,6 +106,8 @@ async def main():
         await quiet(14)
     ev("audio_frames", frames=first_audio["frames"])
     await room.disconnect()
+    while recordings:
+        recordings.pop().close()
     json.dump(events, open(sys.argv[1].replace(".json", "-events.json"), "w"), indent=1)
 
 asyncio.run(main())

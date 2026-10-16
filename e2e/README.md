@@ -87,4 +87,6 @@ node call-token.mjs voice/call.json
 ../voice-agent/.venv/bin/python voice_call.py voice/call.json voice/u1.wav voice/u2.wav voice/u3.wav
 ```
 
-It prints REI's opener, what each side said, the tools REI called, and when REI's voice started.
+It prints REI's opener, what each side said, the tools REI called, and when REI's voice started. The script
+answers REI's tools the way the app does (today's totals after a meal). Set `REI_RECORD=rei.wav` to keep REI's
+audio, to check what the voice actually said (the transcript keeps "kcal"; the voice says "calories").

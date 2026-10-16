@@ -10,5 +10,7 @@ await put('a00001', 'user', 'going to watch Dune 3 with the boys tonight', 250);
 await put('a00002', 'rei', 'Enjoy it. Protein before you go.', 249);
 await put('a00003', 'user', 'ok bye', 248);
 const s = await opener(u, new Date());
-fs.writeFileSync(out, JSON.stringify({ url: s.url, token: s.token, greeting: s.greeting, voice: s.voice, uid: u.uid }));
+// Their daily targets, so the call's stand-in phone can answer tools with today's totals like the app does.
+const { kcal, protein, carbs, fat } = (await db.doc(`users/${u.uid}`).get()).data().profile;
+fs.writeFileSync(out, JSON.stringify({ url: s.url, token: s.token, greeting: s.greeting, voice: s.voice, uid: u.uid, targets: { kcal, protein, carbs, fat } }));
 console.log('greeting in session:', s.greeting, '| voice', s.voice);
