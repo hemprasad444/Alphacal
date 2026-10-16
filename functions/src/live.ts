@@ -12,6 +12,8 @@ const LIVEKIT_URL = defineString('LIVEKIT_URL', { default: '' });
 const LIVEKIT_API_KEY = defineString('LIVEKIT_API_KEY', { default: '' });
 const LIVEKIT_API_SECRET = defineSecret('LIVEKIT_API_SECRET');
 const FISH_VOICE_ID = defineString('FISH_VOICE_ID', { default: '' });
+/** Which LiveKit agent joins the call. A local test agent registers under another name so it never takes real calls. */
+const LIVEKIT_AGENT = defineString('LIVEKIT_AGENT', { default: 'rei' });
 /**
  * The live agent's models, first choice first. GPT-OSS on Groq starts answering in ~0.4 s against
  * 1.2-2.9 s for GPT-6 Luna, with the same meal estimates once the prompt carries calorie anchors.
@@ -65,7 +67,7 @@ export const voiceSession = onCall({ secrets: [LIVEKIT_API_SECRET, OPENROUTER_AP
   const metadata = `gz:${gzipSync(JSON.stringify(session)).toString('base64')}`;
   const at = new AccessToken(apiKey, secret, { identity: uid, ttl: '10m' });
   at.addGrant({ room: `rei-${uid}-${Date.now()}`, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true });
-  at.roomConfig = new RoomConfiguration({ agents: [new RoomAgentDispatch({ agentName: 'rei', metadata })], emptyTimeout: 30, maxParticipants: 2 });
+  at.roomConfig = new RoomConfiguration({ agents: [new RoomAgentDispatch({ agentName: LIVEKIT_AGENT.value(), metadata })], emptyTimeout: 30, maxParticipants: 2 });
   const token = await at.toJwt();
   logger.info('voiceSession', { uid, ms: Date.now() - t0, used: used + 1, tokenBytes: token.length });
   return { engine: 'livekit', url, token };

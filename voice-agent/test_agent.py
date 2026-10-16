@@ -1,4 +1,4 @@
-"""Checks the voice text cleaner: .venv/bin/python test_agent.py"""
+"""Checks the voice text cleaner and the early end-of-turn signal: .venv/bin/python test_agent.py"""
 
 import random
 import re
@@ -73,10 +73,37 @@ def test_swears_only_back():
     salty.add_message(role="user", content="this cut is bullshit")
     assert not user_swore(calm) and user_swore(salty)
 
+def test_sentence_end_sends_preflight_once():
+    from livekit.agents import stt
+    from agent import _SentenceEndPreflight
+
+    class Chan:
+        def __init__(self):
+            self.sent, self.closed = [], False
+
+        def send_nowait(self, ev):
+            self.sent.append(ev)
+
+    def ev(kind, text=""):
+        return stt.SpeechEvent(type=kind, alternatives=[stt.SpeechData(language="en", text=text)] if text else [])
+
+    I, P, F, E = (stt.SpeechEventType.INTERIM_TRANSCRIPT, stt.SpeechEventType.PREFLIGHT_TRANSCRIPT,
+                  stt.SpeechEventType.FINAL_TRANSCRIPT, stt.SpeechEventType.END_OF_SPEECH)
+    ch = Chan()
+    wrapped = _SentenceEndPreflight(ch)
+    for e in [ev(I, "I had a plate"), ev(I, "I had a plate of rice."), ev(I, "I had a plate of rice."),
+              ev(F, "I had a plate of rice."), ev(E), ev(I, "आज दो रोटी खाई।"), ev(I, "Did you get that?")]:
+        wrapped.send_nowait(e)
+    assert [e.type for e in ch.sent] == [I, P, I, F, E, P, P], [e.type for e in ch.sent]
+    assert ch.sent[1].alternatives[0].text == "I had a plate of rice."
+    assert wrapped.closed is False  # everything else reaches the real channel
+
+
 if __name__ == "__main__":
     test_rei_is_spoken_as_a_name()
     test_clean_text()
     test_streaming_matches_whole_text()
     test_units_are_spoken_as_words()
     test_swears_only_back()
+    test_sentence_end_sends_preflight_once()
     print("ok")

@@ -1,4 +1,4 @@
-"""REI live voice on LiveKit: Deepgram Flux listens (and decides when you've finished), OpenRouter thinks, Fish Audio speaks.
+"""REI live voice on LiveKit: Deepgram Flux or Soniox listens (and decides when you've finished), OpenRouter thinks, Fish Audio speaks.
 
 The app's `voiceSession` Cloud Function dispatches this agent into a fresh room with the
 session's job metadata: REI's prompt (personality, memory, today's numbers), greeting, voice,
@@ -8,6 +8,7 @@ with their schemas from packages/shared/src/agent.ts, so there is one source of 
 
 import asyncio
 import base64
+import dataclasses
 import gzip
 import json
 import logging
@@ -19,8 +20,10 @@ from dotenv import load_dotenv
 from livekit import rtc
 from livekit.agents import Agent, AgentServer, AgentSession, ChatContext, JobContext, JobProcess, MetricsCollectedEvent, RunContext, cli, metrics
 from livekit.agents import llm as lkllm
+from livekit.agents import stt as lkstt
 from livekit.agents.llm import function_tool
-from livekit.plugins import deepgram, fishaudio, openai
+from livekit.plugins import deepgram, fishaudio, openai, soniox
+from livekit.plugins.soniox.stt import ContextGeneralItem, ContextObject, STTOptions
 
 load_dotenv(".env.local")
 log = logging.getLogger("rei")
@@ -32,13 +35,83 @@ try:
 except ImportError:
     silero = None
 
-AGENT_NAME = "rei"
+# Run a local test agent under another name (and point the functions emulator's LIVEKIT_AGENT at it) so it never takes real calls.
+AGENT_NAME = os.environ.get("REI_AGENT_NAME", "rei")
 DEFAULT_MODELS = ["openai/gpt-oss-120b", "openai/gpt-6-luna"]
 FISH_MODEL = os.environ.get("FISH_MODEL", "s2.1-pro-free")
 DEFAULT_FISH_VOICE = os.environ.get("FISH_VOICE_ID", "")
 # Logs each line said and each action at INFO, so calls can be reviewed from `lk agent logs` while testing.
 # It records what people say: turn it off before real users.
 LOG_TURNS = os.environ.get("REI_LOG_TURNS") == "1"
+# Who listens on calls: "deepgram" (Flux) or "soniox".
+STT_ENGINE = os.environ.get("REI_STT", "deepgram")
+
+# Soniox hears better when it knows the topic and the words to expect, Indian food names above all.
+SONIOX_CONTEXT = ContextObject(
+    general=[
+        ContextGeneralItem("domain", "fitness and nutrition coaching"),
+        ContextGeneralItem("topic", "a user tells their AI coach REI what they ate, their workouts, weight and steps"),
+    ],
+    terms=[
+        "REI", "kcal", "protein", "carbs",
+        *"roti chapati paratha dal rajma chole paneer biryani idli dosa vada sambar upma poha khichdi".split(),
+        *"curd rice lassi buttermilk chaas ghee sabzi dhokla thepla pesarattu".split(),
+    ],
+)
+
+
+class _SentenceEndPreflight:
+    """Wraps a speech stream's event channel: a live transcript that ends a sentence goes out as a preflight,
+    so REI starts working on a reply while the STT makes sure the turn is really over."""
+
+    _END = re.compile(r"[.?!।]\s*$")
+
+    def __init__(self, ch: Any) -> None:
+        self._ch, self._sent = ch, ""
+
+    def send_nowait(self, ev: lkstt.SpeechEvent) -> None:
+        if ev.type == lkstt.SpeechEventType.INTERIM_TRANSCRIPT and ev.alternatives:
+            text = ev.alternatives[0].text
+            if self._END.search(text) and text != self._sent:
+                self._sent = text
+                ev = dataclasses.replace(ev, type=lkstt.SpeechEventType.PREFLIGHT_TRANSCRIPT)
+        elif ev.type == lkstt.SpeechEventType.END_OF_SPEECH:
+            self._sent = ""
+        self._ch.send_nowait(ev)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._ch, name)
+
+
+class EagerSoniox(soniox.STT):
+    """Soniox with an early "probably done" signal, like Flux's eager end of turn. Soniox's own plugin only sends
+    one when every word is final, which in calls is never before the turn ends, so replies waited on the full
+    end-of-turn delay. If you keep talking, the early reply is thrown away (at most 3 per turn)."""
+
+    def stream(self, **kwargs: Any) -> soniox.stt.SpeechStream:
+        s = super().stream(**kwargs)
+        s._event_ch = _SentenceEndPreflight(s._event_ch)
+        return s
+
+
+def make_stt() -> lkstt.STT:
+    if STT_ENGINE == "soniox" and not os.environ.get("SONIOX_API_KEY"):
+        log.warning("REI_STT=soniox but SONIOX_API_KEY isn't set: listening with Deepgram Flux")
+    elif STT_ENGINE == "soniox":
+        # English, Hindi and Telugu in one stream, mixed mid-sentence; it also decides when the turn is over.
+        # It ends a turn 0.5 s after the last word when it's sure, and otherwise waits out the max delay: about a
+        # quarter of call lines waited 2.5 s at the default 2 s, 1.6 s at 1 s. A 1 s "umm" pause still didn't end the turn.
+        return EagerSoniox(params=STTOptions(language_hints=["en", "hi", "te"], context=SONIOX_CONTEXT, max_endpoint_delay_ms=1000))
+    # Flux is built for voice agents: it hears when a turn is really over, not just a pause.
+    # English only (flux-general-multi adds Hindi and 8 more, but not Telugu or Tamil).
+    # A higher end-of-turn bar so "Do you remember…" isn't answered before the rest of the sentence.
+    return deepgram.STTv2(model="flux-general-en", eot_threshold=0.85, eager_eot_threshold=0.6, eot_timeout_ms=4000)
+
+
+# How long after your last word REI waits before answering, once the STT says you're done. Flux is slow to say so
+# (~1.5 s) and rarely wrong. Soniox says so in ~0.5 s but sometimes at a 0.3 s pause between two sentences;
+# 0.6 s gives the voice detector time to hear you carry on, and the early reply is already being made meanwhile.
+TURN_MIN_DELAY = 0.6 if STT_ENGINE == "soniox" and os.environ.get("SONIOX_API_KEY") else 0.2
 
 
 def prewarm(proc: JobProcess) -> None:
@@ -222,17 +295,13 @@ async def entry(ctx: JobContext) -> None:
     )
     vad = ctx.proc.userdata.get("vad")
     session = AgentSession(
-        # Flux is built for voice agents: it hears when a turn is really over, not just a pause.
-        # English only for now (flux-general-multi adds Hindi and 8 more, but not Telugu or Tamil).
-        # A higher end-of-turn bar so "Do you remember…" isn't answered before the rest of the sentence.
-        stt=deepgram.STTv2(model="flux-general-en", eot_threshold=0.85, eager_eot_threshold=0.6, eot_timeout_ms=4000),
+        stt=make_stt(),
         llm=llm,
         tts=fishaudio.TTS(model=FISH_MODEL, voice_id=meta.get("voice") or DEFAULT_FISH_VOICE, latency_mode="balanced", output_format="pcm", sample_rate=24000),
         vad=vad,
         turn_handling={
             "turn_detection": "stt",
-            # Flux has already decided the turn is over; don't wait the default 0.5 s on top.
-            "endpointing": {"min_delay": 0.2},
+            "endpointing": {"min_delay": TURN_MIN_DELAY},
             "interruption": {"min_duration": 0.4},
             "preemptive_generation": {"enabled": True},
         },

@@ -90,3 +90,13 @@ node call-token.mjs voice/call.json
 It prints REI's opener, what each side said, the tools REI called, and when REI's voice started. The script
 answers REI's tools the way the app does (today's totals after a meal). Set `REI_RECORD=rei.wav` to keep REI's
 audio, to check what the voice actually said (the transcript keeps "kcal"; the voice says "calories").
+
+To call agent code that isn't deployed, add `LIVEKIT_AGENT=rei-dev` to `functions/.env.local` before starting the
+emulators, and run the agent locally under that name (`REI_STT=soniox` in front to try Soniox):
+
+```bash
+cd voice-agent && REI_AGENT_NAME=rei-dev .venv/bin/python agent.py start
+```
+
+When restarting it, let the old process exit first (it drains for a few seconds after Ctrl-C and keeps port 8081).
+Otherwise the new one fails to start, or a call goes to the one shutting down and the agent joins about 35 s late.

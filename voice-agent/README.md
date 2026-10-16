@@ -1,7 +1,8 @@
 # REI live voice agent (LiveKit + Fish)
 
 REI's live voice engine:
-Deepgram Flux listens and decides when you've finished talking, OpenRouter thinks (the same fast models as chat), Fish Audio speaks.
+Deepgram Flux or Soniox listens and decides when you've finished talking (`REI_STT`), OpenRouter thinks (the same
+fast models as chat), Fish Audio speaks. Soniox also hears Hindi and Telugu mixed into English, and Indian food names.
 
 How a call works:
 
@@ -20,19 +21,24 @@ cp .env.example .env.local   # then fill in the keys
 ```
 
 On an Intel Mac, the `silero` plugin (voice activity, for snappier cut-ins) can't install: there's no onnxruntime
-build. The agent works without it; Flux's own speech events handle interruptions. Install the rest without it:
+build. The agent works without it; the STT's own speech events handle interruptions. Install the rest without it:
 
 ```bash
-.venv/bin/pip install "livekit-agents[deepgram,openai]==1.8.4" livekit-plugins-fishaudio==1.8.4 python-dotenv
+.venv/bin/pip install "livekit-agents[deepgram,openai,soniox]==1.8.4" livekit-plugins-fishaudio==1.8.4 python-dotenv
 ```
 
 ## Check, run, deploy
 
 ```bash
-.venv/bin/python test_agent.py          # the spoken-text cleaner
+.venv/bin/python test_agent.py          # the spoken-text cleaner and the early end-of-turn signal
 .venv/bin/python fish_check.py          # Fish key + voice: time to first audio, saves fish-check.mp3
-.venv/bin/python agent.py dev           # run locally against LiveKit Cloud (stop the cloud agent first, or calls split)
+REI_AGENT_NAME=rei-dev .venv/bin/python agent.py start   # a local agent next to the cloud one
 ```
+
+A local agent registers under its own name, so it never takes real calls. Point the emulated `voiceSession` at it
+with `LIVEKIT_AGENT=rei-dev` in `functions/.env.local`, then call it with `e2e/voice_call.py` (see `e2e/README.md`).
+Add `REI_STT=soniox` in front to try the other listener; in `.env.local` it sets the cloud agent's listener too, at
+the next secrets update. Never put `REI_AGENT_NAME` in `.env.local`: the cloud agent would stop answering real calls.
 
 Deployed on LiveKit Cloud as agent `CA_YcpzaXWLKKGj` in ap-south (see `livekit.toml`). `lk cloud auth` doesn't
 take input in the app's terminal, so the CLI reads the project keys from `.env.local` instead:
