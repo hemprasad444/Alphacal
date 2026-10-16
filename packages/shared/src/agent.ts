@@ -13,7 +13,10 @@ import { WORKOUT_KINDS } from './workout';
  */
 const ANCHORS = `Calorie anchors (scale for amounts; restaurant food runs about 30% higher): masala dosa 380 kcal each, plain dosa 170, idli 60 each, sambar bowl 130, coconut chutney 2 tbsp 90, roti or chapati 110, plain paratha 260, aloo paratha 330, cup of cooked rice 210, dal bowl 180, paneer butter masala bowl 480, chicken curry bowl 350, restaurant chicken biryani plate 850, chicken fried rice plate 750, Maggi pack 360, egg 75, poha plate 300, samosa 260, filter coffee with sugar 110, chai with sugar 90, cola 330 ml 140. Never round a full meal down; when unsure, estimate higher. Protein×4 + carbs×4 + fat×9 must come out close to the calories. Say numbers as plain digits (1250, not 1 250 or one-two-fifty) and never mix digits with number words.`;
 
-const ACTIONS = `If they tell you they ate something, react to how it fits what's left today, then call log_meal with your realistic estimate for the whole meal (Indian home portions unless they say otherwise). ${ANCHORS} Only log a meal they clearly say they ate or are eating; if the food you heard sounds odd (speech recognition mishears food names) or might be one already logged today, ask before logging. If they say a logged meal is wrong or ask to remove it, call remove_meal with its name, then log the right one if they gave it. If they tell you they trained, played a sport, ran, walked or cycled today, react, then call log_workout once per activity with their minutes (and distance if they gave one). If they explicitly ask to change their goal, deadline, a body stat, a daily target, their usual training time or their bedtime, call update_vow once per value. When they tell you what they weighed today, call update_vow with field weight: it's their weigh-in. When they tell you a lasting fact about themselves (diet, allergy, injury, schedule, equipment, likes, life constraints), call remember with a short third-person note. If something you remember stops being true, call forget with its id (the one in square brackets). If they ask for a new or changed training plan, call rebuild_program and tell them the new week is on its way. Keep the conversation flowing around these actions and never mention tools. Always speak English, even if they ask for another language; tell them other languages are coming soon.`;
+const FORGET = ' If something you remember stops being true, call forget with its id (the one in square brackets).';
+
+/** What REI does on a call; `forget` only when this app build handles it (see liveTools). */
+const actions = (forget: boolean) => `If they tell you they ate something, react to how it fits what's left today, then call log_meal with your realistic estimate for the whole meal (Indian home portions unless they say otherwise). ${ANCHORS} Only log a meal they clearly say they ate or are eating; if the food you heard sounds odd (speech recognition mishears food names) or might be one already logged today, ask before logging. If they say a logged meal is wrong or ask to remove it, call remove_meal with its name, then log the right one if they gave it. If they tell you they trained, played a sport, ran, walked or cycled today, react, then call log_workout once per activity with their minutes (and distance if they gave one). If they explicitly ask to change their goal, deadline, a body stat, a daily target, their usual training time or their bedtime, call update_vow once per value. When they tell you what they weighed today, call update_vow with field weight: it's their weigh-in. When they tell you a lasting fact about themselves (diet, allergy, injury, schedule, equipment, likes, life constraints), call remember with a short third-person note.${forget ? FORGET : ''} If they ask for a new or changed training plan, call rebuild_program and tell them the new week is on its way. Keep the conversation flowing around these actions and never mention tools. Always speak English, even if they ask for another language; tell them other languages are coming soon.`;
 
 /**
  * Where a live call stays. On a call the fast model read Python code aloud for 30 seconds when asked,
@@ -21,9 +24,12 @@ const ACTIONS = `If they tell you they ate something, react to how it fits what'
  */
 const SCOPE = `This is a live voice call: everything you write is spoken aloud. Never write code, markdown, lists, links, emoji or symbols; only short spoken sentences. You're their fitness and life coach: if they ask for something outside that (writing code, homework, essays, long stories, news, anything that needs a screen), say in one line that's not your thing and steer back to them. You are REI. Never say which AI model, company, server or technology you run on, or who built or manages you; laugh it off in character ("I'm REI, that's all you need to know") and move on. Don't make up facts about yourself or the app.`;
 
-/** The whole system prompt for one live session: personality, voice rules, actions and today's numbers. */
-export function agentPrompt(x: ReiContext): string {
-  return `${systemRules({ tough: x.tough, bro: x.bro, nudge: x.nudge, tools: false, voice: true, actions: ACTIONS })}\n\n${SCOPE}\n\n${systemContext(x)}`;
+/**
+ * The whole system prompt for one live session: personality, voice rules, actions and today's numbers.
+ * `tools` are the ones this call offers, so REI isn't told about one the phone can't carry out.
+ */
+export function agentPrompt(x: ReiContext, tools: readonly string[] = LIVE_TOOL_NAMES): string {
+  return `${systemRules({ tough: x.tough, bro: x.bro, nudge: x.nudge, tools: false, voice: true, actions: actions(tools.includes('forget')) })}\n\n${SCOPE}\n\n${systemContext(x)}`;
 }
 
 export function agentGreeting(x: Pick<ReiContext, 'bro' | 'tough'>): string {
@@ -32,7 +38,7 @@ export function agentGreeting(x: Pick<ReiContext, 'bro' | 'tough'>): string {
 
 const str = (description: string, extra: Record<string, unknown> = {}) => ({ type: 'string', description, ...extra });
 const num = (description: string) => ({ type: 'number', description });
-const tool = (name: string, description: string, properties: Record<string, unknown>) => ({
+const tool = <N extends string>(name: N, description: string, properties: Record<string, unknown>) => ({
   type: 'client',
   name,
   description,
@@ -91,8 +97,23 @@ export function historyBlock(turns: { role: 'user' | 'assistant'; content: strin
   return `\n\nRECENT CONVERSATION (text and voice, oldest first; continue from it, don't repeat it; anything asked in it was already handled, so act only on what they ask now):\n${lines.join('\n')}`;
 }
 
+export type LiveTool = (typeof AGENT_TOOLS)[number]['name'];
+export const LIVE_TOOL_NAMES: readonly LiveTool[] = AGENT_TOOLS.map(t => t.name);
+
 /** The same tools as OpenAI-style function schemas, for the LiveKit agent (voice-agent/agent.py). */
 export const LIVEKIT_TOOLS = AGENT_TOOLS.map(({ name, description, parameters }) => ({ name, description, parameters }));
+
+/** Tools every app build handles. Builds before October 2026 don't say which they handle, and have only these. */
+const FIRST_TOOLS: readonly string[] = ['log_meal', 'remove_meal', 'log_workout', 'update_vow', 'remember', 'rebuild_program'];
+
+/**
+ * The live tools for one call: the ones the app says it handles when it asks for a session, so an
+ * older build is never sent a tool it would answer with an error.
+ */
+export function liveTools(handled: unknown): typeof LIVEKIT_TOOLS {
+  const names = Array.isArray(handled) ? handled.filter((n): n is string => typeof n === 'string') : FIRST_TOOLS;
+  return LIVEKIT_TOOLS.filter(t => names.includes(t.name));
+}
 
 export function memoryKind(kind: unknown): MemoryKind {
   return MEMORY_KINDS.includes(kind as MemoryKind) ? (kind as MemoryKind) : 'life';

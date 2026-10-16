@@ -1,4 +1,4 @@
-import { AGENT_TOOLS, agentGreeting, checkLiveMeal, todayLine, agentPrompt, historyBlock, LIVEKIT_TOOLS, mealIndex, memoryKind, recentTurns } from '../agent';
+import { AGENT_TOOLS, agentGreeting, checkLiveMeal, todayLine, agentPrompt, historyBlock, LIVEKIT_TOOLS, liveTools, mealIndex, memoryKind, recentTurns } from '../agent';
 import { vowChange } from '../rei';
 import { reiContext } from '../context';
 import { DEFAULT_DISCIPLINES, DEFAULT_PROFILE } from '../data';
@@ -58,6 +58,17 @@ describe('live voice agent', () => {
   it('gives the LiveKit agent the same tools as the ElevenLabs agent', () => {
     expect(LIVEKIT_TOOLS.map(t => t.name)).toEqual(AGENT_TOOLS.map(t => t.name));
     expect(LIVEKIT_TOOLS[0]).not.toHaveProperty('type');
+  });
+
+  it('offers forget only to app builds that handle it', () => {
+    const old = liveTools(undefined).map(t => t.name);
+    expect(old).not.toContain('forget');
+    expect(old).toHaveLength(6);
+    expect(agentPrompt(ctx({ tough: false, bro: false }), old)).not.toContain('forget');
+    const now = liveTools(AGENT_TOOLS.map(t => t.name)).map(t => t.name);
+    expect(now).toEqual(AGENT_TOOLS.map(t => t.name));
+    expect(agentPrompt(ctx({ tough: false, bro: false }), now)).toContain('call forget');
+    expect(liveTools(['log_meal', 'made_up', 7]).map(t => t.name)).toEqual(['log_meal']);
   });
 
   it('finds the meal to remove by its spoken name, latest first', () => {

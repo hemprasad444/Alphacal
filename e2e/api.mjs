@@ -46,9 +46,12 @@ export async function meals(u, date) {
 }
 
 /** The live-call session REI would start right now: `greeting` is its first spoken line. */
+/** The live actions the current app build handles (it sends them when it asks for a session). */
+const TOOLS = ['log_meal', 'remove_meal', 'log_workout', 'update_vow', 'remember', 'forget', 'rebuild_program'];
+
 export async function opener(u, when, engine = 'livekit') {
   await serverClock(when);
-  const res = await fetch(`${FN}/voiceSession`, { method: 'POST', headers: { Authorization: `Bearer ${u.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { engine } }) });
+  const res = await fetch(`${FN}/voiceSession`, { method: 'POST', headers: { Authorization: `Bearer ${u.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { engine, tools: TOOLS } }) });
   const j = await res.json();
   if (!j.result) return { error: JSON.stringify(j).slice(0, 300) };
   if (j.result.engine === 'elevenlabs') return { greeting: j.result.firstMessage, engine: 'elevenlabs' };

@@ -1,4 +1,4 @@
-import { agentPrompt, characterOf, continuityNote, fallbackOpener, hasVoice, historyBlock, isVoice, LIVEKIT_TOOLS, recentTurns, reiContext, type ReiContext, thread, type Thread } from '@rei/shared';
+import { agentPrompt, characterOf, continuityNote, fallbackOpener, hasVoice, historyBlock, isVoice, liveTools, recentTurns, reiContext, type ReiContext, thread, type Thread } from '@rei/shared';
 import { logger } from 'firebase-functions';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
@@ -45,7 +45,11 @@ export type Engine = 'elevenlabs' | 'livekit';
 export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET, OPENROUTER_API_KEY], timeoutSeconds: 30 }, async req => {
   if (!req.auth || req.auth.token.tester !== true) throw new HttpsError('permission-denied', 'Not on the tester list.');
   const uid = req.auth.uid;
-  const asked = (req.data as { engine?: unknown } | undefined)?.engine;
+  const body = req.data as { engine?: unknown; tools?: unknown } | undefined;
+  const asked = body?.engine;
+  // Only the actions this app build handles (older builds don't list them, and lack the newer ones).
+  const tools = liveTools(body?.tools);
+  const names = tools.map(t => t.name);
   const engine: Engine = asked === 'livekit' || asked === 'elevenlabs' ? asked : LIVE_ENGINE.value() === 'livekit' ? 'livekit' : 'elevenlabs';
   const t0 = Date.now();
   const { ref: usage, data: counts } = await usageToday(uid);
@@ -61,7 +65,7 @@ export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET, 
     const data = await loadUser(uid);
     const ctx = reiContext(data.input);
     const flow = thread(data.messages, Date.now(), data.timeZone);
-    const prompt = `${agentPrompt(ctx)}\n\n${continuityNote(flow)}`;
+    const prompt = `${agentPrompt(ctx, names)}\n\n${continuityNote(flow)}`;
     const session = {
       prompt,
       history: recentTurns(data.messages),
@@ -69,7 +73,7 @@ export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET, 
       // The character's own voice once it's added; REI's Fish voice until then.
       voice: (hasVoice(characterOf(data.settings.character)) ? characterOf(data.settings.character).fish : '') || FISH_VOICE_ID.value(),
       models: LLM_LIVE.value().split(',').map(s => s.trim()).filter(Boolean),
-      tools: LIVEKIT_TOOLS,
+      tools,
       maxSeconds: MAX_SECONDS,
     };
     // The session rides inside the join token, which travels in the connect URL: compress it.
@@ -98,7 +102,7 @@ export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET, 
   if (!token) throw new HttpsError('unavailable', 'Live voice is unavailable right now.');
   const ctx = reiContext(data.input);
   const flow = thread(data.messages, Date.now(), data.timeZone);
-  const prompt = `${agentPrompt(ctx)}\n\n${continuityNote(flow)}${historyBlock(recentTurns(data.messages))}`;
+  const prompt = `${agentPrompt(ctx, names)}\n\n${continuityNote(flow)}${historyBlock(recentTurns(data.messages))}`;
   const firstMessage = await opener(prompt, flow, ctx, '');
   logger.info('voiceSession', { uid, engine, ms: Date.now() - t0, used: used + 1, gap: flow.gap });
   return {

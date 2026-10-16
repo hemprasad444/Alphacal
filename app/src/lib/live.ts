@@ -1,6 +1,6 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { httpsCallable } from 'firebase/functions';
-import type { LiveEngine } from '@rei/shared';
+import { LIVE_TOOL_NAMES, type LiveEngine } from '@rei/shared';
 import { fb } from './firebase';
 
 /** Live voice runs over native WebRTC (LiveKit), which Expo Go doesn't include; it needs a development build. */
@@ -15,8 +15,9 @@ export type VoiceSession =
 const FRESH_MS = 60_000;
 let prepared: { at: number; engine: LiveEngine; session: Promise<VoiceSession> } | null = null;
 
+// `tools`: the actions LiveVoice carries out (all of them; its tools() map is typed to match).
 const fetchSession = (engine: LiveEngine) =>
-  httpsCallable<{ engine: LiveEngine }, VoiceSession>(fb().functions, 'voiceSession', { timeout: 20000 })({ engine }).then(r => r.data);
+  httpsCallable<{ engine: LiveEngine; tools: readonly string[] }, VoiceSession>(fb().functions, 'voiceSession', { timeout: 20000 })({ engine, tools: LIVE_TOOL_NAMES }).then(r => r.data);
 const fresh = (engine: LiveEngine) => !!prepared && prepared.engine === engine && Date.now() - prepared.at < FRESH_MS;
 
 /** Gets a live session ready in the background (from the Talk screen), so opening Live skips that wait. */

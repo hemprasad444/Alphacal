@@ -11,7 +11,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { checkLiveMeal, hhmm, isoDate, mealIndex, memoryKind, saysNumber, type Message, parseWorkout, shouldLogMeal, shouldLogWorkout, splitLead, workoutLog, stripTags, todayLine, vowChange } from '@rei/shared';
+import { checkLiveMeal, hhmm, isoDate, type LiveTool, mealIndex, memoryKind, saysNumber, type Message, parseWorkout, shouldLogMeal, shouldLogWorkout, splitLead, workoutLog, stripTags, todayLine, vowChange } from '@rei/shared';
 import { Backdrop } from './Backdrop';
 import { Core, Wave } from './Core';
 import { Icon } from './icons';
@@ -34,7 +34,7 @@ const AND_THE_REST = ' Before talking about this, react to anything else they ju
  * What REI can do mid-conversation. Each returns a line the agent hears back. `heard` is what they
  * said last on this call, so a meal from earlier in the day isn't logged a second time.
  */
-function tools(store: RefObject<Store>, heard: RefObject<string>) {
+function tools(store: RefObject<Store>, heard: RefObject<string>): Record<LiveTool, (p: Params) => string> {
   /** Meals REI was asked to re-estimate on this call: the second try is logged either way. */
   const redone = new Set<string>();
   /** Two tools can run before the screen redraws: keep this call's view of today's meals current meanwhile. */
