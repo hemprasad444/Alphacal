@@ -1,5 +1,5 @@
-// The live voice agent (ElevenLabs or our LiveKit + Fish agent): REI's prompt for a session, and the actions it can take.
-// The tool names here must match the client tools the app registers (app/src/components/LiveVoice.tsx).
+// The live voice agent (our LiveKit + Fish agent, voice-agent/): REI's prompt for a session, and the actions it can take.
+// The phone carries out each action (app/src/components/LiveVoice.tsx, whose tools map is typed to match).
 import { nutrition } from './derive';
 import { type Food, matchMealText, mealFromItems } from './food';
 import { MEMORY_KINDS, type MemoryKind } from './memory';
@@ -39,16 +39,13 @@ export function agentGreeting(x: Pick<ReiContext, 'bro' | 'tough'>): string {
 const str = (description: string, extra: Record<string, unknown> = {}) => ({ type: 'string', description, ...extra });
 const num = (description: string) => ({ type: 'number', description });
 const tool = <N extends string>(name: N, description: string, properties: Record<string, unknown>) => ({
-  type: 'client',
   name,
   description,
-  expects_response: true,
-  response_timeout_secs: 10,
   parameters: { type: 'object', required: Object.keys(properties), properties },
 });
 
-/** ElevenLabs client tool configs for the agent; the app carries them out. */
-export const AGENT_TOOLS = [
+/** What REI can do on a live call, as function schemas for the agent (voice-agent/agent.py); the phone carries them out. */
+export const LIVE_TOOLS = [
   tool('log_meal', 'Log a meal the user says they ate, as one estimate for the whole meal.', {
     name: str('Short name for the meal, e.g. "Dal rice and curd"'),
     kcal: num('Total calories'),
@@ -90,29 +87,26 @@ export function recentTurns(messages: Message[], n = 12): { role: 'user' | 'assi
     .map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text.trim().slice(0, 400) }));
 }
 
-/** The same recent chat as a prompt block, for an engine that only takes a prompt (ElevenLabs). */
+/** The same recent chat as a prompt block, for writing the call's opener. */
 export function historyBlock(turns: { role: 'user' | 'assistant'; content: string }[]): string {
   if (!turns.length) return '';
   const lines = turns.map(t => `${t.role === 'user' ? 'THEM' : 'YOU'}: ${t.content.replace(/\s+/g, ' ')}`);
   return `\n\nRECENT CONVERSATION (text and voice, oldest first; continue from it, don't repeat it; anything asked in it was already handled, so act only on what they ask now):\n${lines.join('\n')}`;
 }
 
-export type LiveTool = (typeof AGENT_TOOLS)[number]['name'];
-export const LIVE_TOOL_NAMES: readonly LiveTool[] = AGENT_TOOLS.map(t => t.name);
+export type LiveTool = (typeof LIVE_TOOLS)[number]['name'];
+export const LIVE_TOOL_NAMES: readonly LiveTool[] = LIVE_TOOLS.map(t => t.name);
 
-/** The same tools as OpenAI-style function schemas, for the LiveKit agent (voice-agent/agent.py). */
-export const LIVEKIT_TOOLS = AGENT_TOOLS.map(({ name, description, parameters }) => ({ name, description, parameters }));
-
-/** Tools every app build handles. Builds before October 2026 don't say which they handle, and have only these. */
+/** Tools every app build handles. Builds from before 16 October 2026 don't say which they handle, and have only these. */
 const FIRST_TOOLS: readonly string[] = ['log_meal', 'remove_meal', 'log_workout', 'update_vow', 'remember', 'rebuild_program'];
 
 /**
  * The live tools for one call: the ones the app says it handles when it asks for a session, so an
  * older build is never sent a tool it would answer with an error.
  */
-export function liveTools(handled: unknown): typeof LIVEKIT_TOOLS {
+export function liveTools(handled: unknown): typeof LIVE_TOOLS {
   const names = Array.isArray(handled) ? handled.filter((n): n is string => typeof n === 'string') : FIRST_TOOLS;
-  return LIVEKIT_TOOLS.filter(t => names.includes(t.name));
+  return LIVE_TOOLS.filter(t => names.includes(t.name));
 }
 
 export function memoryKind(kind: unknown): MemoryKind {

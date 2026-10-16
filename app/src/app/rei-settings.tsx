@@ -122,7 +122,6 @@ export default function ReiSettings() {
       <Panel acc={accent} tone={0.2} dots={false} style={{ marginTop: 14 }} pad={16}>
         <Row title="Speak replies aloud" sub="In voice mode" right={<Toggle on={settings.speak} onPress={() => s.setOpt('speak', !settings.speak)} />} />
         <Row title="In the chat header" sub="Your character crest or REI’s core" right={<Segmented value={settings.avatar} options={[['Character in chat', 'Crest'], ['Core only', 'Core']]} onChange={v => s.setOpt('avatar', v)} />} />
-        <Row title="Live calls run on" sub={settings.liveEngine === 'livekit' ? 'REI’s own engine · Fish voices' : 'ElevenLabs agent'} right={<Segmented value={settings.liveEngine} options={[['livekit', 'REI'], ['elevenlabs', 'ElevenLabs']]} onChange={v => s.setOpt('liveEngine', v)} />} />
         <Row title="Check-ins" sub="REI messages you when you slip" right={<Toggle on={settings.nudge} onPress={() => s.setOpt('nudge', !settings.nudge)} />} last />
       </Panel>
     </Screen>

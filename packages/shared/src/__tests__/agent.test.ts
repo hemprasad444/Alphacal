@@ -1,4 +1,4 @@
-import { AGENT_TOOLS, agentGreeting, checkLiveMeal, todayLine, agentPrompt, historyBlock, LIVEKIT_TOOLS, liveTools, mealIndex, memoryKind, recentTurns } from '../agent';
+import { agentGreeting, checkLiveMeal, todayLine, agentPrompt, historyBlock, LIVE_TOOLS, liveTools, mealIndex, memoryKind, recentTurns } from '../agent';
 import { vowChange } from '../rei';
 import { reiContext } from '../context';
 import { DEFAULT_DISCIPLINES, DEFAULT_PROFILE } from '../data';
@@ -22,8 +22,8 @@ describe('live voice agent', () => {
   });
 
   it('defines every tool the app handles, with all parameters required', () => {
-    expect(AGENT_TOOLS.map(t => t.name).sort()).toEqual(['forget', 'log_meal', 'log_workout', 'rebuild_program', 'remember', 'remove_meal', 'update_vow']);
-    for (const t of AGENT_TOOLS) expect(t.parameters.required).toEqual(Object.keys(t.parameters.properties));
+    expect(LIVE_TOOLS.map(t => t.name).sort()).toEqual(['forget', 'log_meal', 'log_workout', 'rebuild_program', 'remember', 'remove_meal', 'update_vow']);
+    for (const t of LIVE_TOOLS) expect(t.parameters.required).toEqual(Object.keys(t.parameters.properties));
   });
 
   it('only accepts safe goal changes', () => {
@@ -55,9 +55,8 @@ describe('live voice agent', () => {
     expect(historyBlock([])).toBe('');
   });
 
-  it('gives the LiveKit agent the same tools as the ElevenLabs agent', () => {
-    expect(LIVEKIT_TOOLS.map(t => t.name)).toEqual(AGENT_TOOLS.map(t => t.name));
-    expect(LIVEKIT_TOOLS[0]).not.toHaveProperty('type');
+  it('gives the agent plain function schemas', () => {
+    expect(Object.keys(LIVE_TOOLS[0]).sort()).toEqual(['description', 'name', 'parameters']);
   });
 
   it('offers forget only to app builds that handle it', () => {
@@ -65,8 +64,8 @@ describe('live voice agent', () => {
     expect(old).not.toContain('forget');
     expect(old).toHaveLength(6);
     expect(agentPrompt(ctx({ tough: false, bro: false }), old)).not.toContain('forget');
-    const now = liveTools(AGENT_TOOLS.map(t => t.name)).map(t => t.name);
-    expect(now).toEqual(AGENT_TOOLS.map(t => t.name));
+    const now = liveTools(LIVE_TOOLS.map(t => t.name)).map(t => t.name);
+    expect(now).toEqual(LIVE_TOOLS.map(t => t.name));
     expect(agentPrompt(ctx({ tough: false, bro: false }), now)).toContain('call forget');
     expect(liveTools(['log_meal', 'made_up', 7]).map(t => t.name)).toEqual(['log_meal']);
   });

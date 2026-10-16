@@ -49,17 +49,16 @@ export async function meals(u, date) {
 /** The live actions the current app build handles (it sends them when it asks for a session). */
 const TOOLS = ['log_meal', 'remove_meal', 'log_workout', 'update_vow', 'remember', 'forget', 'rebuild_program'];
 
-export async function opener(u, when, engine = 'livekit') {
+export async function opener(u, when) {
   await serverClock(when);
-  const res = await fetch(`${FN}/voiceSession`, { method: 'POST', headers: { Authorization: `Bearer ${u.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { engine, tools: TOOLS } }) });
+  const res = await fetch(`${FN}/voiceSession`, { method: 'POST', headers: { Authorization: `Bearer ${u.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { tools: TOOLS } }) });
   const j = await res.json();
   if (!j.result) return { error: JSON.stringify(j).slice(0, 300) };
-  if (j.result.engine === 'elevenlabs') return { greeting: j.result.firstMessage, engine: 'elevenlabs' };
   const payload = JSON.parse(Buffer.from(j.result.token.split('.')[1], 'base64url').toString());
   const meta = payload.roomConfig?.agents?.[0]?.metadata ?? '';
   const { gunzipSync } = await import('zlib');
   const session = JSON.parse(gunzipSync(Buffer.from(meta.slice(3), 'base64')).toString());
-  return { greeting: session.greeting, voice: session.voice, engine: 'livekit', session, token: j.result.token, url: j.result.url };
+  return { greeting: session.greeting, voice: session.voice, session, token: j.result.token, url: j.result.url };
 }
 
 /** Tap-to-talk pieces: speech to text, and REI's voice for a line (`v` like "c:naruto"). */

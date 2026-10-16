@@ -79,8 +79,6 @@ export type BgStrength = 'Subtle' | 'Medium' | 'Bold';
 export type EmblemSize = 'S' | 'M' | 'L';
 export type EmblemPos = 'Top' | 'Center' | 'Bottom';
 
-export type LiveEngine = 'elevenlabs' | 'livekit';
-
 export interface Settings {
   theme: ThemeId;
   accent: string | null;
@@ -93,8 +91,6 @@ export interface Settings {
   voice: string;
   /** Voice character (characters.ts): who REI sounds like. */
   character: string;
-  /** Live voice engine: the ElevenLabs agent, or our LiveKit agent with a Fish voice. */
-  liveEngine: LiveEngine;
   nudge: boolean;
   /** Shown on the weekly board (first name and XP) to everyone in the beta. */
   board: boolean;

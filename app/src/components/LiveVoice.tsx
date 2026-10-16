@@ -1,9 +1,8 @@
-// Live voice: one continuous conversation with REI over WebRTC, on one of two engines:
-// the ElevenLabs agent, or our own LiveKit agent (voice-agent/: Deepgram, OpenRouter, Fish voice).
+// Live voice: one continuous conversation with REI over WebRTC, through our own LiveKit agent
+// (voice-agent/: Deepgram, OpenRouter, Fish voice).
 // REI hears you while you talk, answers in about a second, and can be interrupted.
 // Native module: only loaded in a development build (see app/live.tsx).
-// Importing the ElevenLabs SDK also registers LiveKit's WebRTC globals, which the LiveKit engine relies on.
-import { ConversationProvider, useConversationControls, useConversationMode, useConversationStatus } from '@elevenlabs/react-native';
+import '../lib/webrtc';
 import { AudioSession } from '@livekit/react-native';
 import { Room, RoomEvent, type Participant } from 'livekit-client';
 import { requestRecordingPermissionsAsync } from 'expo-audio';
@@ -112,8 +111,6 @@ function tools(store: RefObject<Store>, heard: RefObject<string>): Record<LiveTo
   };
 }
 
-type LiveKitSession = Extract<VoiceSession, { engine: 'livekit' }>;
-
 interface Call {
   log: (step: string) => void;
   /**
@@ -131,7 +128,7 @@ interface Call {
  * RPCs, transcripts arrive as text streams, and REI's state rides on the agent's attributes.
  * Returns the hang-up.
  */
-async function startLiveKit(session: LiveKitSession, tools: Record<string, (p: Params) => string>, call: Call): Promise<() => void> {
+async function startLiveKit(session: VoiceSession, tools: Record<string, (p: Params) => string>, call: Call): Promise<() => void> {
   const room = new Room();
   for (const [name, run] of Object.entries(tools)) {
     room.registerRpcMethod(name, async ({ payload }) => {
@@ -190,24 +187,11 @@ async function startLiveKit(session: LiveKitSession, tools: Record<string, (p: P
 }
 
 export default function LiveVoice() {
-  return (
-    <ConversationProvider>
-      <Live />
-    </ConversationProvider>
-  );
-}
-
-function Live() {
   const s = useStore();
   const { accent } = s;
   const insets = useSafeAreaInsets();
-  const { startSession, endSession } = useConversationControls();
-  const { status } = useConversationStatus();
-  const { isSpeaking: elevenSpeaking } = useConversationMode();
-  /** The LiveKit engine's state; the ElevenLabs engine's comes from its hooks. */
-  const [lk, setLk] = useState<{ on: boolean; connected: boolean; speaking: boolean }>({ on: false, connected: false, speaking: false });
-  const connected = lk.on ? lk.connected : status === 'connected';
-  const isSpeaking = lk.on ? lk.speaking : elevenSpeaking;
+  /** REI on the line, and talking right now. */
+  const [{ connected, speaking: isSpeaking }, setCall] = useState({ connected: false, speaking: false });
   const [lines, setLines] = useState<Message[]>([]);
   const [error, setError] = useState('');
   /** Bumped by "Try again" to start a fresh session. */
@@ -236,13 +220,12 @@ function Live() {
       setError('Couldn’t connect to REI.');
       hangUp?.();
       hangUp = null;
-      endSession();
     }, 20_000);
     (async () => {
       try {
         log('start');
         // Usually prepared already on the Talk screen; otherwise it loads alongside the steps below.
-        const session = takeVoiceSession(store.current.settings.liveEngine);
+        const session = takeVoiceSession();
         session.catch(() => {});
         // Ask first: without the mic, iOS stops the call's audio both ways and nothing says why.
         const mic = await requestRecordingPermissionsAsync();
@@ -257,7 +240,7 @@ function Live() {
           log('audio in call mode');
         }
         const data = await session;
-        log(`session ready (${data.engine ?? 'elevenlabs'})`);
+        log('session ready');
         if (!active) return;
         const done = new Set<string>();
         const addText = (role: 'user' | 'agent', key: string, message: string, final: boolean) => {
@@ -284,37 +267,18 @@ function Live() {
           // Finished lines go into the chat history too, like any other conversation.
           if (final) store.current.appendMessages([{ id: newId(), role: who, text, time: hhmm(), createdAt: Date.now() }]);
         };
-        if (data.engine === 'livekit') {
-          setLk({ on: true, connected: false, speaking: false });
-          const stop = await startLiveKit(data, tools(store, heard), {
-            log,
-            onText: addText,
-            onState: (c, sp) => {
-              if (active) setLk({ on: true, connected: c, speaking: sp });
-            },
-            onError: message => {
-              if (active) setError(message);
-            },
-          });
-          if (active) hangUp = stop;
-          else stop();
-          return;
-        }
-        startSession({
-          conversationToken: data.token,
-          connectionType: 'webrtc',
-          overrides: { agent: { prompt: { prompt: data.prompt }, firstMessage: data.firstMessage }, tts: { voiceId: data.voiceId } },
-          clientTools: tools(store, heard),
-          onMessage: ({ message, role }) => addText(role === 'agent' ? 'agent' : 'user', newId(), message, true),
-          onStatusChange: ({ status: st }) => log(`status ${st}`),
-          onConnect: () => log('connected'),
-          onDisconnect: details => log(`disconnected ${JSON.stringify(details).slice(0, 200)}`),
+        const stop = await startLiveKit(data, tools(store, heard), {
+          log,
+          onText: addText,
+          onState: (c, sp) => {
+            if (active) setCall({ connected: c, speaking: sp });
+          },
           onError: message => {
-            log(`error ${message}`);
-            if (active) setError(String(message));
+            if (active) setError(message);
           },
         });
-        log('connecting to ElevenLabs');
+        if (active) hangUp = stop;
+        else stop();
       } catch (e) {
         log(`failed ${e instanceof Error ? e.message : String(e)}`);
         if (active) setError(e instanceof Error ? e.message : 'Couldn’t start live voice.');
@@ -324,15 +288,12 @@ function Live() {
       active = false;
       clearTimeout(watchdog);
       hangUp?.();
-      endSession();
     };
-    // One session per attempt; the controls are stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt]);
 
   const retry = () => {
     setError('');
-    setLk({ on: false, connected: false, speaking: false });
+    setCall({ connected: false, speaking: false });
     setAttempt(a => a + 1);
   };
 

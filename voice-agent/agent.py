@@ -2,8 +2,8 @@
 
 The app's `voiceSession` Cloud Function dispatches this agent into a fresh room with the
 session's job metadata: REI's prompt (personality, memory, today's numbers), greeting, voice,
-models and the tool schemas. Tools run on the phone over LiveKit RPC, through the same code
-the ElevenLabs agent uses (app/src/components/LiveVoice.tsx), so there is one source of truth.
+models and the tool schemas. Tools run on the phone over LiveKit RPC (app/src/components/LiveVoice.tsx),
+with their schemas from packages/shared/src/agent.ts, so there is one source of truth.
 """
 
 import asyncio
@@ -273,7 +273,7 @@ async def entry(ctx: JobContext) -> None:
     await session.start(room=ctx.room, agent=Rei(instructions=meta.get("prompt", "You are REI, a fitness coach."), tools=tools, chat_ctx=history))
     session.say(meta.get("greeting") or "Yo, what's good?")
 
-    # Hard cap per call, like the ElevenLabs agent's max duration.
+    # Hard cap per call (maxSeconds from the session).
     async def cap() -> None:
         await asyncio.sleep(int(meta.get("maxSeconds") or 600))
         await session.say("Gotta cut it here, we hit the time limit. Hit me up again.").wait_for_playout()

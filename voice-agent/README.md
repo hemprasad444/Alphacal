@@ -1,15 +1,15 @@
 # REI live voice agent (LiveKit + Fish)
 
-Our own live voice engine, an alternative to the ElevenLabs agent, at a fraction of the per-minute cost:
+REI's live voice engine:
 Deepgram Flux listens and decides when you've finished talking, OpenRouter thinks (the same fast models as chat), Fish Audio speaks.
 
 How a call works:
 
-1. The app calls the `voiceSession` Cloud Function with `engine: 'livekit'` (Settings → Live voice engine → Fish).
+1. The app calls the `voiceSession` Cloud Function, listing the actions it can carry out.
 2. The function returns a LiveKit join token for a fresh room. The token dispatches the `rei` agent with the
    session baked in (prompt, greeting, Fish voice, models and tool schemas), gzipped.
 3. The agent joins, greets the user and talks. Its tools (log meal, log workout, update vow, remember,
-   rebuild program) run on the phone over LiveKit RPC, through the same code as the ElevenLabs engine.
+   forget, rebuild program) run on the phone over LiveKit RPC (app/src/components/LiveVoice.tsx).
 4. Calls are capped at 10 minutes; the function caps calls per day.
 
 ## Setup

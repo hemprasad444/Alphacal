@@ -140,7 +140,6 @@ export const DEFAULT_SETTINGS: Settings = {
   speak: true,
   voice: DEFAULT_VOICE,
   character: 'rei',
-  liveEngine: 'elevenlabs',
   nudge: true,
   board: true,
   tone: 'Tough love',
