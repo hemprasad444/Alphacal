@@ -47,8 +47,22 @@ def test_rei_is_spoken_as_a_name():
     assert for_speech("REIGN and BREI stay") == "REIGN and BREI stay"
 
 
+def test_units_are_spoken_as_words():
+    from agent import TextCleaner, for_speech
+
+    assert for_speech("160 kcal, 13 g protein, 13g carbs at 83.5 kg") == "160 calories, 13 grams protein, 13 grams carbs at 83.5 kilos"
+    assert for_speech("go to the gym, 2 eggs") == "go to the gym, 2 eggs"
+    # Streamed token by token, a number and its unit still reach the voice together.
+    cleaner, said = TextCleaner(), []
+    for tok in ["That's ", "160", " ", "kcal", " and ", "13", "g", " protein."]:
+        said.append(for_speech(cleaner.push(tok)))
+    said.append(for_speech(cleaner.flush()))
+    assert "".join(said) == "That's 160 calories and 13 grams protein.", said
+
+
 if __name__ == "__main__":
     test_rei_is_spoken_as_a_name()
     test_clean_text()
     test_streaming_matches_whole_text()
+    test_units_are_spoken_as_words()
     print("ok")

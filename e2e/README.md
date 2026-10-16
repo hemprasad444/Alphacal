@@ -73,6 +73,7 @@ vary from run to run. Run from `e2e/`. Trials that import TypeScript run with `n
 | Target changes saved | `node trials/trial-target.mjs` | 9/9 |
 | Programs from their own numbers | `cd ../functions && npx tsx ../e2e/trials/trial-program.mjs` | beginner starts light |
 | Tap-to-talk (speech, reply, voice) | `node trials/trial-voice.mjs` (Deepgram key in the environment) | meal logged, audio matches |
+| Tone: no narrating, no swearing first | `node trials/trial-tone.mjs` (after other runs) | 0 and 0 |
 | Users can't reach each other's data | `npm run isolation` | all PASS |
 | Two people, one phone | `npm run same-phone` | clean for the second person |
 | Models side by side | `cd ../functions && npx tsx ../e2e/bench-models.mts` | correctness, speed, cost |

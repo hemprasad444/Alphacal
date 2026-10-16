@@ -66,11 +66,16 @@ _MARKDOWN = re.compile(r"`+|\*{1,3}|_{2,}|^#+\s*|^\s*[-•]\s+", re.M)
 
 
 _REI = re.compile(r"\bREI\b")
+_UNITS = [(re.compile(r"(\d)\s?kcal\b", re.I), r"\1 calories"), (re.compile(r"(\d)\s?kgs?\b", re.I), r"\1 kilos"), (re.compile(r"(\d)\s?g\b"), r"\1 grams")]
 
 
 def for_speech(text: str) -> str:
-    """"REI" is a name ("Rei"), not three letters. Only for what's spoken: the transcript keeps REI."""
-    return _REI.sub("Rei", text)
+    """"REI" is a name ("Rei"), not three letters, and units are words ("160 kcal" was read as "160 k sale").
+    Only for what's spoken: the transcript keeps REI and kcal. The cleaner never splits a number from its unit."""
+    text = _REI.sub("Rei", text)
+    for unit, word in _UNITS:
+        text = unit.sub(word, text)
+    return text
 
 
 def clean_text(text: str) -> str:

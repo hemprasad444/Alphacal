@@ -62,3 +62,30 @@ export function shouldLogWorkout(message: string, log: SessionLog, today: Sessio
   if (today.some(s => kindOf(s) === kindOf(log)) && !AGAIN.test(message)) return { ok: false, why: 'already logged' };
   return { ok: true };
 }
+
+const N = String.raw`(\d{2,3}(?:\.\d{1,2})?)(?![\d.])`;
+const UNIT = String.raw`\s*(kg|kgs|kilos?|lbs?|pounds)?(?!\s*(?:g|gm|gms|grams?|ml)\b)`;
+/** "weighed 83.5", "I weigh 84", "weigh-in: 83.2", "scale says 83.4", "83.5 on the scale". */
+const WEIGHED = [
+  new RegExp(String.raw`\b(?:weighed(?: in)?(?: at)?|i weigh|weigh-?in(?: was| is|:)?|(?:the )?scale (?:says|said|shows|showed|reads?))\s*(?:at\s*)?${N}${UNIT}`, 'i'),
+  new RegExp(String.raw`\b${N}\s*(kg|kgs|kilos?)?\s+on the scale\b`, 'i'),
+];
+/** "I'm 84 kg", "down to 82.6 kilos": only with the unit, and not about a lift ("up to 85 kg on bench"). */
+const AT_KG = new RegExp(String.raw`\b(?:i'?m|i am|now|down to|up to)\s*(?:at\s*)?${N}\s*(kg|kgs|kilos?)\b`, 'i');
+const LIFT = /\b(bench\w*|squat\w*|deadlift\w*|press\w*|row|rows|curl\w*|lift\w*|dumbbells?|barbell|plates?|pr|reps?|sets?)\b|\d\s?x\s?\d/i;
+const NOT_TODAY = /\b(want|wanna|goal|target|aim|hope|used to|would|should|will|gonna|last (year|month|week)|(years?|months?|weeks?) ago|when i was|before)\b/i;
+
+/**
+ * Today's weight from what they told REI ("weighed 83.5 this morning", "scale says 83.2"), for when the
+ * model replies to it without calling update_vow. Only a plausible reading within 10% of their current
+ * weight; never a goal ("want to weigh 75"), a past weight, pounds or a lift.
+ */
+export function weighInFrom(message: string, currentKg: number): number | null {
+  if (NOT_TODAY.test(message)) return null;
+  const m = WEIGHED.map(re => re.exec(message)).find(Boolean) ?? (LIFT.test(message) ? null : AT_KG.exec(message));
+  if (!m) return null;
+  const kg = parseFloat(m[1]);
+  if (/^(lb|lbs|pounds)$/i.test(m[2] ?? '') || !(kg >= 30 && kg <= 250)) return null;
+  if (currentKg > 0 && Math.abs(kg - currentKg) > currentKg * 0.1) return null;
+  return kg;
+}

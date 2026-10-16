@@ -28,7 +28,7 @@ describe('voices', () => {
 
   it('talks like a bro only when chosen', () => {
     const bro = systemRules({ tough: true, bro: true, nudge: true, tools: true });
-    expect(bro).toContain('If they swear, swear back');
+    expect(bro).toContain("Don't swear until they do; once they swear, swear back");
     expect(bro).toContain('never comment negatively on their body');
     expect(systemRules({ tough: true, nudge: true, tools: true })).not.toContain('swear back');
   });

@@ -114,7 +114,7 @@ function gapNote(t: Thread): string {
   const last = [t.lastThem && `they last said "${t.lastThem}"`, t.lastRei && `you last said "${t.lastRei}"`].filter(Boolean).join('; ');
   switch (t.gap) {
     case 'first':
-      return 'CONVERSATION: This is your first conversation with them. Introduce yourself in one line, then get to them.';
+      return 'CONVERSATION: This is your first conversation with them. Introduce yourself in one line (no "first message" talk), then get to them.';
     case 'now':
       return `CONVERSATION: Same conversation, still going (last message ${ago(t.minutes)}; ${last}). Do not greet them again and never ask "how are you" or "what's up": you already did. Pick up the thread like a friend mid-chat.`;
     case 'today':

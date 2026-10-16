@@ -141,6 +141,10 @@ describe('characters', () => {
     expect(spokenName('x'.repeat(40))).toHaveLength(24);
   });
 
+  it('says units as words', () => {
+    expect(forSpeech('That’s 160 kcal and 13 g protein, 13g carbs, at 83.5 kg.')).toBe('That’s 160 calories and 13 grams protein, 13 grams carbs, at 83.5 kilos.');
+    expect(forSpeech('go to the gym, 2 eggs')).toBe('go to the gym, 2 eggs');
+  });
   it('says REI as a name, not letters', () => {
     expect(forSpeech('I’m REI. REI’s got you. REIGN stays.')).toBe('I’m Rei. Rei’s got you. REIGN stays.');
   });

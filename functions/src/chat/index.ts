@@ -1,4 +1,4 @@
-import { addMemory, applyUpdate, catalog, dropRepeats, shouldLogMeal, shouldLogWorkout, continuityNote, thread, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, stripTags, systemContext, type SessionLog, todaysPlan, parseWorkout, workoutLog, workoutNote, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
+import { addMemory, applyUpdate, catalog, dropRepeats, shouldLogMeal, weighInFrom, shouldLogWorkout, continuityNote, thread, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, stripTags, systemContext, type SessionLog, todaysPlan, parseWorkout, workoutLog, workoutNote, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineInt } from 'firebase-functions/params';
@@ -149,6 +149,11 @@ export const chat = onRequest(
             rebuild = typeof f === 'string' ? f.slice(0, 200) : '';
           }
         }
+      }
+      // "Weighed 83.5 this morning" answered without update_vow: still their weigh-in.
+      if (body.mode !== 'meal' && !vow?.weight) {
+        const kg = weighInFrom(body.text, parseFloat(data.input.profile.weight) || 0);
+        if (kg) vow = { ...vow, weight: String(kg) };
       }
       text = dropRepeats(stripTags(parseReply(text).text));
       // Nothing to say (only a refused re-log, or a tool call that did nothing): get a real answer instead of "Noted.".

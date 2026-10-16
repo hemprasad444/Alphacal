@@ -55,8 +55,16 @@ export function greeting(c: VoiceCharacter, name?: string | null): string {
   return c.intro.replace(/\{name\}/g, n || 'friend');
 }
 
-/** Text as a voice should read it: "REI" is a name ("Rei"), not three letters. */
-export const forSpeech = (text: string) => text.replace(/\bREI\b/g, 'Rei');
+/**
+ * Text as a voice should read it: "REI" is a name ("Rei"), not three letters, and units are words
+ * ("160 kcal" was read as "160 k sale", "13 g" as "13 gs").
+ */
+export const forSpeech = (text: string) =>
+  text
+    .replace(/\bREI\b/g, 'Rei')
+    .replace(/(\d)\s?kcal\b/gi, '$1 calories')
+    .replace(/(\d)\s?kgs?\b/gi, '$1 kilos')
+    .replace(/(\d)\s?g\b/g, '$1 grams');
 
 /** True once the character's own voice has been added. */
 export const hasVoice = (c: VoiceCharacter) => !!c.fish;
