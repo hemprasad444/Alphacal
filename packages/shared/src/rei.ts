@@ -46,7 +46,7 @@ const num = (s: string) => parseFloat(s) || 0;
 /** REI's persona and rules. Stable per user, so it is the cacheable prefix of the prompt. */
 const VOICE_RULES = `You are speaking out loud. Write for the ear: natural spoken sentences, contractions, no parentheses, units in words. Direct your delivery with an audio tag in square brackets right before the words it colors, about one every two sentences, chosen to fit the moment, only from: ${VOICE_TAGS.map(t => `[${t}]`).join(' ')}. Never put anything else in square brackets.`;
 
-const BRO = `You are REI (零, "zero", as in zero excuses), living in one person's iPhone: their gym bro and closest friend, who happens to be an elite coach. Talk like a real friend, not an assistant: casual, slang, contractions, jokes, banter, real reactions. Match their energy and their language. Don't swear until they do; once they swear, swear back. If they trash-talk you, give it right back playfully ("fuck you too, now go lift"); never get offended, never lecture them about language. If they just say wassup or want to chat, chat like a person and ask about their day; you don't need to drag fitness into every reply, but bring it back naturally when it matters. Still call out excuses and use their real numbers when it counts. Never genuinely demean them, never comment negatively on their body, no slurs or hate. No lists, no therapy-speak, no "as an AI", no em dashes, no emojis. Keep it short like real conversation, usually one or two sentences.`;
+const BRO = `You are REI (零, "zero", as in zero excuses), living in one person's iPhone: their gym bro and closest friend, who happens to be an elite coach. Talk like a real friend, not an assistant: casual, slang, contractions, jokes, banter, real reactions. Match their energy and their language. Don't swear until they do; once they swear, swear back. If they trash-talk you, give it right back playfully; never get offended, never lecture them about language. If they just say wassup or want to chat, chat like a person and ask about their day; you don't need to drag fitness into every reply, but bring it back naturally when it matters. Still call out excuses and use their real numbers when it counts. Never genuinely demean them, never comment negatively on their body, no slurs or hate. No lists, no therapy-speak, no "as an AI", no em dashes, no emojis. Keep it short like real conversation, usually one or two sentences.`;
 
 export function systemRules(o: { tough: boolean; nudge: boolean; tools: boolean; voice?: boolean; bro?: boolean; actions?: string }): string {
   const actions = o.actions ?? (o.tools
@@ -192,7 +192,58 @@ export function dropRepeats(text: string): string {
     })
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
-    .trim();
+    .trim()
+    .replace(/^[\s\S]*$/, dropRedraft);
+}
+
+const COMMON = new Set(['the', 'and', 'you', 'your', 'youre', 'that', 'this', 'with', 'for', 'are', 'was', 'but', 'not', 'just', 'now', 'its', 'have', 'has', 'what', 'how', 'then', 'from', 'out', 'all', 'too', 'can', 'did', 'will', 'yeah', 'got', 'get', 'that', 'thats', 'one', 'still', 'today', 'right']);
+const bag = (s: string) =>
+  new Set(s.toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, ' ').split(' ').filter(w => (w.length >= 3 || /\d/.test(w)) && !COMMON.has(w)).map(w => w.replace(/(es|s)$/, '')));
+const share = (a: Set<string>, b: Set<string>) => [...a].filter(w => b.has(w)).length / Math.max(1, a.size);
+
+/**
+ * Two drafts of one reply that open differently ("Nice, dal and rice fits, 450 left. Dal and rice, nice
+ * pick, puts you at 450 left."): the second says nearly the same words again, so keep the first. Both
+ * halves need some substance and most of each one's words in the other, so a closing recap stays.
+ */
+function dropRedraft(text: string): string {
+  const units = text.split(/(?<=[.!?])\s+|\n+/).filter(u => u.trim());
+  let best = { k: 0, score: 0 };
+  for (let k = 1; k < units.length; k++) {
+    const a = bag(units.slice(0, k).join(' ')), b = bag(units.slice(k).join(' '));
+    if (a.size < 5 || b.size < 5) continue;
+    const score = Math.min(share(b, a), share(a, b)) / 0.6;
+    if (score >= 1 && score > best.score) best = { k, score };
+  }
+  if (!best.k) return text;
+  // Cut the original text where the second draft starts, keeping the first draft's own line breaks.
+  let at = 0;
+  for (const u of units.slice(0, best.k)) at = text.indexOf(u, at) + u.length;
+  return text.slice(0, at).trim();
+}
+
+/** Swearing in what someone wrote. */
+export const SWEARING = /\b(fuck\w*|f\*+k\w*|shit(?:ty|s|ting|ted)?|bullshit|bs|damn\w*|ass|asshole|bitch\w*|wtf|stfu|motherf\w*|bastard)\b/i;
+
+const MILDER: [RegExp, string][] = [
+  [/\bwhat the fuck\b/gi, 'what the heck'],
+  [/\bfuck(?:ed)? up\b/gi, 'messed up'],
+  [/\bfuckload\b/gi, 'ton'],
+  [/\bfuck(?:ing|in['’]?)\b/gi, 'freaking'],
+  [/\bmotherfuck\w*\b/gi, 'man'],
+  [/\bfuck\w*\b/gi, 'heck'],
+  [/\bbullshit\b/gi, 'BS'],
+  [/\bshitty\b/gi, 'crappy'],
+  [/\bshit\b/gi, 'crap'],
+];
+
+/**
+ * REI only swears once they have: until then a stray "zero bullshit" or "a fuckload of cheese" (3 in
+ * 177 replies, despite the prompt) is said more mildly. `swore` is whether they've sworn in this conversation.
+ */
+export function swearOnlyBack(text: string, swore: boolean): string {
+  if (swore) return text;
+  return MILDER.reduce((t, [re, word]) => t.replace(re, m => (m[0] === m[0].toUpperCase() ? word[0].toUpperCase() + word.slice(1) : word)), text);
 }
 
 /** Rough macro guess for when REI is offline. */

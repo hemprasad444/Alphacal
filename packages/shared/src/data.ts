@@ -142,6 +142,7 @@ export const DEFAULT_SETTINGS: Settings = {
   character: 'rei',
   liveEngine: 'elevenlabs',
   nudge: true,
+  board: true,
   tone: 'Tough love',
   avatar: 'Character in chat',
   scenario: 'Slipping week',

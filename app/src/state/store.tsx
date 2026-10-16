@@ -2,8 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadState, saveSlices } from '../lib/persist';
 import { sliceStore } from '../lib/sliceStore';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 import {
-  type Activity, activityFor, type Bests, bestsOf, type Sex, activityFromDay, type Intake, intakeDisciplines, intakeMemory, intakeProfile, nameOf, type Workout, workoutLog, workoutNote, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  MAX_MEALS, type Activity, activityFor, type Bests, bestsOf, type Sex, activityFromDay, type Intake, intakeDisciplines, intakeMemory, intakeProfile, nameOf, type Workout, workoutLog, workoutNote, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
@@ -331,10 +332,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setP(s => ({ ...s, ...(typeof x === 'function' ? x(s) : x) }));
   }, []);
 
-  // The calendar day, so an open app rolls over at midnight.
+  // The calendar day, so an open app rolls over at midnight, and one reopened after midnight shows today
+  // straight away (not for up to a minute, when a meal logged then would land on yesterday).
   useEffect(() => {
     const t = setInterval(() => setToday(isoDate()), 60000);
-    return () => clearInterval(t);
+    const sub = AppState.addEventListener('change', st => {
+      if (st === 'active') setToday(isoDate());
+    });
+    return () => {
+      clearInterval(t);
+      sub.remove();
+    };
   }, []);
 
   // Load the saved state for the current mode. It renders immediately; in cloud mode
@@ -397,6 +405,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [patch]);
 
   const saveMeals = useCallback((meals: Meal[]) => {
+    // Now, not after the redraw: a second meal logged straight after (two on one call) builds on this one.
+    ref.current = { ...ref.current, meals };
     patch({ meals });
     const u = uidRef.current;
     if (u) write.day(u, ref.current.day, { meals });
@@ -578,6 +588,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addMeal = useCallback((meal: Meal) => {
     const cur = ref.current;
+    if (cur.meals.length >= MAX_MEALS) {
+      setFuelVerdict(`That’s ${MAX_MEALS} meals today, the most a day holds. Edit one of today’s meals to add to it instead.`);
+      return;
+    }
     const meals = [...cur.meals, meal];
     saveMeals(meals);
     setFuelVerdict(fuelLine(cur.profile, calcNutrition(meals, activityOf(cur))));

@@ -127,6 +127,11 @@ export function postScore(uid: string, week: string, p: Omit<Player, 'uid' | 'up
   return setDoc(doc(players(week), uid), { ...p, name: p.name.slice(0, 24) || 'Anonymous', updatedAt: Date.now() }).catch(warn('leaderboard write'));
 }
 
+/** Off the board: their row for the week goes. */
+export function removeScore(uid: string, week: string): Promise<void> {
+  return deleteDoc(doc(players(week), uid)).catch(warn('leaderboard remove'));
+}
+
 /** The week's top players, best first. */
 export function onBoard(week: string, cb: (rows: Player[]) => void, top = 50): Unsubscribe {
   const q = query(players(week), orderBy('xp', 'desc'), limit(top));

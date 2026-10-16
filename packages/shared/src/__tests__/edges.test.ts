@@ -201,3 +201,22 @@ describe('a session hours late', () => {
     expect(hero(week, plan, false, false, 50, 10000, { session: '18:30', lateMin: 30 }).tag).toBe('ON TRACK');
   });
 });
+
+describe('nothing done yet', () => {
+  const { hero, protocol, nutrition } = jest.requireActual('../derive') as typeof import('../derive');
+  const plan = { key: 'PUSH', title: 'Push', sub: '', minutes: 50, exercises: [] } as never;
+  it('does not praise a clean week on day one', () => {
+    const fresh = { days: [], done: 0, missed: 0, left: 4, yesterdayDone: false } as never;
+    const text = hero(fresh, plan, false, true, 50, 10000, { session: '18:30' }).parts.map(p => p.t).join('');
+    expect(text).not.toMatch(/Good work|clean so far/);
+    expect(text).toContain('Push at 18:30');
+    const going = { days: [], done: 2, missed: 0, left: 2, yesterdayDone: false } as never;
+    expect(hero(going, plan, false, true, 50, 10000).parts.map(p => p.t).join('')).toContain('clean so far');
+  });
+  it('does not count an empty food log as calories done', () => {
+    const empty = protocol(plan, nutrition([], { steps: null, sleep: null, sleepL: '—' }), { protein: '150', kcal: '2000', steps: '10000', sleep: '8' } as never, false, 0, false);
+    expect(empty[2].status).toBe('NOT LOGGED');
+    const ate = protocol(plan, nutrition([{ time: '09:00', name: 'eggs', kcal: 300, p: 20, c: 2, f: 20 }], { steps: null, sleep: null, sleepL: '—' }), { protein: '150', kcal: '2000', steps: '10000', sleep: '8' } as never, false, 0, false);
+    expect(ate[2].status).toBe('OK');
+  });
+});

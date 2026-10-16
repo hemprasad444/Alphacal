@@ -1,4 +1,4 @@
-import { AGENT_TOOLS, agentGreeting, agentPrompt, historyBlock, LIVEKIT_TOOLS, mealIndex, memoryKind, recentTurns } from '../agent';
+import { AGENT_TOOLS, agentGreeting, checkLiveMeal, todayLine, agentPrompt, historyBlock, LIVEKIT_TOOLS, mealIndex, memoryKind, recentTurns } from '../agent';
 import { vowChange } from '../rei';
 import { reiContext } from '../context';
 import { DEFAULT_DISCIPLINES, DEFAULT_PROFILE } from '../data';
@@ -22,7 +22,7 @@ describe('live voice agent', () => {
   });
 
   it('defines every tool the app handles, with all parameters required', () => {
-    expect(AGENT_TOOLS.map(t => t.name).sort()).toEqual(['log_meal', 'log_workout', 'rebuild_program', 'remember', 'remove_meal', 'update_vow']);
+    expect(AGENT_TOOLS.map(t => t.name).sort()).toEqual(['forget', 'log_meal', 'log_workout', 'rebuild_program', 'remember', 'remove_meal', 'update_vow']);
     for (const t of AGENT_TOOLS) expect(t.parameters.required).toEqual(Object.keys(t.parameters.properties));
   });
 
@@ -69,5 +69,40 @@ describe('live voice agent', () => {
     expect(mealIndex(meals, 'pizza')).toBe(-1);
     expect(mealIndex(meals, '')).toBe(-1);
     expect(mealIndex([m('Chai'), m('Chai')], 'chai')).toBe(1);
+  });
+});
+
+
+describe('meals logged on a call', () => {
+  const { catalog } = jest.requireActual('../food') as typeof import('../food');
+  const foods = catalog();
+  it('uses the food list when everything they said is on it', () => {
+    const r = checkLiveMeal({ name: 'Two eggs', kcal: 150, p: 5, c: 2, f: 3 }, 'I just had 2 eggs for breakfast', foods, '08:10');
+    expect('meal' in r && r.meal.items?.length).toBe(1);
+    if ('meal' in r) {
+      expect(r.meal.p).toBeGreaterThanOrEqual(12);
+      expect(r.meal.f).toBeGreaterThanOrEqual(8);
+      expect(r.meal.name).toBe('Two eggs');
+    }
+  });
+  it('catches the 2 eggs and a banana at 7 g protein, 0 g fat from a real call', () => {
+    const r = checkLiveMeal({ name: 'Eggs and banana', kcal: 250, p: 7, c: 27, f: 0 }, 'I just had 2 eggs and a banana for breakfast', foods, '08:10');
+    expect('redo' in r).toBe(true);
+  });
+  it('keeps an estimate that adds up', () => {
+    const r = checkLiveMeal({ name: 'Mom’s special pulao', kcal: 520, p: 14, c: 80, f: 16 }, 'had my mom’s special pulao', foods, '13:00');
+    expect(r).toEqual({ meal: { time: '13:00', name: 'Mom’s special pulao', kcal: 520, p: 14, c: 80, f: 16, src: 'ai' } });
+  });
+  it('asks for a redo when the macros don’t add up, then scales them', () => {
+    const est = { name: 'Thing', kcal: 400, p: 7, c: 20, f: 0 };
+    const r = checkLiveMeal(est, 'ate a thing', foods, '13:00');
+    expect('redo' in r && r.redo).toMatch(/add up to 108 kcal, not 400/);
+    const again = checkLiveMeal(est, 'ate a thing', foods, '13:00', true);
+    expect('meal' in again && again.meal.kcal).toBe(400);
+    if ('meal' in again) expect(again.meal.p * 4 + again.meal.c * 4 + again.meal.f * 9).toBeGreaterThan(380);
+  });
+  it('says what is left today', () => {
+    const line = todayLine({ ...DEFAULT_PROFILE, kcal: '2000', protein: '150' }, [{ time: '09:00', name: 'x', kcal: 500, p: 30, c: 50, f: 15 }]);
+    expect(line).toContain('1500 kcal and 120 g protein left');
   });
 });

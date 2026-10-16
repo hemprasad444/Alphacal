@@ -147,3 +147,37 @@ describe('dropRepeats', () => {
     expect(dropRepeats('Eat.\nTrain.\nEat.')).toBe('Eat.\nTrain.\nEat.');
   });
 });
+
+describe('dropRepeats, drafts that open differently', () => {
+  const { dropRepeats } = jest.requireActual('../rei') as typeof import('../rei');
+  it('keeps the first draft', () => {
+    expect(dropRepeats('Nice, dal and rice fits, that leaves you 450 kcal and 40 g protein for dinner. Dal and rice, solid pick, puts you at 450 kcal left with 40 g protein to go for dinner.')).toBe(
+      'Nice, dal and rice fits, that leaves you 450 kcal and 40 g protein for dinner.',
+    );
+    expect(dropRepeats('How was Dune 3 with the boys? Bet the sound in IMAX was insane.\nYo, how was Dune 3? Bet IMAX sound with the boys was insane.')).toBe('How was Dune 3 with the boys? Bet the sound in IMAX was insane.');
+  });
+  it('keeps replies that build on what came before', () => {
+    const keep = [
+      'How was Dune 3? And did you eat anything before or during the show?\nAlso, it’s nearly 11 and your log’s still empty. Did you eat anything at all today?',
+      '85 for 5 is strong, that’s moving. Legs were supposed to be today though, so did you swap them for tomorrow? And you still haven’t eaten a thing today, that bench happened on fumes.',
+      'Rajma chawal plus curd puts you near 1530 of 2150 kcal and about 56 g protein, still 59 short. Nothing left tonight but protein: paneer, curd or a shake.',
+    ];
+    for (const t of keep) expect(dropRepeats(t)).toBe(t);
+  });
+});
+
+describe('swearOnlyBack', () => {
+  const { swearOnlyBack, SWEARING } = jest.requireActual('../rei') as typeof import('../rei');
+  it('says it milder until they swear', () => {
+    expect(swearOnlyBack('Yo, I’m REI. Zero excuses, zero bullshit.', false)).toBe('Yo, I’m REI. Zero excuses, zero BS.');
+    expect(swearOnlyBack('And you just ate a fuckload of cheese, so don’t skip pull.', false)).toBe('And you just ate a ton of cheese, so don’t skip pull.');
+    expect(swearOnlyBack('Fucking brilliant. Holy shit.', false)).toBe('Freaking brilliant. Holy crap.');
+    expect(SWEARING.test(swearOnlyBack('what the fuck, shitty day, fuck it', false))).toBe(false);
+  });
+  it('swears back once they have', () => {
+    expect(swearOnlyBack('Fuck you too, now go lift.', true)).toBe('Fuck you too, now go lift.');
+    expect(SWEARING.test('this diet is bullshit')).toBe(true);
+    expect(SWEARING.test('shiitake and shitake mushrooms')).toBe(false);
+    expect(SWEARING.test('assess the class, a big glass')).toBe(false);
+  });
+});

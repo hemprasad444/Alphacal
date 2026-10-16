@@ -25,6 +25,9 @@ const sameMeal = (a: Meal, b: Meal) => {
   return shared > 0 && shared >= Math.min(wa.size, wb.size) / 2 && Math.abs(a.kcal - b.kcal) <= Math.max(a.kcal, b.kcal) * 0.35;
 };
 
+/** The most meals one day holds (the database rules allow the same). */
+export const MAX_MEALS = 60;
+
 const minutesOf = (hhmm: string) => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
   return m ? +m[1] * 60 + +m[2] : null;
@@ -73,7 +76,7 @@ const WEIGHED = [
 /** "I'm 84 kg", "down to 82.6 kilos": only with the unit, and not about a lift ("up to 85 kg on bench"). */
 const AT_KG = new RegExp(String.raw`\b(?:i'?m|i am|now|down to|up to)\s*(?:at\s*)?${N}\s*(kg|kgs|kilos?)\b`, 'i');
 const LIFT = /\b(bench\w*|squat\w*|deadlift\w*|press\w*|row|rows|curl\w*|lift\w*|dumbbells?|barbell|plates?|pr|reps?|sets?)\b|\d\s?x\s?\d/i;
-const NOT_TODAY = /\b(want|wanna|goal|target|aim|hope|used to|would|should|will|gonna|last (year|month|week)|(years?|months?|weeks?) ago|when i was|before)\b/i;
+const NOT_TODAY = /\b(want|wanna|goal|target|aim|hope|used to|(to|should|will|would|gonna) weigh|last (year|month|week)|(years?|months?|weeks?) ago|when i was)\b/i;
 
 /**
  * Today's weight from what they told REI ("weighed 83.5 this morning", "scale says 83.2"), for when the
@@ -88,4 +91,12 @@ export function weighInFrom(message: string, currentKg: number): number | null {
   if (/^(lb|lbs|pounds)$/i.test(m[2] ?? '') || !(kg >= 30 && kg <= 250)) return null;
   if (currentKg > 0 && Math.abs(kg - currentKg) > currentKg * 0.1) return null;
   return kg;
+}
+
+/**
+ * Does the message give this number ("weighed 83.5", "I'm 82 now")? A weight REI records is a weigh-in,
+ * so it must come from what they said: once "night shift killed me yesterday" was stored as one.
+ */
+export function saysNumber(message: string, n: number): boolean {
+  return [...message.matchAll(/\d+(?:\.\d+)?/g)].some(m => Math.abs(parseFloat(m[0]) - n) < 0.05);
 }

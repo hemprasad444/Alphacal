@@ -3,7 +3,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { game, type GameState, isoDate, isoWeek, newBadges, type GameBadge } from '@rei/shared';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
-import { postScore } from '../lib/sync';
+import { postScore, removeScore } from '../lib/sync';
 import { useStore } from './store';
 
 const seenKey = (who: string) => `rei-badges-seen-${who}`;
@@ -75,10 +75,16 @@ export function useGame(): GameState & { fresh: GameBadge[]; ready: boolean; mar
 export function useBoardSync(g: Pick<GameState, 'weekXp' | 'rank'>) {
   const uid = useStore(s => s.account.uid), cloud = useStore(s => s.cloud);
   const name = useStore(s => s.profile.name), theme = useStore(s => s.theme.id);
+  const shown = useStore(s => s.settings.board !== false);
   useEffect(() => {
     if (!cloud || !uid) return;
+    // Opted out: take this week's row down and post nothing.
+    if (!shown) {
+      void removeScore(uid, isoWeek());
+      return;
+    }
     // Settle first: logging a meal can change XP a few times in a row.
     const t = setTimeout(() => postScore(uid, isoWeek(), { name: name || 'Anonymous', xp: g.weekXp, rank: g.rank.id, theme }), 4000);
     return () => clearTimeout(t);
-  }, [cloud, uid, name, theme, g.weekXp, g.rank.id]);
+  }, [cloud, uid, name, theme, shown, g.weekXp, g.rank.id]);
 }

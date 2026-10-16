@@ -96,6 +96,8 @@ export interface Settings {
   /** Live voice engine: the ElevenLabs agent, or our LiveKit agent with a Fish voice. */
   liveEngine: LiveEngine;
   nudge: boolean;
+  /** Shown on the weekly board (first name and XP) to everyone in the beta. */
+  board: boolean;
   tone: Tone;
   avatar: Avatar;
   scenario: Scenario;

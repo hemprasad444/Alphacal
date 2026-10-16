@@ -1,4 +1,4 @@
-import { nudgeDue, nutrition, parseReply, reiContext, systemContext, systemRules, todaysPlan, week, type Nudge } from '@rei/shared';
+import { nudgeDue, nutrition, parseReply, reiContext, swearOnlyBack, systemContext, systemRules, todaysPlan, week, type Nudge } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -13,10 +13,11 @@ async function write(data: Awaited<ReturnType<typeof loadUser>>, nudge: Nudge): 
     const res = await complete({
       task: 'fast',
       system: `${systemRules({ tough: ctx.tough, bro: ctx.bro, nudge: ctx.nudge, tools: false })}\n\n${systemContext(ctx)}`,
-      messages: [{ role: 'user', content: `(You are messaging first; they have not said anything.) ${nudge.fact} Write one check-in message, under 30 words, that names the number and the next action.` }],
+      messages: [{ role: 'user', content: `(You are messaging first; they have not said anything.) ${nudge.fact} Write one check-in message, under 30 words, that names the number and the next action. No swearing: it arrives as a notification.` }],
       maxTokens: 300,
     });
-    const text = parseReply(res.content.map(b => (b.type === 'text' ? b.text : '')).join('')).text;
+    // A notification: never sworn, whatever the tone.
+    const text = swearOnlyBack(parseReply(res.content.map(b => (b.type === 'text' ? b.text : '')).join('')).text, false);
     return text || nudge.fallback;
   } catch (e) {
     logger.warn('nudge text failed; using fallback', { error: e instanceof Error ? e.message : String(e) });

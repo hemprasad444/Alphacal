@@ -128,20 +128,48 @@ class TextCleaner:
         return out
 
 
+_SWEARING = re.compile(r"\b(fuck\w*|f\*+k\w*|shit(?:ty|s|ting|ted)?|bullshit|bs|damn\w*|ass|asshole|bitch\w*|wtf|stfu|motherf\w*|bastard)\b", re.I)
+_MILDER = [
+    (re.compile(r"\bwhat the fuck\b", re.I), "what the heck"),
+    (re.compile(r"\bfuck(?:ed)? up\b", re.I), "messed up"),
+    (re.compile(r"\bfuckload\b", re.I), "ton"),
+    (re.compile(r"\bfuck(?:ing|in['’]?)\b", re.I), "freaking"),
+    (re.compile(r"\bmotherfuck\w*\b", re.I), "man"),
+    (re.compile(r"\bfuck\w*\b", re.I), "heck"),
+    (re.compile(r"\bbullshit\b", re.I), "BS"),
+    (re.compile(r"\bshitty\b", re.I), "crappy"),
+    (re.compile(r"\bshit\b", re.I), "crap"),
+]
+
+
+def swear_only_back(text: str, swore: bool) -> str:
+    """REI swears only once they have (same as the app's swearOnlyBack): until then it's said more mildly."""
+    if swore:
+        return text
+    for pattern, word in _MILDER:
+        text = pattern.sub(lambda m, w=word: w[0].upper() + w[1:] if m.group(0)[0].isupper() else w, text)
+    return text
+
+
+def user_swore(chat_ctx) -> bool:
+    return any(getattr(i, "type", "") == "message" and i.role == "user" and _SWEARING.search(i.text_content or "") for i in chat_ctx.items)
+
+
 class Rei(Agent):
     async def llm_node(self, chat_ctx, tools, model_settings):
         cleaner = TextCleaner()
+        swore = user_swore(chat_ctx)
         async for chunk in Agent.default.llm_node(self, chat_ctx, tools, model_settings):
             if isinstance(chunk, str):
-                chunk = cleaner.push(chunk)
+                chunk = swear_only_back(cleaner.push(chunk), swore)
                 if not chunk:
                     continue
             elif isinstance(chunk, lkllm.ChatChunk) and chunk.delta and chunk.delta.content:
-                chunk.delta.content = cleaner.push(chunk.delta.content) or None
+                chunk.delta.content = swear_only_back(cleaner.push(chunk.delta.content), swore) or None
                 if not chunk.delta.content and not chunk.delta.tool_calls and not chunk.usage:
                     continue
             yield chunk
-        tail = cleaner.flush()
+        tail = swear_only_back(cleaner.flush(), swore)
         if tail.strip():
             yield tail
 

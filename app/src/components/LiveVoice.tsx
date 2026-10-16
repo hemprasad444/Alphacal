@@ -11,7 +11,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { hhmm, isoDate, mealIndex, memoryKind, type Message, parseWorkout, shouldLogMeal, shouldLogWorkout, splitLead, workoutLog, stripTags, todayLine, vowChange } from '@rei/shared';
+import { checkLiveMeal, hhmm, isoDate, mealIndex, memoryKind, saysNumber, type Message, parseWorkout, shouldLogMeal, shouldLogWorkout, splitLead, workoutLog, stripTags, todayLine, vowChange } from '@rei/shared';
 import { Backdrop } from './Backdrop';
 import { Core, Wave } from './Core';
 import { Icon } from './icons';
@@ -35,19 +35,34 @@ const AND_THE_REST = ' Before talking about this, react to anything else they ju
  * said last on this call, so a meal from earlier in the day isn't logged a second time.
  */
 function tools(store: RefObject<Store>, heard: RefObject<string>) {
+  /** Meals REI was asked to re-estimate on this call: the second try is logged either way. */
+  const redone = new Set<string>();
+  /** Two tools can run before the screen redraws: keep this call's view of today's meals current meanwhile. */
+  const setMeals = (meals: Store['meals']) => {
+    store.current = { ...store.current, meals };
+  };
   return {
     log_meal: (p: Params) => {
       const name = String(p.name ?? '').trim().slice(0, 60);
       if (!name || !n(p.kcal)) return 'Not logged: need a meal name and calories.';
       const fib = Number(p.fiber);
-      const meal = { time: hhmm(), name, kcal: n(p.kcal), p: n(p.protein), c: n(p.carbs), f: n(p.fat), src: 'ai' as const, ...(fib > 0 && fib < 200 ? { n: { fib: Math.round(fib * 10) / 10 } } : {}) };
-      // Same check as chat: food they're talking about now, and not one already in today's log.
+      // The food list's numbers when it has everything they said; otherwise an estimate that adds up.
       const said = heard.current ?? '';
+      const key = name.toLowerCase();
+      const checked = checkLiveMeal({ name, kcal: n(p.kcal), p: n(p.protein), c: n(p.carbs), f: n(p.fat) }, said, store.current.allFoods, hhmm(), redone.has(key));
+      if ('redo' in checked) {
+        redone.add(key);
+        return checked.redo;
+      }
+      const meal = checked.meal.items ? checked.meal : { ...checked.meal, ...(fib > 0 && fib < 200 ? { n: { fib: Math.round(fib * 10) / 10 } } : {}) };
+      // Same check as chat: food they're talking about now, and not one already in today's log.
       const check = said ? shouldLogMeal(said, meal, store.current.meals, hhmm()) : { ok: true };
       if (!check.ok) return check.why === 'already logged' ? `Not logged: ${name} is already in today's log. Ask if they had it again.` : 'Not logged: they didn’t say they ate that just now. Ask before logging it.';
       store.current.repeatMeal(meal);
+      const meals = [...store.current.meals, meal];
+      setMeals(meals);
       // The agent's prompt was written at the start; hand it the new totals so it never works from stale numbers.
-      return `Logged ${name}, ${meal.kcal} kcal. ${todayLine(store.current.profile, [...store.current.meals, meal])}${AND_THE_REST}`;
+      return `Logged ${name}, ${meal.kcal} kcal, protein ${meal.p} g. ${todayLine(store.current.profile, meals)}${AND_THE_REST}`;
     },
     remove_meal: (p: Params) => {
       const meals = store.current.meals;
@@ -55,7 +70,9 @@ function tools(store: RefObject<Store>, heard: RefObject<string>) {
       if (i < 0) return `No meal like that today. Today's meals: ${meals.map(m => m.name).join(', ') || 'none'}.`;
       const gone = meals[i];
       store.current.removeMeal(i);
-      return `Removed ${gone.name}. ${todayLine(store.current.profile, meals.filter((_, k) => k !== i))}`;
+      const left = meals.filter((_, k) => k !== i);
+      setMeals(left);
+      return `Removed ${gone.name}. ${todayLine(store.current.profile, left)}`;
     },
     log_workout: (p: Params) => {
       const w = parseWorkout(p);
@@ -70,6 +87,8 @@ function tools(store: RefObject<Store>, heard: RefObject<string>) {
     update_vow: (p: Params) => {
       const change = vowChange(p.field, p.value);
       if (!change) return 'Not changed: that value isn’t valid.';
+      // A weight is today's weigh-in: only one they just said.
+      if (change[0] === 'weight' && heard.current && !saysNumber(heard.current, parseFloat(change[1]))) return 'Not recorded: they didn’t say that weight just now. Ask what they weighed if it matters.';
       store.current.setProfileField(change[0], change[1]);
       return `Updated ${change[0]} to ${change[1]}. ${todayLine({ ...store.current.profile, [change[0]]: change[1] }, store.current.meals)}${AND_THE_REST}`;
     },
@@ -78,6 +97,13 @@ function tools(store: RefObject<Store>, heard: RefObject<string>) {
       if (fact.length < 3) return 'Nothing to remember.';
       store.current.remember(fact, memoryKind(p.kind));
       return `Remembered.${AND_THE_REST}`;
+    },
+    forget: (p: Params) => {
+      const id = String(p.id ?? '').replace(/[[\]\s]/g, '');
+      const item = store.current.memory.find(m => m.id === id);
+      if (!item) return `Nothing remembered with that id. What you remember: ${store.current.memory.map(m => `[${m.id}] ${m.text}`).join('; ') || 'nothing'}.`;
+      store.current.forget(id);
+      return `Forgot "${item.text}".${AND_THE_REST}`;
     },
     rebuild_program: (p: Params) => {
       store.current.rebuildProgram(typeof p.focus === 'string' ? p.focus.slice(0, 200) : undefined).catch(() => {});

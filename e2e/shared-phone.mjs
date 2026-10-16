@@ -20,7 +20,8 @@ for (const path of ['/', '/fuel', '/talk', '/dojo', '/vow', '/history']) { await
 await shot(p, 'shared-priya-fuel');
 const hemOnly = ['Chicken biryani', 'Chicken salad', 'Egg, boiled', 'Hem', 'Dune', '82.6', 'Barbell bench press'];
 for (const [path, t] of Object.entries(seen)) {
-  const leaks = hemOnly.filter(w => t.includes(w));
+  // The weekly board lists every tester by name on purpose; only private data counts as a leak.
+  const leaks = hemOnly.filter(w => t.replace(/THIS WEEK'S BOARD.*?TRAINING LOG/, '').includes(w));
   console.log(`${path.padEnd(9)} ${leaks.length ? 'LEAK: ' + leaks.join(', ') : 'clean (only Priya’s data)'} | ${t.slice(0, 110)}`);
 }
 console.log('Hem fuel had:', hemOnly.filter(w => hemFuel.includes(w)).join(', '));

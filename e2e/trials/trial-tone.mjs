@@ -1,7 +1,8 @@
 // REI's tone across every reply in the emulator (run after the story or other trials): no narrating its
 // own process ("Logging it.", "isn't on my list") and, in Bro mode, no swearing until the user swears.
 import { db } from '../lib.mjs';
-const NARRATE = /my list|on the list|food list|let me (log|get|check|grab|pull|work)|\btools?\b|the system|first message|I'?ll log|logging (it|that)|eyeball/i;
+// "Tell me what you ate and I'll log it" is an invitation, not narration; the server's own "couldn't log" line isn't REI's.
+const NARRATE = /my list|on the list|(?<!from the )food list|let me (log|get|check|grab|pull|work)|\btools?\b|the system|first message|logging (it|that)|eyeball/i;
 const SWEAR = /\b(fuck\w*|shit\w*|bullshit)\b/i;
 const snap = await db.collectionGroup('messages').get();
 const chats = new Map();

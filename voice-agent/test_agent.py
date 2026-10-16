@@ -60,9 +60,23 @@ def test_units_are_spoken_as_words():
     assert "".join(said) == "That's 160 calories and 13 grams protein.", said
 
 
+
+def test_swears_only_back():
+    from livekit.agents.llm import ChatContext
+
+    from agent import swear_only_back, user_swore
+
+    assert swear_only_back("Zero excuses, zero bullshit. A fuckload of cheese.", False) == "Zero excuses, zero BS. A ton of cheese."
+    assert swear_only_back("Fuck you too, now go lift.", True) == "Fuck you too, now go lift."
+    calm, salty = ChatContext(), ChatContext()
+    calm.add_message(role="user", content="had shiitake and rice")
+    salty.add_message(role="user", content="this cut is bullshit")
+    assert not user_swore(calm) and user_swore(salty)
+
 if __name__ == "__main__":
     test_rei_is_spoken_as_a_name()
     test_clean_text()
     test_streaming_matches_whole_text()
     test_units_are_spoken_as_words()
+    test_swears_only_back()
     print("ok")

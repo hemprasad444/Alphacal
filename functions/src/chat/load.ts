@@ -9,8 +9,21 @@ export const DAILY_LIMIT = 300;
 /** Own foods read per request; plenty for a few testers. */
 const MAX_FOODS = 400;
 
-/** Usage counters are per UTC day, so they can be read before the user's zone is known. */
-export const usageDay = () => new Date().toISOString().slice(0, 10);
+/** The calendar days the user's own day can be, whatever their zone: daily limits reset at their midnight. */
+const nearDays = () => [-1, 0, 1].map(d => new Date(Date.now() + d * 86400000).toISOString().slice(0, 10));
+const zoneOf = (u: Record<string, unknown> | undefined) => (typeof u?.timezone === 'string' ? u.timezone : 'Asia/Kolkata');
+
+/**
+ * Today's usage counters (chat, voice, reports), on the user's own calendar day, read in one round with
+ * their zone. Returns the document to count into and what it holds.
+ */
+export async function usageToday(uid: string) {
+  const user = db.doc(`users/${uid}`);
+  const days = nearDays();
+  const [u, ...snaps] = await Promise.all([user.get(), ...days.map(d => user.collection('usage').doc(d).get())]);
+  const day = isoDate(zonedNow(zoneOf(u.data())));
+  return { ref: user.collection('usage').doc(day), data: snaps[days.indexOf(day)]?.data() ?? {} };
+}
 
 export interface Loaded {
   input: ContextInput;
@@ -42,13 +55,13 @@ export async function loadUser(uid: string): Promise<Loaded> {
     user.get(),
     user.collection('days').where(FieldPath.documentId(), '>=', isoDate(since)).get(),
     user.collection('messages').orderBy('createdAt', 'desc').limit(HISTORY + 10).get(),
-    user.collection('usage').doc(usageDay()).get(),
+    db.getAll(...nearDays().map(d => user.collection('usage').doc(d))),
     db.getAll(...weeks.map(w => user.collection('programs').doc(w))),
     user.collection('foods').limit(MAX_FOODS).get(),
     user.collection('sessions').where('date', '>=', isoDate(since)).get(),
   ]);
   const u = userSnap.data() ?? {};
-  const timeZone: string = typeof u.timezone === 'string' ? u.timezone : 'Asia/Kolkata';
+  const timeZone: string = zoneOf(u);
   const now = zonedNow(timeZone);
   const today = isoDate(now);
   const monday = new Date(now);
@@ -87,7 +100,7 @@ export async function loadUser(uid: string): Promise<Loaded> {
     todaySessions: sessionSnaps.docs.map(d => d.data() as SessionLog).filter(s => s.date === today),
     today,
     timeZone,
-    usedToday: Number(usage.data()?.chat ?? 0),
+    usedToday: Number(usage.find(d => d.id === today)?.data()?.chat ?? 0),
     foods: foodSnaps.docs.map(d => {
       const f = d.data() as Food;
       return { ...f, id: d.id, src: f.src === 'barcode' ? 'barcode' : 'mine' } satisfies Food;

@@ -6,7 +6,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { AccessToken, RoomAgentDispatch, RoomConfiguration } from 'livekit-server-sdk';
 import { gzipSync } from 'node:zlib';
 import { db } from './admin';
-import { loadUser, usageDay } from './chat/load';
+import { loadUser, usageToday } from './chat/load';
 import { OPENROUTER_API_KEY } from './llm';
 import { BASE, key, TTS_API_KEY, VOICE_ID } from './voice';
 
@@ -48,8 +48,8 @@ export const voiceSession = onCall({ secrets: [TTS_API_KEY, LIVEKIT_API_SECRET, 
   const asked = (req.data as { engine?: unknown } | undefined)?.engine;
   const engine: Engine = asked === 'livekit' || asked === 'elevenlabs' ? asked : LIVE_ENGINE.value() === 'livekit' ? 'livekit' : 'elevenlabs';
   const t0 = Date.now();
-  const usage = db.doc(`users/${uid}/usage/${usageDay()}`);
-  const used = ((await usage.get()).get('voice') as number | undefined) ?? 0;
+  const { ref: usage, data: counts } = await usageToday(uid);
+  const used = Number(counts.voice ?? 0);
   if (used >= LIVE_DAILY) throw new HttpsError('resource-exhausted', 'That’s enough live voice for today. Back tomorrow, or type to REI.');
 
   if (engine === 'livekit') {

@@ -69,6 +69,8 @@ export interface CompleteOpts {
   image?: string;
   /** Called with each piece of text as it streams; turns streaming on. */
   onText?: (delta: string) => void;
+  /** Use this model alone instead of the task's list (a retry on the backup model). */
+  model?: string;
 }
 
 export class LlmError extends Error {
@@ -88,7 +90,7 @@ interface Chunk {
 }
 
 export async function complete(o: CompleteOpts): Promise<LlmResult> {
-  const models = modelsFor(o.task);
+  const models = o.model ? [o.model] : modelsFor(o.task);
   const last = o.messages.length - 1;
   const body = {
     model: models[0],

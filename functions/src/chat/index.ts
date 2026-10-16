@@ -1,12 +1,12 @@
-import { addMemory, applyUpdate, catalog, dropRepeats, shouldLogMeal, weighInFrom, shouldLogWorkout, continuityNote, thread, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, stripTags, systemContext, type SessionLog, todaysPlan, parseWorkout, workoutLog, workoutNote, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
+import { addMemory, applyUpdate, catalog, dropRepeats, MAX_MEALS, saysNumber, SWEARING, swearOnlyBack, shouldLogMeal, weighInFrom, shouldLogWorkout, continuityNote, thread, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, stripTags, systemContext, type SessionLog, todaysPlan, parseWorkout, workoutLog, workoutNote, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineInt } from 'firebase-functions/params';
 import { onRequest } from 'firebase-functions/v2/https';
 import { db } from '../admin';
-import { complete, LlmError, OPENROUTER_API_KEY, type Msg } from '../llm';
+import { complete, LlmError, modelsFor, OPENROUTER_API_KEY, type Msg } from '../llm';
 import { verify } from '../http';
-import { DAILY_LIMIT, loadUser, usageDay } from './load';
+import { DAILY_LIMIT, loadUser } from './load';
 import { forgetTool, logMealTool, logWorkoutTool, logMealWithVerdictTool, parseForget, parseMealItems, parseRemember, parseVow, rebuildProgramTool, rememberTool, updateVowTool } from './tools';
 
 // Index the food list when the instance starts, not on the first message.
@@ -72,7 +72,7 @@ export const chat = onRequest(
       res.status(429).json({ error: 'Daily message limit reached.' });
       return;
     }
-    db.doc(`users/${uid}/usage/${usageDay()}`).set({ chat: FieldValue.increment(1) }, { merge: true }).catch(e => logger.warn('usage write failed', e));
+    db.doc(`users/${uid}/usage/${data.today}`).set({ chat: FieldValue.increment(1) }, { merge: true }).catch(e => logger.warn('usage write failed', e));
 
     res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
     res.flushHeaders();
@@ -100,11 +100,23 @@ export const chat = onRequest(
     const workouts: SessionLog[] = [];
     const memory: Memory = { remember: [], forget: [] };
     let mealBlocked = false;
+    // REI swears only once they have (in this message or the chat so far).
+    const swore = SWEARING.test(body.text) || history.some(m => m.role === 'user' && SWEARING.test(m.text));
+    // Streamed text holds back its last, maybe unfinished, word so a swear isn't split across two deltas.
+    let pending = '';
+    const stream = (d: string, flush = false) => {
+      pending += d;
+      const cut = flush ? pending.length : pending.search(/\S*$/);
+      if (cut <= 0) return;
+      send({ type: 'delta', text: swearOnlyBack(pending.slice(0, cut), swore) });
+      pending = pending.slice(cut);
+    };
     try {
       const final = await (body.mode === 'meal' ? mealCall(system, turns) : chatCall(tier, canRebuild, system, turns, d => {
         if (!ttft) ttft = Date.now() - t0;
-        send({ type: 'delta', text: d });
+        stream(d);
       }));
+      stream('', true);
       if (!ttft) ttft = Date.now() - t0;
 
       if (final.stop_reason === 'refusal') {
@@ -150,6 +162,28 @@ export const chat = onRequest(
           }
         }
       }
+      // Fuel: logging is the point. A model that answers in words instead of calling log_meal (DeepSeek did,
+      // every time, for "soya chunks curry with rice") gets one more try on the backup model; then the
+      // reply says it wasn't logged rather than a verdict with no meal.
+      if (body.mode === 'meal' && !meal && final.stop_reason !== 'refusal') {
+        const backup = modelsFor('fast').find(m => m !== final.model) ?? modelsFor('fast')[0];
+        const again = await mealCall(system, turns, backup).catch(() => null);
+        const call = again?.stop_reason === 'max_tokens' ? undefined : again?.content.find(b => b.type === 'tool_use' && b.name === 'log_meal');
+        const m = call?.type === 'tool_use' ? parseMealItems(call.input) : null;
+        logger.info('meal call came back without log_meal', { uid, model: final.model, backup, retried: !!m });
+        if (m) {
+          meal = mealFromItems(resolveAiItems(m.items, foods), hhmm(data.input.now), 'ai', m.name);
+          text = m.verdict || text;
+        } else {
+          text = 'I couldn’t log that one. Try again, or pick it from the food list.';
+        }
+      }
+      // A weight is a weigh-in, so only one they gave in this message.
+      if (vow?.weight && !saysNumber(body.text, parseFloat(vow.weight))) {
+        logger.info('weight not recorded: not in their message', { uid, weight: vow.weight });
+        const { weight: _, ...rest } = vow;
+        vow = Object.keys(rest).length ? rest : null;
+      }
       // "Weighed 83.5 this morning" answered without update_vow: still their weigh-in.
       if (body.mode !== 'meal' && !vow?.weight) {
         const kg = weighInFrom(body.text, parseFloat(data.input.profile.weight) || 0);
@@ -164,6 +198,7 @@ export const chat = onRequest(
       }
       if (!text && meal) text = fuelLine(data.input.profile, nutrition([...data.input.meals, meal], data.input.activity));
       if (!text) text = 'Noted.';
+      text = swearOnlyBack(text, swore);
 
       const notes = await save(uid, data, body.replyId, text, meal, vow, rebuild, memory, workouts);
       const total = Date.now() - t0;
@@ -195,8 +230,8 @@ function chatCall(tier: Tier, canRebuild: boolean, system: string, turns: Msg[],
 }
 
 /** Fuel screen: one forced tool call returns the macros and REI's verdict together. */
-function mealCall(system: string, turns: Msg[]) {
-  return complete({ task: 'fast', system, messages: turns, maxTokens: 1024, tools: [logMealWithVerdictTool], forceTool: 'log_meal' });
+function mealCall(system: string, turns: Msg[], model?: string) {
+  return complete({ task: 'fast', system, messages: turns, maxTokens: 1024, tools: [logMealWithVerdictTool], forceTool: 'log_meal', model });
 }
 
 interface Memory {
@@ -215,7 +250,9 @@ export async function save(uid: string, data: Awaited<ReturnType<typeof loadUser
   const reply: Message = { role: 'rei', text, time, createdAt: now, alert };
   batch.set(user.collection('messages').doc(replyId), reply);
 
-  if (meal) {
+  if (meal && data.input.meals.length >= MAX_MEALS) {
+    notes.push(`NOT LOGGED · ${MAX_MEALS} MEALS IS THE DAY'S LIMIT`);
+  } else if (meal) {
     batch.set(user.collection('days').doc(data.today), { meals: FieldValue.arrayUnion(meal) }, { merge: true });
     notes.push(`MEAL LOGGED · ${meal.kcal} KCAL · P ${meal.p} · C ${meal.c} · F ${meal.f}`);
   }

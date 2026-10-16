@@ -60,7 +60,7 @@ service cloud.firestore {
       match /days/{day} {
         allow read: if owner(uid);
         allow create, update: if owner(uid) && isoDate(day)
-          && (!('meals' in request.resource.data) || request.resource.data.meals.size() <= 40);
+          && (!('meals' in request.resource.data) || request.resource.data.meals.size() <= 60);
         allow delete: if false;
       }
 

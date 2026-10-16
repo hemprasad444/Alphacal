@@ -34,8 +34,8 @@ export default function Fuel() {
   const n = (k: keyof typeof profile) => parseFloat(profile[k]) || 0;
   const kcalT = n('kcal'), protT = n('protein');
   const kL = kcalT - nu.kcal, pL = protT - nu.protein;
-  const tag = kL < 0 ? 'Over' : pL > 0 && pL * 4 > kL * 0.6 ? 'Tight' : 'On track';
-  const tagColor = kL < 0 ? C.alert : tag === 'Tight' ? C.warn : accent;
+  const tag = kL < 0 ? 'Over' : !meals.length ? 'Nothing yet' : pL > 0 && pL * 4 > kL * 0.6 ? 'Tight' : 'On track';
+  const tagColor = kL < 0 ? C.alert : tag === 'Tight' ? C.warn : tag === 'Nothing yet' ? C.muted : accent;
   const has = !!draft.trim() && !s.fuelBusy;
   const fmt = (v: number) => Math.round(v).toLocaleString('en-US');
 

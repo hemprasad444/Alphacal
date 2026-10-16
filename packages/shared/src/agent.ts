@@ -1,6 +1,7 @@
 // The live voice agent (ElevenLabs or our LiveKit + Fish agent): REI's prompt for a session, and the actions it can take.
 // The tool names here must match the client tools the app registers (app/src/components/LiveVoice.tsx).
 import { nutrition } from './derive';
+import { type Food, matchMealText, mealFromItems } from './food';
 import { MEMORY_KINDS, type MemoryKind } from './memory';
 import { PROFILE_KEYS, systemContext, systemRules, type ReiContext } from './rei';
 import type { Meal, Message, Profile, ProfileKey } from './types';
@@ -12,7 +13,7 @@ import { WORKOUT_KINDS } from './workout';
  */
 const ANCHORS = `Calorie anchors (scale for amounts; restaurant food runs about 30% higher): masala dosa 380 kcal each, plain dosa 170, idli 60 each, sambar bowl 130, coconut chutney 2 tbsp 90, roti or chapati 110, plain paratha 260, aloo paratha 330, cup of cooked rice 210, dal bowl 180, paneer butter masala bowl 480, chicken curry bowl 350, restaurant chicken biryani plate 850, chicken fried rice plate 750, Maggi pack 360, egg 75, poha plate 300, samosa 260, filter coffee with sugar 110, chai with sugar 90, cola 330 ml 140. Never round a full meal down; when unsure, estimate higher. Protein×4 + carbs×4 + fat×9 must come out close to the calories. Say numbers as plain digits (1250, not 1 250 or one-two-fifty) and never mix digits with number words.`;
 
-const ACTIONS = `If they tell you they ate something, react to how it fits what's left today, then call log_meal with your realistic estimate for the whole meal (Indian home portions unless they say otherwise). ${ANCHORS} Only log a meal they clearly say they ate or are eating; if the food you heard sounds odd (speech recognition mishears food names) or might be one already logged today, ask before logging. If they say a logged meal is wrong or ask to remove it, call remove_meal with its name, then log the right one if they gave it. If they tell you they trained, played a sport, ran, walked or cycled today, react, then call log_workout once per activity with their minutes (and distance if they gave one). If they explicitly ask to change their goal, deadline, a body stat, a daily target, their usual training time or their bedtime, call update_vow once per value. When they tell you what they weighed today, call update_vow with field weight: it's their weigh-in. When they tell you a lasting fact about themselves (diet, allergy, injury, schedule, equipment, likes, life constraints), call remember with a short third-person note. If they ask for a new or changed training plan, call rebuild_program and tell them the new week is on its way. Keep the conversation flowing around these actions and never mention tools. Always speak English, even if they ask for another language; tell them other languages are coming soon.`;
+const ACTIONS = `If they tell you they ate something, react to how it fits what's left today, then call log_meal with your realistic estimate for the whole meal (Indian home portions unless they say otherwise). ${ANCHORS} Only log a meal they clearly say they ate or are eating; if the food you heard sounds odd (speech recognition mishears food names) or might be one already logged today, ask before logging. If they say a logged meal is wrong or ask to remove it, call remove_meal with its name, then log the right one if they gave it. If they tell you they trained, played a sport, ran, walked or cycled today, react, then call log_workout once per activity with their minutes (and distance if they gave one). If they explicitly ask to change their goal, deadline, a body stat, a daily target, their usual training time or their bedtime, call update_vow once per value. When they tell you what they weighed today, call update_vow with field weight: it's their weigh-in. When they tell you a lasting fact about themselves (diet, allergy, injury, schedule, equipment, likes, life constraints), call remember with a short third-person note. If something you remember stops being true, call forget with its id (the one in square brackets). If they ask for a new or changed training plan, call rebuild_program and tell them the new week is on its way. Keep the conversation flowing around these actions and never mention tools. Always speak English, even if they ask for another language; tell them other languages are coming soon.`;
 
 /**
  * Where a live call stays. On a call the fast model read Python code aloud for 30 seconds when asked,
@@ -67,6 +68,9 @@ export const AGENT_TOOLS = [
     fact: str('Short third-person note, e.g. "Vegetarian; eats eggs"'),
     kind: str('What kind of fact', { enum: [...MEMORY_KINDS] }),
   }),
+  tool('forget', 'Drop a remembered fact that is no longer true.', {
+    id: str('The id of the remembered fact, the one shown in square brackets'),
+  }),
   tool('rebuild_program', 'Rewrite this week’s training plan when the user asks for a new or changed plan.', {
     focus: str('What they want changed, in a few words'),
   }),
@@ -110,5 +114,45 @@ export function mealIndex(meals: Meal[], name: string): number {
 /** Today's totals against targets, told to the live agent after it logs something so it never works from stale numbers. */
 export function todayLine(profile: Profile, meals: Meal[]): string {
   const nu = nutrition(meals, { steps: null, sleep: null, sleepL: '' });
-  return `Today now: ${nu.kcal} of ${profile.kcal} kcal, protein ${nu.protein} of ${profile.protein} g, carbs ${nu.carbs} of ${profile.carbs} g, fat ${nu.fat} of ${profile.fat} g.`;
+  const kL = (parseFloat(profile.kcal) || 0) - nu.kcal, pL = Math.max(0, (parseFloat(profile.protein) || 0) - nu.protein);
+  const left = kL >= 0 ? `${kL} kcal and ${pL} g protein left` : `${-kL} kcal over, ${pL} g protein still to go`;
+  return `Today now: ${nu.kcal} of ${profile.kcal} kcal, protein ${nu.protein} of ${profile.protein} g, carbs ${nu.carbs} of ${profile.carbs} g, fat ${nu.fat} of ${profile.fat} g (${left}).`;
+}
+
+/** Words around the food in what they said ("I just had 2 eggs and a banana for breakfast"). */
+const FILLER = /\b(i|i've|ive|i'm|im|just|had|have|having|ate|eaten|eating|drank|drink|finished|got|for|my|as|at|in|the morning|this morning|tonight|today|breakfast|brunch|lunch|dinner|supper|snack|pre workout|post workout|bro|yo|so|then|also|like|some|um|uh|okay|ok)\b/gi;
+
+export interface LiveMealEstimate {
+  name: string;
+  kcal: number;
+  p: number;
+  c: number;
+  f: number;
+}
+
+/**
+ * A meal REI estimated on a call, checked before it's stored. When everything they said is on the
+ * food list and REI's guess is in the same range, the list's numbers win, so a call logs the same
+ * meal the way chat does. Otherwise the estimate is kept only if its macros add up to its calories
+ * (one call logged 2 eggs and a banana as 7 g protein, 0 g fat): if not, REI is asked to redo it.
+ */
+export function checkLiveMeal(est: LiveMealEstimate, said: string, foods: Food[], time: string, retried = false): { meal: Meal } | { redo: string } {
+  const spoken = said.replace(FILLER, ' ').replace(/[.!?]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (spoken) {
+    const m = matchMealText(spoken, foods);
+    if (m.items.length && !m.unmatched.length) {
+      const listed = mealFromItems(m.items, time, 'ai', est.name);
+      if (listed.kcal >= est.kcal * 0.6 && listed.kcal <= est.kcal * 1.6) return { meal: listed };
+    }
+  }
+  const fromMacros = est.p * 4 + est.c * 4 + est.f * 9;
+  const off = Math.abs(fromMacros - est.kcal) > Math.max(60, est.kcal * 0.3);
+  const meal: Meal = { time, name: est.name, kcal: est.kcal, p: est.p, c: est.c, f: est.f, src: 'ai' };
+  if (!off) return { meal };
+  // Asked once already: scale the macros to the calories rather than ask again mid-conversation.
+  if (retried && fromMacros > 0) {
+    const k = est.kcal / fromMacros;
+    return { meal: { ...meal, p: Math.round(est.p * k), c: Math.round(est.c * k), f: Math.round(est.f * k) } };
+  }
+  return { redo: `Not logged: protein ${est.p} g, carbs ${est.c} g and fat ${est.f} g add up to ${Math.round(fromMacros)} kcal, not ${est.kcal}. Re-estimate the whole meal so protein×4 + carbs×4 + fat×9 is close to the calories, then call log_meal again without mentioning it.` };
 }

@@ -163,7 +163,10 @@ export function hero(w: Week, plan: SessionPlan | null, sessionDone: boolean, to
   if (!sessionDone) {
     return {
       tag: 'ON TRACK', tone: 'acc',
-      parts: [{ t: w.yesterdayDone ? 'Good work. Yesterday was strong. ' : 'Good work. The week is clean so far. ' }, { t: 'Now repeat it.', hl: true }, { t: ' Consistency is what changes your physique.' }],
+      // Nothing done yet this week (a Monday, or their first day): nothing to praise or repeat yet.
+      parts: w.done
+        ? [{ t: w.yesterdayDone ? 'Good work. Yesterday was strong. ' : 'Good work. The week is clean so far. ' }, { t: 'Now repeat it.', hl: true }, { t: ' Consistency is what changes your physique.' }]
+        : [{ t: 'Clean slate. ' }, { t: `${plan.title} at ${at}.`, hl: true }, { t: ' Get the first one in and the week starts right.' }],
     };
   }
   return {
@@ -280,7 +283,8 @@ export function protocol(plan: SessionPlan | null, nu: Nutrition, profile: Profi
   return [
     training,
     { label: 'Protein', icon: 'protein', value: `${nu.protein} / ${protT} g`, status: pp < 0.7 ? 'BEHIND' : 'ON TRACK', tone: pp < 0.7 ? 'alert' : 'acc', pct: frac(nu.protein, protT), fuel: true },
-    { label: 'Calories', icon: 'kcal', value: `${fmt(nu.kcal)} / ${fmt(kcalT)}`, status: kp > 0.95 ? 'AT LIMIT' : kp > 0.78 ? 'WATCH' : 'OK', tone: kp > 0.95 ? 'alert' : kp > 0.78 ? 'warn' : 'acc', pct: frac(nu.kcal, kcalT), fuel: true },
+    // Nothing logged isn't "OK": it would count as a cleared row on a day with no food in the log.
+    { label: 'Calories', icon: 'kcal', value: `${fmt(nu.kcal)} / ${fmt(kcalT)}`, status: kp > 0.95 ? 'AT LIMIT' : kp > 0.78 ? 'WATCH' : nu.kcal > 0 ? 'OK' : 'NOT LOGGED', tone: kp > 0.78 && kp <= 0.95 ? 'warn' : kp > 0.95 ? 'alert' : nu.kcal > 0 ? 'acc' : 'warn', pct: frac(nu.kcal, kcalT), fuel: true },
     nu.steps == null
       ? { label: 'Steps', icon: 'steps', value: `\u2014 / ${fmt(stepsT)}`, status: 'NO DATA', tone: 'warn', pct: 0 }
       : { label: 'Steps', icon: 'steps', value: `${fmt(nu.steps)} / ${fmt(stepsT)}`, status: nu.steps / stepsT < 0.5 ? 'BEHIND' : nu.steps >= stepsT ? 'DONE' : 'ON TRACK', tone: nu.steps / stepsT < 0.5 ? 'alert' : 'acc', pct: frac(nu.steps, stepsT) },

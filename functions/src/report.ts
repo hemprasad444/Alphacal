@@ -11,7 +11,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { db } from './admin';
 import { complete, jsonText, OPENROUTER_API_KEY } from './llm';
-import { usageDay } from './chat/load';
+import { usageToday } from './chat/load';
 
 /** On-demand reports per user per day. */
 const REPORTS_PER_DAY = 5;
@@ -82,8 +82,8 @@ export const weeklyReports = onSchedule(
 /** "Write this week's report" on the Progress screen: the week so far. */
 export const weeklyReport = onCall({ secrets: [OPENROUTER_API_KEY], timeoutSeconds: 120, memory: '512MiB' }, async req => {
   if (!req.auth || req.auth.token.tester !== true) throw new HttpsError('permission-denied', 'Not on the tester list.');
-  const usage = db.doc(`users/${req.auth.uid}/usage/${usageDay()}`);
-  const used = Number((await usage.get()).data()?.reports ?? 0);
+  const { ref: usage, data: counts } = await usageToday(req.auth.uid);
+  const used = Number(counts.reports ?? 0);
   if (used >= REPORTS_PER_DAY) throw new HttpsError('resource-exhausted', 'That’s enough reports for today.');
   await usage.set({ reports: FieldValue.increment(1) }, { merge: true });
   try {

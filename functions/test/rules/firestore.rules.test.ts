@@ -52,6 +52,9 @@ describe('users', () => {
   });
   it('rejects malformed day ids', async () => {
     await assertFails(setDoc(doc(tester(), 'users/alice/days/today'), { meals: [] }));
+    const meal = { time: '12:00', name: 'x', kcal: 100, p: 1, c: 1, f: 1 };
+    await assertSucceeds(setDoc(doc(tester(), 'users/alice/days/2026-10-03'), { meals: Array(60).fill(meal) }));
+    await assertFails(setDoc(doc(tester(), 'users/alice/days/2026-10-03'), { meals: Array(61).fill(meal) }));
   });
   it('validates messages', async () => {
     await assertSucceeds(setDoc(doc(tester(), 'users/alice/messages/m1'), { role: 'user', text: 'hi', createdAt: 1 }));
