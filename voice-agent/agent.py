@@ -56,6 +56,10 @@ SONIOX_CONTEXT = ContextObject(
         "REI", "kcal", "protein", "carbs",
         *"roti chapati paratha dal rajma chole paneer biryani idli dosa vada sambar upma poha khichdi".split(),
         *"curd rice lassi buttermilk chaas ghee sabzi dhokla thepla pesarattu".split(),
+        *"chawal chai bhindi kadhi raita bhature pulao rasam pongal pappu annam perugu gongura pachadi".split(),
+        # Whole dishes: a word on the list alone still came out as "rama, chaval" for rajma chawal.
+        "rajma chawal", "dal chawal", "chole bhature", "aloo paratha", "paneer tikka", "masala dosa", "vada pav",
+        "pav bhaji", "egg bhurji", "butter chicken", "tandoori chicken", "dal makhani", "bhindi sabzi", "pappu annam",
     ],
 )
 
