@@ -13,7 +13,18 @@
       "bundleIdentifier": "com.alphacal.rei",
       "appleTeamId": "TVL2DRV34G",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Default Configuration",
+                "UISceneDelegateClassName": "EXExpoAppSceneDelegate"
+              }
+            ]
+          }
+        }
       },
       "bitcode": false
     },
@@ -74,7 +85,8 @@
         }
       ],
       "@livekit/react-native-expo-plugin",
-      "@config-plugins/react-native-webrtc"
+      "@config-plugins/react-native-webrtc",
+      "./plugins/scene-lifecycle"
     ],
     "experiments": {
       "typedRoutes": true
