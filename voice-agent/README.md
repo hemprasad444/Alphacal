@@ -2,7 +2,7 @@
 
 REI's live voice engine:
 Deepgram Flux or Soniox listens and decides when you've finished talking (`REI_STT`), OpenRouter thinks (the same
-fast models as chat), Fish Audio speaks. Soniox also hears Hindi and Telugu mixed into English, and Indian food names.
+fast models as chat), Fish Audio speaks. Soniox listens in English only and knows Indian food names.
 
 How a call works:
 

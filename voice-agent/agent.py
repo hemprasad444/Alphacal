@@ -23,7 +23,8 @@ from livekit.agents import llm as lkllm
 from livekit.agents import stt as lkstt
 from livekit.agents.llm import function_tool
 from livekit.plugins import deepgram, fishaudio, openai, soniox
-from livekit.plugins.soniox.stt import ContextGeneralItem, ContextObject, STTOptions
+from livekit.plugins.soniox import stt as soniox_stt
+from livekit.plugins.soniox.stt import ContextGeneralItem, ContextObject, STTOptions, TranslationConfig
 
 load_dotenv(".env.local")
 log = logging.getLogger("rei")
@@ -87,6 +88,19 @@ class _SentenceEndPreflight:
         return getattr(self._ch, name)
 
 
+def _english_counts_as_translated(text: str | bytes, **kw: Any) -> Any:
+    """Soniox, translating into English, marks words already in English "none"; the plugin keeps only translated
+    words, so English speech would vanish. Mark them translated: English stays as said, other languages arrive in English."""
+    msg = json.loads(text, **kw)
+    for tok in msg.get("tokens", []) if isinstance(msg, dict) else []:
+        if tok.get("translation_status") == "none":
+            tok["translation_status"] = "translation"
+    return msg
+
+
+soniox_stt.json = type("json", (), {"dumps": staticmethod(json.dumps), "loads": staticmethod(_english_counts_as_translated)})
+
+
 class EagerSoniox(soniox.STT):
     """Soniox with an early "probably done" signal, like Flux's eager end of turn. Soniox's own plugin only sends
     one when every word is final, which in calls is never before the turn ends, so replies waited on the full
@@ -102,10 +116,13 @@ def make_stt() -> lkstt.STT:
     if STT_ENGINE == "soniox" and not os.environ.get("SONIOX_API_KEY"):
         log.warning("REI_STT=soniox but SONIOX_API_KEY isn't set: listening with Deepgram Flux")
     elif STT_ENGINE == "soniox":
-        # English, Hindi and Telugu in one stream, mixed mid-sentence; it also decides when the turn is over.
+        # REI only gets English: Soniox writes Hindi or Telugu in their own script whatever the language hints, and
+        # sometimes misreads an Indian accent as Punjabi or Gujarati, so everything is translated into English
+        # (English as said). It also decides when the turn is over.
         # It ends a turn 0.5 s after the last word when it's sure, and otherwise waits out the max delay: about a
         # quarter of call lines waited 2.5 s at the default 2 s, 1.6 s at 1 s. A 1 s "umm" pause still didn't end the turn.
-        return EagerSoniox(params=STTOptions(language_hints=["en", "hi", "te"], context=SONIOX_CONTEXT, max_endpoint_delay_ms=1000))
+        return EagerSoniox(params=STTOptions(language_hints=["en"], context=SONIOX_CONTEXT, max_endpoint_delay_ms=1000,
+                                             translation=TranslationConfig(type="one_way", target_language="en")))
     # Flux is built for voice agents: it hears when a turn is really over, not just a pause.
     # English only (flux-general-multi adds Hindi and 8 more, but not Telugu or Tamil).
     # A higher end-of-turn bar so "Do you remember…" isn't answered before the rest of the sentence.
