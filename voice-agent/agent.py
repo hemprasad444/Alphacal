@@ -262,25 +262,61 @@ def user_swore(chat_ctx) -> bool:
 
 
 # Scripts whose language name isn't the script's: Devanagari is mostly Hindi on our calls.
-_SCRIPT_LANGUAGE = {"DEVANAGARI": "Hindi", "GURMUKHI": "Punjabi", "ORIYA": "Odia", "CJK": "Chinese", "HIRAGANA": "Japanese", "KATAKANA": "Japanese", "HANGUL": "Korean"}
+# Gurmukhi too: Soniox writes Hindi said with an Indian accent in Punjabi script now and then (calls, 14 Nov 2026).
+_SCRIPT_LANGUAGE = {"DEVANAGARI": "Hindi", "GURMUKHI": "Hindi", "ORIYA": "Odia", "CJK": "Chinese", "HIRAGANA": "Japanese", "KATAKANA": "Japanese", "HANGUL": "Korean"}
 
 
-def spoken_language(text: str) -> str | None:
-    """The language of a line written mostly in a non-Latin script ("Telugu", "Hindi"), else None (English, Hinglish)."""
+def _script(word: str) -> str:
+    """The script most of a word's letters are in ("LATIN", "TELUGU"), or "" for none."""
+    counts: dict[str, int] = {}
+    for ch in word:
+        if ch.isalpha():
+            sc = unicodedata.name(ch, "").split(" ")[0]
+            counts[sc] = counts.get(sc, 0) + 1
+    return max(counts, key=counts.get) if counts else ""
+
+
+def spoken_language(text: str, min_words: int = 1) -> str | None:
+    """The language of a line written mostly in a non-Latin script ("Telugu", "Hindi"), else None (English, Hinglish).
+    `min_words`: how many words in that script it takes; a lone "అమ్మా" or misheard "அம்மா" shouldn't switch a call."""
     scripts: dict[str, int] = {}
     latin = 0
-    for ch in text:
-        if not ch.isalpha():
-            continue
-        script = unicodedata.name(ch, "").split(" ")[0]
-        if script == "LATIN":
+    for word in text.split():
+        sc = _script(word)
+        if sc == "LATIN":
             latin += 1
-        elif script:
-            scripts[script] = scripts.get(script, 0) + 1
+        elif sc:
+            scripts[sc] = scripts.get(sc, 0) + 1
     if not scripts:
         return None
     script, n = max(scripts.items(), key=lambda kv: kv[1])
-    return _SCRIPT_LANGUAGE.get(script, script.title()) if n > latin else None
+    return _SCRIPT_LANGUAGE.get(script, script.title()) if n > latin and n >= min_words else None
+
+
+def merge_pending_turns(chat_ctx: lkllm.ChatContext) -> lkllm.ChatContext:
+    """Lines said across short pauses arrive as separate turns, often with a reply REI had started and was cut off in
+    between. On calls REI then answered only the last line. Join everything said since REI's last finished reply into
+    one turn (dropping the cut-off fragments), so it answers all of it."""
+    items = list(chat_ctx.items)
+    start = len(items)
+    for i in range(len(items) - 1, -1, -1):
+        it = items[i]
+        if getattr(it, "type", "") != "message":
+            if start == len(items):
+                continue  # tool calls after the turn (the reply after an action)
+            break
+        if it.role == "user" or (it.role == "assistant" and it.interrupted):
+            start = i
+        else:
+            break
+    pending = [it for it in items[start:] if getattr(it, "type", "") == "message"]
+    said = [it for it in pending if it.role == "user"]
+    if len(said) < 2:
+        return chat_ctx
+    joined = " ".join((it.text_content or "").strip() for it in said if (it.text_content or "").strip())
+    rest = [it for it in items[start:] if getattr(it, "type", "") != "message"]
+    merged = lkllm.ChatMessage(role="user", content=[joined])
+    return lkllm.ChatContext(items=[*items[:start], merged, *rest])
 
 
 def last_user_text(chat_ctx) -> str:
@@ -291,14 +327,23 @@ def last_user_text(chat_ctx) -> str:
 
 
 class Rei(Agent):
+    # The call's language so far: a short line in another script (a misheard word, "amma") doesn't switch it.
+    language: str | None = None
+
     async def llm_node(self, chat_ctx, tools, model_settings):
         cleaner = TextCleaner()
         swore = user_swore(chat_ctx)
+        chat_ctx = merge_pending_turns(chat_ctx)
         # The prompt's language rule alone left about half the Hindi lines answered in English.
-        language = spoken_language(last_user_text(chat_ctx))
-        if language:
+        said = last_user_text(chat_ctx)
+        heard = spoken_language(said, min_words=3)
+        if heard:
+            self.language = heard
+        elif spoken_language(said) is None and len(said.split()) >= 3:
+            self.language = None  # a real English (or Hinglish) line
+        if self.language:
             chat_ctx = chat_ctx.copy()
-            chat_ctx.add_message(role="system", content=f"They just spoke {language}: reply in {language}, in its own script. Keep [tags] in English.")
+            chat_ctx.add_message(role="system", content=f"They are speaking {self.language}: reply in {self.language}, in its own script, unless they ask for another language. Keep [tags] in English.")
         async for chunk in Agent.default.llm_node(self, chat_ctx, tools, model_settings):
             if isinstance(chunk, str):
                 chunk = swear_only_back(cleaner.push(chunk), swore)
@@ -380,7 +425,8 @@ async def entry(ctx: JobContext) -> None:
         turn_handling={
             "turn_detection": "stt",
             "endpointing": {"min_delay": TURN_MIN_DELAY},
-            "interruption": {"min_duration": 0.4},
+            # Background noise and voices cut REI off after a word on real calls: it now takes 2 words to interrupt.
+            "interruption": {"min_duration": 0.5, "min_words": 2},
             "preemptive_generation": {"enabled": True},
         },
     )

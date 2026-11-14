@@ -3,7 +3,9 @@
 import random
 import re
 
-from agent import TextCleaner, clean_text, spoken_language
+from livekit.agents import llm as lkllm
+
+from agent import TextCleaner, clean_text, merge_pending_turns, spoken_language
 
 # Real replies from calls: spaced tags, grouped numbers and a "… ... …" breakdown.
 SAMPLES = [
@@ -107,6 +109,31 @@ def test_spoken_language_from_script():
     assert spoken_language("Okay bro, thanks") is None
     assert spoken_language("bhai aaj 2 roti khayi") is None
     assert spoken_language("Yo, आज") is None
+    # A lone word in another script (a misheard "amma") doesn't switch a call's language.
+    assert spoken_language("அம்மா.", min_words=3) is None
+    assert spoken_language("నాకు చెస్ట్ వర్కౌట్ చేయాలని ఉంది.", min_words=3) == "Telugu"
+    # Hindi that Soniox wrote in Punjabi script is answered in Hindi.
+    assert spoken_language("ਉਹ ਤਾਂ ਠੀਕ ਹੈ।") == "Hindi"
+
+
+def _msg(role: str, text: str, interrupted: bool = False) -> lkllm.ChatMessage:
+    return lkllm.ChatMessage(role=role, content=[text], interrupted=interrupted)
+
+
+def test_lines_said_across_pauses_become_one_turn():
+    ctx = lkllm.ChatContext(items=[
+        _msg("system", "You are REI."),
+        _msg("assistant", "Yo, what's up?"),
+        _msg("user", "I had two rotis for lunch."),
+        _msg("assistant", "[firm]", interrupted=True),
+        _msg("user", "And some dal."),
+        _msg("user", "What should I eat tonight?"),
+    ])
+    out = [(i.role, i.text_content) for i in merge_pending_turns(ctx).items]
+    assert out == [("system", "You are REI."), ("assistant", "Yo, what's up?"), ("user", "I had two rotis for lunch. And some dal. What should I eat tonight?")]
+    # One line since REI's last reply: nothing to join.
+    single = lkllm.ChatContext(items=[_msg("assistant", "Hey."), _msg("user", "Hi.")])
+    assert merge_pending_turns(single) is single
 
 
 if __name__ == "__main__":
@@ -117,4 +144,5 @@ if __name__ == "__main__":
     test_swears_only_back()
     test_sentence_end_sends_preflight_once()
     test_spoken_language_from_script()
+    test_lines_said_across_pauses_become_one_turn()
     print("ok")
