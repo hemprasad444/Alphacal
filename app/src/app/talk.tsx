@@ -1,3 +1,5 @@
+// Talk: the chat with REI, your corner coach. REI's lines are the chalk panel; yours sit on your
+// side in your colour. The strip under the header is the scorecard REI is reading from.
 import { router, useLocalSearchParams } from 'expo-router';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { memo, useEffect, useRef, useState } from 'react';
@@ -5,11 +7,12 @@ import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
 import { Core } from '../components/Core';
+import { CoachLine, CornerLine, inputType, RingNote, SendArrow, SlabButton } from '../components/corner';
 import { Icon } from '../components/icons';
-import { Dots, IconButton, Label, Tap, Txt, VoiceGlyph } from '../components/ui';
+import { Dots, IconButton, Tap, Txt, VoiceGlyph } from '../components/ui';
 import { characterOf, integrity, type Message, nutrition, todaysPlan, trajectory, week } from '@rei/shared';
 import { liveVoiceAvailable, prepareVoiceSession } from '../lib/live';
-import { alpha, C, fontFamily, mix } from '../lib/theme';
+import { C, HIT, SP } from '../lib/theme';
 import { useLiveReply, useStore } from '../state/store';
 
 const QUICK = ["I'm too tired today", 'Log a meal', "What's left today?", 'Change my goal'];
@@ -35,12 +38,12 @@ export default function Talk() {
   const nu = nutrition(s.meals, s.activity);
   const slipping = !!todaysPlan(new Date(), s.program) && !s.sessionDone && wk.missed > 0;
   const chips = [
-    { t: `INTEGRITY ${integrity(wk)}%`, color: slipping ? C.alert : accent },
+    { t: `INTEGRITY ${integrity(wk)}%`, color: slipping ? C.rival : accent },
     // Sessions done this week ("streak" means days logged in a row elsewhere in the app).
-    { t: wk.missed ? `${wk.missed} MISSED` : `${wk.done} DONE THIS WEEK`, color: wk.missed ? C.alert : accent },
-    { t: `PROTEIN ${nu.protein}/${profile.protein}`, color: C.body },
-    { t: `KCAL ${nu.kcal}/${profile.kcal}`, color: C.body },
-    { t: `${trajectory(profile, wk.missed, new Date(), s.weighInsOrDemo).daysLeft} DAYS LEFT`, color: C.body },
+    { t: wk.missed ? `${wk.missed} MISSED` : `${wk.done} DONE THIS WEEK`, color: wk.missed ? C.rival : accent },
+    { t: `PROTEIN ${nu.protein}/${profile.protein}`, color: C.chalk },
+    { t: `KCAL ${nu.kcal}/${profile.kcal}`, color: C.chalk },
+    { t: `${trajectory(profile, wk.missed, new Date(), s.weighInsOrDemo).daysLeft} DAYS LEFT`, color: C.chalk },
   ];
 
   useEffect(() => {
@@ -58,36 +61,36 @@ export default function Talk() {
       input.current?.focus();
     } else send(t);
   };
+  const toVoice = () => router.push(s.cloud && liveVoiceAvailable ? '/live' : '/voice');
+  const typed = !!draft.trim();
 
   return (
     <View style={{ flex: 1 }}>
       <Backdrop />
-      <View style={{ paddingTop: insets.top + 4, paddingHorizontal: 16, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: C.line, backgroundColor: alpha(s.theme.bg, 0.85) }}>
-        <IconButton size={40} onPress={() => router.back()}>‹</IconButton>
-        <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ paddingTop: insets.top + 6, paddingHorizontal: SP.lg, paddingBottom: SP.sm, flexDirection: 'row', alignItems: 'center', gap: SP.md, borderBottomWidth: 2, borderBottomColor: C.rope, backgroundColor: C.arena }}>
+        <IconButton size={HIT} onPress={() => router.back()} accessibilityLabel="Back">‹</IconButton>
+        <View accessibilityElementsHidden importantForAccessibility="no" style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
           {settings.avatar === 'Character in chat' ? (
-            <View style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: accent, alignItems: 'center', justifyContent: 'center', shadowColor: accent, shadowOpacity: 0.4, shadowRadius: 7, shadowOffset: { width: 0, height: 0 } }}>
-              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: mix(accent, '#0A0C0F', 0.16), alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name={characterOf(settings.character).icon} size={24} color={accent} />
-              </View>
+            <View style={{ width: 48, height: 48, borderWidth: 2, borderColor: accent, backgroundColor: C.canvas, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name={characterOf(settings.character).icon} size={26} color={accent} tint={0.25} />
             </View>
           ) : (
             <Core size={44} speaking={s.thinking} />
           )}
         </View>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-            <Txt size={18} w={600} ls={-0.01}>REI</Txt>
+        <View style={{ flex: 1, alignItems: 'flex-start' }}>
+          <View accessibilityRole="header">
+            <Txt face="display" size={26} ls={0.02}>REI</Txt>
           </View>
-          <Label size={10} ls={0.14} color={accent} style={{ marginTop: 3 }}>{s.thinking ? 'READING YOU…' : tough ? 'TOUGH LOVE · 10/10' : 'COACH · 6/10'}</Label>
+          <Txt face="labelItalic" w={600} size={12} ls={0.14} color={accent} numberOfLines={1}>{s.thinking ? 'READING YOU…' : settings.tone === 'Bro' ? 'BRO · IN YOUR CORNER' : tough ? 'TOUGH LOVE · 10/10' : 'COACH · 6/10'}</Txt>
         </View>
-        <IconButton size={40} onPress={() => router.push(s.cloud && liveVoiceAvailable ? '/live' : '/voice')}><VoiceGlyph color={C.body} /></IconButton>
+        <IconButton size={HIT} onPress={toVoice} accessibilityLabel="Talk to REI out loud"><VoiceGlyph color={C.chalk} /></IconButton>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)' }} contentContainerStyle={{ gap: 6, paddingVertical: 10, paddingHorizontal: 16 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, borderBottomWidth: 2, borderBottomColor: C.line }} contentContainerStyle={{ gap: SP.sm, paddingVertical: SP.sm, paddingHorizontal: SP.lg }}>
         {chips.map(c => (
-          <View key={c.t} style={{ paddingVertical: 5, paddingHorizontal: 9, borderRadius: 6, backgroundColor: C.card, borderWidth: 1, borderColor: C.line2 }}>
-            <Label size={10} ls={0.12} color={c.color}>{c.t}</Label>
+          <View key={c.t} style={{ minHeight: 24, paddingHorizontal: SP.sm, justifyContent: 'center', backgroundColor: C.canvas, borderLeftWidth: 3, borderLeftColor: c.color === C.chalk ? C.rope : c.color }}>
+            <Txt face="label" w={600} size={12} ls={0.12} color={c.color}>{c.t}</Txt>
           </View>
         ))}
       </ScrollView>
@@ -99,7 +102,7 @@ export default function Talk() {
           data={messages}
           keyExtractor={(m, i) => m.id ?? `i${i}`}
           renderItem={({ item }) => <Bubble m={item} strong={strong} />}
-          contentContainerStyle={{ padding: 18, paddingBottom: 12 }}
+          contentContainerStyle={{ padding: SP.lg, paddingBottom: SP.md }}
           ItemSeparatorComponent={Gap}
           // Keep the newest message in view as replies stream in.
           onContentSizeChange={() => list.current?.scrollToEnd({ animated: !s.thinking })}
@@ -109,24 +112,24 @@ export default function Talk() {
           ListFooterComponent={
             // Dots until REI's streamed reply starts showing.
             s.thinking && messages[messages.length - 1]?.role !== 'rei' ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16 }}>
-                <Label size={10} ls={0.14}>REI IS READING YOU</Label>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, marginTop: SP.lg }}>
+                <Txt face="labelItalic" w={600} size={12} ls={0.14} color={accent}>REI IS READING YOU</Txt>
                 <Dots />
               </View>
             ) : null
           }
         />
 
-        <View style={{ paddingTop: 8, paddingBottom: Math.max(insets.bottom, 12) }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 10 }}>
+        <View style={{ paddingTop: SP.sm, paddingBottom: Math.max(insets.bottom, SP.md), borderTopWidth: 2, borderTopColor: C.line, backgroundColor: C.arena }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: SP.sm, paddingHorizontal: SP.lg, paddingBottom: SP.sm }}>
             {QUICK.map(t => (
-              <Tap key={t} onPress={() => quick(t)} style={{ height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', justifyContent: 'center', backgroundColor: C.card }}>
-                <Txt size={14} color={C.body}>{t}</Txt>
+              <Tap key={t} onPress={() => quick(t)} accessibilityLabel={t} style={{ minHeight: HIT, paddingHorizontal: SP.md, borderWidth: 2, borderColor: C.rope, justifyContent: 'center', backgroundColor: C.canvas }}>
+                <Txt face="label" w={600} size={14} ls={0.08} color={C.chalk}>{t.toUpperCase()}</Txt>
               </Tap>
             ))}
           </ScrollView>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16 }}>
-            <View style={{ flex: 1, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', paddingHorizontal: 18 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.lg }}>
+            <View style={{ flex: 1, height: 52, backgroundColor: C.canvas, borderWidth: 2, borderColor: typed ? accent : C.rope, justifyContent: 'center', paddingHorizontal: SP.md }}>
               <TextInput
                 ref={input}
                 value={draft}
@@ -136,18 +139,14 @@ export default function Talk() {
                 placeholderTextColor={C.dim}
                 returnKeyType="send"
                 keyboardAppearance="dark"
-                style={{ fontFamily: fontFamily(settings.font, 400), fontSize: 16, color: C.text }}
+                accessibilityLabel="Message to REI"
+                style={inputType(settings.textSize)}
               />
             </View>
-            {draft.trim() ? (
-              <Tap onPress={() => send(draft)} style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}>
-                <Txt size={20} w={600} color={C.ink}>↑</Txt>
-              </Tap>
-            ) : (
-              <Tap onPress={() => router.push(s.cloud && liveVoiceAvailable ? '/live' : '/voice')} style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', shadowColor: accent, shadowOpacity: 0.35, shadowRadius: 11, shadowOffset: { width: 0, height: 0 } }}>
-                <VoiceGlyph color={C.ink} big />
-              </Tap>
-            )}
+            {/* The one loud control: send what you typed, or talk out loud when the box is empty. */}
+            <SlabButton onPress={typed ? () => send(draft) : toVoice} accessibilityLabel={typed ? 'Send' : 'Talk to REI out loud'}>
+              {ink => (typed ? <SendArrow color={ink} /> : <VoiceGlyph color={ink} big />)}
+            </SlabButton>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -155,35 +154,11 @@ export default function Talk() {
   );
 }
 
-const Gap = () => <View style={{ height: 16 }} />;
+const Gap = () => <View style={{ height: SP.lg }} />;
 
 /** One chat message. Memoised, so typing in the box doesn't redraw the conversation. */
 const Bubble = memo(function Bubble({ m, strong }: { m: Message; strong: boolean }) {
-  const accent = useStore(st => st.accent);
-  if (m.role === 'sys') {
-    return (
-      <View style={{ alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: alpha(accent, 0.45) }}>
-        <Label size={10} ls={0.14} color={accent}>{m.text}</Label>
-      </View>
-    );
-  }
-  if (m.role === 'user') {
-    return (
-      <View style={{ alignSelf: 'flex-end', alignItems: 'flex-end', maxWidth: '80%', gap: 6 }}>
-        <Label size={10} ls={0.14} color={C.faint}>{`YOU · ${m.time}`}</Label>
-        <View style={{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 20, borderBottomRightRadius: 4, backgroundColor: mix(accent, '#0A0C0F', 0.14), borderWidth: 1, borderColor: alpha(accent, 0.28) }}>
-          <Txt size={16} lh={1.45}>{m.text}</Txt>
-        </View>
-      </View>
-    );
-  }
-  const callout = m.alert && !strong;
-  return (
-    <View style={{ alignSelf: 'flex-start', maxWidth: '88%', gap: 6 }}>
-      <Label size={10} ls={0.14} color={callout ? C.alert : C.label}>{callout ? `REI · CALL-OUT · ${m.time}` : `REI · ${m.time}`}</Label>
-      <View style={{ paddingVertical: 13, paddingHorizontal: 16, borderRadius: 20, borderTopLeftRadius: 4, backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: callout ? 'rgba(255,90,60,0.4)' : C.line2 }}>
-        <Txt size={16} lh={1.45} color={C.textSoft}>{m.text}</Txt>
-      </View>
-    </View>
-  );
+  if (m.role === 'sys') return <RingNote text={m.text} />;
+  if (m.role === 'user') return <CornerLine text={m.text} time={m.time} />;
+  return <CoachLine text={m.text} time={m.time} callout={m.alert && !strong} />;
 });

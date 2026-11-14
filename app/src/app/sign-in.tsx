@@ -1,50 +1,91 @@
 // The front door: log in or create an account, then prove the email. New accounts go on to the
-// chapters; everyone else lands in the app. Same look as the Dojo: dark panels with a hard accent
-// shadow, icons, mono labels.
+// chapters; everyone else lands in the app. A fight poster: REI's name, the two corner lights,
+// one cut slab to step in.
 import { useEffect, useState, type ReactNode } from 'react';
-import { AppState, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import { AppState, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Polygon } from 'react-native-svg';
 import { Core } from '../components/Core';
+import { CutButton, RoundStamp, Slash } from '../components/fight';
 import { Icon, type IconKey } from '../components/icons';
-import { Panel, Stamp } from '../components/manga';
-import { Atmosphere, Cta, Seg } from '../components/onboarding/kit';
 import { Tap, Txt } from '../components/ui';
-import { alpha, C, fontFamily, THEMES } from '../lib/theme';
+import { C, cutDx, fontFamily, HIT, SP, THEMES } from '../lib/theme';
 import { authMessage } from '../state/account';
 import { useStore } from '../state/store';
 
 const EMAIL = /^\S+@\S+\.\S+$/;
 const RESEND_WAIT = 30;
 
+/** The arena behind the door: your corner's light from the left, the far corner's from the right. Flat, cut at the one angle. */
+function Arena({ acc }: { acc: string }) {
+  const { width: W, height: H } = useWindowDimensions();
+  const h = Math.min(H * 0.62, 520), dx = cutDx(h);
+  const beam = (x: number, w: number) => `${x},0 ${x + w},0 ${x + w - dx},${h} ${x - dx},${h}`;
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: C.arena }]}>
+      <Svg width={W} height={H}>
+        <Polygon points={beam(W * 0.2, W * 0.3)} fill={acc} opacity={0.06} />
+        <Polygon points={beam(W * 0.08, W * 0.07)} fill={acc} opacity={0.08} />
+        <Polygon points={beam(W * 1.08, W * 0.16)} fill={C.rival} opacity={0.06} />
+        <Polygon points={beam(W * 1.3, W * 0.05)} fill={C.rival} opacity={0.08} />
+      </Svg>
+    </View>
+  );
+}
+
 export default function SignIn() {
   const s = useStore();
   const { account } = s;
   const insets = useSafeAreaInsets();
   // Before onboarding there's no chosen world yet: the front door wears REI Zero.
-  const { acc, acc2, bg } = THEMES[0];
+  const { acc } = THEMES[0];
 
   return (
-    <View style={{ flex: 1, backgroundColor: bg }}>
-      <Atmosphere acc={acc} acc2={acc2} />
+    <View style={{ flex: 1, backgroundColor: C.arena }}>
+      <Arena acc={acc} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 22, paddingTop: insets.top + 28, paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
-          <View style={{ alignItems: 'center', gap: 14 }}>
-            <Core size={96} color={acc} />
-            <Txt size={40} w={600} ls={-0.04}>REI</Txt>
-            <View style={{ alignItems: 'center' }}>
-              <Stamp text="Zero excuses · tester access" color={acc} tilt={-3} size={9.5} />
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: SP.lg, paddingTop: insets.top + SP.xxl, paddingBottom: insets.bottom + SP.xxl }} keyboardShouldPersistTaps="handled">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.lg }}>
+            <Core size={88} color={acc} />
+            <View style={{ flex: 1, alignItems: 'flex-start', gap: SP.xs }}>
+              <View accessibilityRole="header">
+                <Txt face="display" size={72} lh={1.05} ls={0.01}>REI</Txt>
+              </View>
+              <Txt face="labelItalic" w={600} size={14} ls={0.12} lh={1.2} color={acc}>EVERY DAY IS A MATCH.</Txt>
+              <Txt face="labelItalic" w={600} size={14} ls={0.12} lh={1.2}>YOU VS. YOUR EXCUSES.</Txt>
             </View>
           </View>
+          <RoundStamp label="Zero excuses · tester access" tone="outline" size="sm" accent={acc} style={{ marginTop: SP.lg }} />
+          <Slash accent={acc} style={{ marginTop: SP.lg }} />
 
-          <View style={{ marginTop: 32 }}>
+          <View style={{ marginTop: SP.xl }}>
             {account.status === 'unverified' ? <Verify acc={acc} /> : account.status === 'denied' ? <Denied acc={acc} /> : <Form acc={acc} />}
           </View>
 
-          <Tap onPress={() => s.setDemo(true)} style={{ marginTop: 28, alignSelf: 'center', padding: 8 }}>
-            <Txt size={14} color={C.muted}>Try the demo without an account →</Txt>
+          <Tap onPress={() => s.setDemo(true)} accessibilityLabel="Try the demo without an account" style={{ marginTop: SP.xl, alignSelf: 'center', minHeight: HIT, justifyContent: 'center', paddingHorizontal: SP.md }}>
+            <Txt face="label" w={600} size={15} ls={0.08} color={C.smoke}>Try the demo without an account →</Txt>
           </Tap>
         </ScrollView>
       </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+/** A quiet text button under the main action. */
+function Link({ label, onPress, color, disabled }: { label: string; onPress: () => void; color: string; disabled?: boolean }) {
+  return (
+    <Tap onPress={onPress} disabled={disabled} accessibilityLabel={label} style={{ minHeight: HIT, justifyContent: 'center' }}>
+      <Txt face="label" w={600} size={15} ls={0.08} color={color}>{label.toUpperCase()}</Txt>
+    </Tap>
+  );
+}
+
+/** What just happened, under the fields: an error or a confirmation. */
+function Note({ note, acc }: { note: { text: string; error: boolean }; acc: string }) {
+  return (
+    <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: SP.sm, alignItems: 'flex-start' }}>
+      <Icon name={note.error ? 'close' : 'check'} size={16} color={note.error ? C.alertSoft : acc} strokeWidth={2.4} />
+      <Txt size={14} w={500} lh={1.4} color={note.error ? C.alertSoft : acc} style={{ flex: 1 }}>{note.text}</Txt>
     </View>
   );
 }
@@ -94,38 +135,36 @@ function Form({ acc }: { acc: string }) {
   };
 
   return (
-    <View style={{ gap: 14 }}>
-      <Seg value={mode} opts={[['in', 'Log in'], ['up', 'Create account']]} onPick={switchTo} acc={acc} />
-      <Panel acc={acc} tone={0.45} pad={16} style={{ gap: 12 }}>
-        <Txt face="mono" size={10} ls={0.16} color={C.muted}>{mode === 'in' ? 'WELCOME BACK' : 'NEW HERE · WE’LL EMAIL A LINK'}</Txt>
+    <View style={{ gap: SP.md }}>
+      <View accessibilityRole="tablist" style={{ flexDirection: 'row', borderWidth: 2, borderColor: C.rope, backgroundColor: C.arena }}>
+        {([['in', 'Log in'], ['up', 'Create account']] as const).map(([m, label]) => {
+          const on = m === mode;
+          return (
+            <Tap key={m} onPress={() => switchTo(m)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label} style={{ flex: 1, minHeight: HIT, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? C.chalk : 'transparent' }}>
+              <Txt face="label" w={600} size={15} ls={0.08} color={on ? C.ink : C.smoke}>{label.toUpperCase()}</Txt>
+            </Tap>
+          );
+        })}
+      </View>
+      <View style={{ backgroundColor: C.canvas, borderLeftWidth: 4, borderLeftColor: acc, padding: SP.lg, gap: SP.md }}>
+        <Txt face="labelItalic" w={600} size={13} ls={0.14} color={C.smoke}>{mode === 'in' ? 'WELCOME BACK' : 'NEW HERE · WE’LL EMAIL A LINK'}</Txt>
         <Input icon="mail" value={email} onChange={setEmail} placeholder="Email" acc={acc} kind="email" onSubmit={() => undefined} />
         <Input
           icon="key" value={password} onChange={setPassword} placeholder={mode === 'up' ? 'Password · 6+ characters' : 'Password'} acc={acc}
           kind={mode === 'in' ? 'password' : 'new-password'} secure={!show} onSubmit={submit}
           right={
-            <Tap onPress={() => setShow(v => !v)} haptic={false} style={{ padding: 6 }}>
-              <Icon name="eye" size={18} color={show ? acc : C.dim} tint={show ? 0.3 : 0} />
+            <Tap onPress={() => setShow(v => !v)} haptic={false} accessibilityLabel={show ? 'Hide password' : 'Show password'} style={{ width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="eye" size={20} color={show ? acc : C.smoke} tint={show ? 0.3 : 0} />
             </Tap>
           }
         />
-        {mode === 'up' && password.length > 0 && password.length < 6 ? <Txt size={12.5} color={C.warn}>{`${6 - password.length} more character${6 - password.length === 1 ? '' : 's'}.`}</Txt> : null}
-        {note ? (
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-            <Icon name={note.error ? 'close' : 'check'} size={16} color={note.error ? C.alertSoft : acc} strokeWidth={2.2} />
-            <Txt size={13.5} lh={1.4} color={note.error ? C.alertSoft : acc} style={{ flex: 1 }}>{note.text}</Txt>
-          </View>
-        ) : null}
-      </Panel>
-      <Cta label={busy ? (mode === 'in' ? 'Logging in…' : 'Creating…') : mode === 'in' ? 'Log in' : 'Create my account'} icon={mode === 'in' ? 'door' : 'scroll'} acc={acc} disabled={!valid || busy} onPress={submit} />
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 }}>
-        <Tap onPress={() => switchTo(mode === 'in' ? 'up' : 'in')} style={{ paddingVertical: 6 }}>
-          <Txt size={14} color={acc}>{mode === 'in' ? 'New here? Create an account' : 'I have an account'}</Txt>
-        </Tap>
-        {mode === 'in' ? (
-          <Tap onPress={reset} style={{ paddingVertical: 6 }}>
-            <Txt size={14} color={C.muted}>Forgot password</Txt>
-          </Tap>
-        ) : null}
+        {mode === 'up' && password.length > 0 && password.length < 6 ? <Txt size={13} w={500} color={C.warn}>{`${6 - password.length} more character${6 - password.length === 1 ? '' : 's'}.`}</Txt> : null}
+        {note ? <Note note={note} acc={acc} /> : null}
+      </View>
+      <CutButton label={busy ? (mode === 'in' ? 'Logging in…' : 'Creating…') : mode === 'in' ? 'Log in' : 'Create my account'} icon={mode === 'in' ? 'door' : 'scroll'} accent={acc} disabled={!valid || busy} onPress={submit} />
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: SP.md }}>
+        <Link label={mode === 'in' ? 'New here? Create an account' : 'I have an account'} onPress={() => switchTo(mode === 'in' ? 'up' : 'in')} color={acc} />
+        {mode === 'in' ? <Link label="Forgot password" onPress={reset} color={C.smoke} /> : null}
       </View>
     </View>
   );
@@ -182,36 +221,32 @@ function Verify({ acc }: { acc: string }) {
   };
 
   return (
-    <View style={{ gap: 14 }}>
-      <Panel acc={acc} tone={0.5} pad={18} style={{ gap: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <View style={{ width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: alpha(acc, 0.12), borderWidth: 1.5, borderColor: alpha(acc, 0.5), transform: [{ rotate: '-4deg' }] }}>
-            <Icon name="mail" size={28} color={acc} tint={0.3} />
+    <View style={{ gap: SP.md }}>
+      <View style={{ backgroundColor: C.canvas, borderLeftWidth: 4, borderLeftColor: acc, padding: SP.lg, gap: SP.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+          <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: C.arena, borderWidth: 2, borderColor: acc }}>
+            <Icon name="mail" size={26} color={acc} tint={0.3} />
           </View>
-          <View style={{ flex: 1 }}>
-            <Txt face="mono" size={10} ls={0.16} color={C.muted}>ONE LAST CHECK</Txt>
-            <Txt size={22} w={600} ls={-0.02}>Confirm your email</Txt>
+          <View style={{ flex: 1, alignItems: 'flex-start' }}>
+            <Txt face="labelItalic" w={600} size={13} ls={0.14} color={C.smoke}>ONE LAST CHECK</Txt>
+            <Txt face="display" size={26} lh={1.2}>CONFIRM YOUR EMAIL</Txt>
           </View>
         </View>
-        <Txt size={15} lh={1.45} color={C.body}>
+        <Txt size={15} w={500} lh={1.45} color={C.body}>
           {'I sent a link to '}
           <Txt size={15} w={600}>{s.account.email ?? 'your email'}</Txt>
           {'. Open it, and I’ll carry on here by myself.'}
         </Txt>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: acc }} />
-          <Txt face="mono" size={10.5} ls={0.12} color={C.muted}>WAITING FOR THE LINK…</Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
+          <View style={{ width: 8, height: 8, backgroundColor: acc }} />
+          <Txt face="label" w={600} size={13} ls={0.12} color={C.smoke}>WAITING FOR THE LINK…</Txt>
         </View>
-        {note ? <Txt size={13.5} lh={1.4} color={note.error ? C.alertSoft : acc}>{note.text}</Txt> : null}
-      </Panel>
-      <Cta label={busy ? 'Checking…' : 'I’ve confirmed it'} icon="check" acc={acc} disabled={busy} onPress={confirm} />
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 }}>
-        <Tap onPress={resend} disabled={wait > 0} style={{ paddingVertical: 6 }}>
-          <Txt size={14} color={wait > 0 ? C.dim : acc}>{wait > 0 ? `Resend in ${wait}s` : 'Resend the link'}</Txt>
-        </Tap>
-        <Tap onPress={() => void s.signOut()} style={{ paddingVertical: 6 }}>
-          <Txt size={14} color={C.muted}>Use another email</Txt>
-        </Tap>
+        {note ? <Note note={note} acc={acc} /> : null}
+      </View>
+      <CutButton label={busy ? 'Checking…' : 'I’ve confirmed it'} icon="check" accent={acc} disabled={busy} onPress={confirm} />
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: SP.md }}>
+        <Link label={wait > 0 ? `Resend in ${wait}s` : 'Resend the link'} onPress={resend} disabled={wait > 0} color={wait > 0 ? C.dim : acc} />
+        <Link label="Use another email" onPress={() => void s.signOut()} color={C.smoke} />
       </View>
     </View>
   );
@@ -221,15 +256,17 @@ function Verify({ acc }: { acc: string }) {
 function Denied({ acc }: { acc: string }) {
   const s = useStore();
   return (
-    <View style={{ gap: 14 }}>
-      <Panel acc={C.alertSoft} tone={0.4} pad={18} style={{ gap: 10 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+    <View style={{ gap: SP.md }}>
+      <View style={{ backgroundColor: C.canvas, borderLeftWidth: 4, borderLeftColor: C.rival, padding: SP.lg, gap: SP.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
           <Icon name="lock" size={26} color={C.alertSoft} tint={0.3} />
-          <Txt size={20} w={600} style={{ flex: 1 }}>Not on the list yet</Txt>
+          <View style={{ flex: 1, alignItems: 'flex-start' }}>
+            <Txt face="display" size={26} lh={1.2}>NOT ON THE LIST YET</Txt>
+          </View>
         </View>
-        <Txt size={15} lh={1.45} color={C.body}>{`${s.account.email ?? 'This email'} isn’t on the REI tester list. Ask Hemprasad to add it, then log in again.`}</Txt>
-      </Panel>
-      <Cta label="Use another email" icon="door" acc={acc} onPress={() => void s.signOut()} />
+        <Txt size={15} w={500} lh={1.45} color={C.body}>{`${s.account.email ?? 'This email'} isn’t on the REI tester list. Ask Hemprasad to add it, then log in again.`}</Txt>
+      </View>
+      <CutButton label="Use another email" icon="door" accent={acc} onPress={() => void s.signOut()} />
     </View>
   );
 }
@@ -238,8 +275,8 @@ function Input({ icon, value, onChange, placeholder, acc, kind, secure, onSubmit
   const [focus, setFocus] = useState(false);
   const email = kind === 'email';
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, height: 52, paddingLeft: 14, paddingRight: right ? 6 : 14, borderRadius: 12, borderWidth: 1.5, borderColor: focus ? alpha(acc, 0.7) : 'rgba(255,255,255,0.1)', backgroundColor: '#0A0B0E' }}>
-      <Icon name={icon} size={18} color={focus || value ? acc : C.dim} tint={0.2} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, height: 52, paddingLeft: SP.md, paddingRight: right ? 2 : SP.md, borderWidth: 2, borderColor: focus ? acc : C.rope, backgroundColor: C.arena }}>
+      <Icon name={icon} size={20} color={focus || value ? acc : C.smoke} tint={0.2} />
       <TextInput
         value={value}
         onChangeText={onChange}
@@ -247,6 +284,7 @@ function Input({ icon, value, onChange, placeholder, acc, kind, secure, onSubmit
         onBlur={() => setFocus(false)}
         placeholder={placeholder}
         placeholderTextColor={C.dim}
+        accessibilityLabel={placeholder}
         autoCapitalize="none"
         autoCorrect={false}
         autoComplete={email ? 'email' : kind === 'password' ? 'current-password' : 'new-password'}
@@ -256,7 +294,7 @@ function Input({ icon, value, onChange, placeholder, acc, kind, secure, onSubmit
         keyboardAppearance="dark"
         returnKeyType={email ? 'next' : 'go'}
         onSubmitEditing={onSubmit}
-        style={{ flex: 1, height: 50, fontFamily: fontFamily('Geist', 400), fontSize: 16, color: C.text }}
+        style={{ flex: 1, minWidth: 0, height: 48, fontFamily: fontFamily('body', 500), fontSize: 16, color: C.chalk }}
       />
       {right}
     </View>

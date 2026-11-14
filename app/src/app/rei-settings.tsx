@@ -1,20 +1,22 @@
-// REI: personality, whose voice REI speaks with, and how conversations work.
+// REI: personality, whose voice REI speaks with (the corner team), and how conversations work.
 import { CHARACTERS, characterOf, hasVoice, type Tone } from '@rei/shared';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Icon, type IconKey } from '../components/icons';
-import { Heading, Panel, Stamp } from '../components/manga';
+import { LevelBars, readable } from '../components/corner';
+import { CutShape } from '../components/cut';
+import { RoundStamp, SectionHeader } from '../components/fight';
+import { Icon } from '../components/icons';
 import { Screen, SubHeader } from '../components/Screen';
-import { Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
-import { alpha, C } from '../lib/theme';
+import { Card, Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
+import { C, onColor, SP } from '../lib/theme';
 import { playGreeting, prefetchGreetings } from '../lib/greetings';
 import { useStore } from '../state/store';
 
-const TONES: { id: Tone; icon: IconKey; title: string; sub: string }[] = [
-  { id: 'Tough love', icon: 'strength', title: 'Tough love', sub: '10/10. Calls you out. No negotiating.' },
-  { id: 'Coach', icon: 'train', title: 'Coach', sub: 'Firm, measured, technical.' },
-  { id: 'Bro', icon: 'fist', title: 'Bro', sub: 'Your gym bro. Swears back, hypes you up.' },
+const TONES: { id: Tone; title: string; sub: string; level: string }[] = [
+  { id: 'Tough love', title: 'Tough love', sub: 'Calls you out. No negotiating.', level: '10/10' },
+  { id: 'Coach', title: 'Coach', sub: 'Firm, measured, technical.', level: '6/10' },
+  { id: 'Bro', title: 'Bro', sub: 'Your gym bro. Swears back, hypes you up.', level: 'Hype' },
 ];
 
 export default function ReiSettings() {
@@ -69,61 +71,61 @@ export default function ReiSettings() {
     <Screen tabs={false}>
       <SubHeader title="REI" onBack={() => router.back()} />
 
-      <Heading icon="rei" title="Personality" acc={accent} style={{ marginTop: 26 }} />
-      <View style={{ gap: 10, marginTop: 14 }}>
+      <SectionHeader title="Personality" meta="How hard REI pushes" style={{ marginTop: SP.xl }} />
+      <View accessibilityRole="radiogroup" style={{ gap: SP.xs, marginTop: SP.md }}>
         {TONES.map(t => {
           const on = settings.tone === t.id;
           return (
-            <Tap key={t.id} onPress={() => s.setOpt('tone', t.id)}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: on ? accent : C.line3, backgroundColor: on ? alpha(accent, 0.1) : '#0D0F13' }}>
-                <Icon name={t.icon} size={26} color={on ? accent : C.muted} />
-                <View style={{ flex: 1 }}>
-                  <Txt size={16} w={600}>{t.title}</Txt>
-                  <Txt size={13} color={C.sub}>{t.sub}</Txt>
+            <Tap key={t.id} onPress={() => s.setOpt('tone', t.id)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={`${t.title}. ${t.sub}`}>
+              <View style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: 2, borderColor: on ? accent : C.canvas }}>
+                <Txt face="display" lean={false} size={20} lh={1.2} color={on ? accent : C.smoke} style={{ minWidth: 48 }}>{t.level.toUpperCase()}</Txt>
+                <View style={{ flex: 1, alignItems: 'flex-start' }}>
+                  <Txt face="display" size={22} lh={1.2}>{t.title.toUpperCase()}</Txt>
+                  <Txt size={13} w={500} color={C.smoke}>{t.sub}</Txt>
                 </View>
-                {on ? <Icon name="check" size={20} color={accent} strokeWidth={2.2} /> : null}
+                {on ? <RoundStamp label="On" tone="accent" size="sm" /> : null}
               </View>
             </Tap>
           );
         })}
       </View>
 
-      <Heading icon="voice" title="Voice" acc={accent} right={playing ? 'PLAYING…' : undefined} style={{ marginTop: 32 }} />
-      <Txt size={13} color={C.sub} style={{ marginTop: 8 }}>Who REI sounds like, on calls and spoken replies. Separate from your theme.</Txt>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
+      <SectionHeader title="Voice" meta={playing ? 'Playing…' : 'Corner team'} style={{ marginTop: SP.huge }} />
+      <Txt size={13} w={500} lh={1.4} color={C.smoke} style={{ marginTop: SP.sm }}>Who REI sounds like, on calls and spoken replies. Separate from your world.</Txt>
+      <View accessibilityRole="radiogroup" style={{ gap: SP.xs, marginTop: SP.md }}>
         {CHARACTERS.map(c => {
           const on = (settings.character || 'rei') === c.id;
+          const voiced = hasVoice(c);
           return (
-            <Tap key={c.id} onPress={() => void pick(c.id)} style={{ width: '48%', flexGrow: 1 }}>
-              <View style={{ height: 150, borderRadius: 12, borderWidth: 1.5, borderColor: on ? c.acc : C.line3, backgroundColor: on ? alpha(c.acc, 0.1) : '#0D0F13', padding: 14, justifyContent: 'space-between', overflow: 'hidden' }}>
-                <View style={{ position: 'absolute', right: -18, bottom: -18, opacity: on ? 0.35 : 0.12 }}>
-                  <Icon name={c.icon} size={100} color={c.acc} tint={0.2} strokeWidth={1.1} />
+            <Tap key={c.id} onPress={() => void pick(c.id)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={`${c.name}, ${c.series}. ${c.line}${voiced ? '' : ' Voice coming soon.'}${playing === c.id ? ' Playing.' : ''}`}>
+              <View style={{ minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: 2, borderColor: on ? accent : C.canvas }}>
+                <View style={{ width: 52, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+                  <CutShape width={52} height={40} fill={c.acc} style={{ position: 'absolute', left: 0, top: 0 }} />
+                  <View><Icon name={c.icon} size={24} color={onColor(c.acc)} tint={0.2} strokeWidth={2} /></View>
                 </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View style={{ flexDirection: 'row', gap: 4 }}>
-                    <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c.acc }} />
-                    <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c.acc2 }} />
+                <View style={{ flex: 1, alignItems: 'flex-start' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: SP.sm }}>
+                    <Txt face="display" size={22} lh={1.2}>{c.name.toUpperCase()}</Txt>
+                    <Txt face="label" w={600} size={12} ls={0.12} color={readable(c.acc)} numberOfLines={1} style={{ flexShrink: 1 }}>{c.series.toUpperCase()}</Txt>
                   </View>
-                  {hasVoice(c) ? (on ? <Icon name="voice" size={16} color={c.acc} /> : null) : <Stamp text="Soon" color={C.muted} tilt={0} size={8.5} />}
+                  <Txt size={13} w={500} lh={1.35} color={C.smoke} numberOfLines={2}>{c.line}</Txt>
                 </View>
-                <View style={{ gap: 2 }}>
-                  <Txt size={18} w={600}>{c.name}</Txt>
-                  <Txt face="mono" size={9.5} ls={0.12} color={on ? c.acc : C.muted}>{c.series.toUpperCase()}</Txt>
-                  <Txt size={12} color={C.sub} numberOfLines={3} style={{ marginTop: 4 }}>{c.line}</Txt>
-                </View>
+                {playing === c.id ? <LevelBars active color={readable(c.acc)} height={24} /> : !voiced ? <RoundStamp label="Soon" tone="outline" size="sm" /> : on ? <RoundStamp label="On" tone="accent" size="sm" /> : null}
               </View>
             </Tap>
           );
         })}
       </View>
-      <Txt size={12} color={note ? C.warn : C.faint} style={{ marginTop: 10 }}>{note || 'Tap a partner to hear them say hello; tap again to stop.'}</Txt>
+      <View accessibilityLiveRegion="polite">
+        <Txt size={13} w={500} lh={1.4} color={note ? C.warn : C.smoke} style={{ marginTop: SP.sm }}>{note || 'Tap a partner to hear them say hello; tap again to stop.'}</Txt>
+      </View>
 
-      <Heading icon="voice" title="Conversation" acc={accent} style={{ marginTop: 32 }} />
-      <Panel acc={accent} tone={0.2} dots={false} style={{ marginTop: 14 }} pad={16}>
-        <Row title="Speak replies aloud" sub="In voice mode" right={<Toggle on={settings.speak} onPress={() => s.setOpt('speak', !settings.speak)} />} />
+      <SectionHeader title="Conversation" style={{ marginTop: SP.huge }} />
+      <Card style={{ marginTop: SP.md, paddingHorizontal: SP.lg }}>
+        <Row title="Speak replies aloud" sub="In voice mode" right={<Toggle on={settings.speak} onPress={() => s.setOpt('speak', !settings.speak)} accessibilityLabel="Speak replies aloud" />} />
         <Row title="In the chat header" sub="Your character crest or REI’s core" right={<Segmented value={settings.avatar} options={[['Character in chat', 'Crest'], ['Core only', 'Core']]} onChange={v => s.setOpt('avatar', v)} />} />
-        <Row title="Check-ins" sub="REI messages you when you slip" right={<Toggle on={settings.nudge} onPress={() => s.setOpt('nudge', !settings.nudge)} />} last />
-      </Panel>
+        <Row title="Check-ins" sub="REI messages you when you slip" right={<Toggle on={settings.nudge} onPress={() => s.setOpt('nudge', !settings.nudge)} accessibilityLabel="Check-ins" />} last />
+      </Card>
     </Screen>
   );
 }
