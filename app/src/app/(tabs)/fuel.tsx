@@ -11,7 +11,7 @@ import { Gauge, Heading, Panel, Stamp, Tile } from '../../components/manga';
 import { PageTitle } from '../../components/PageTitle';
 import { Screen } from '../../components/Screen';
 import { Tap, Txt } from '../../components/ui';
-import { amountLabel, dailyTargets, dayIntake, type Food, fuelLine, itemFor, nutrition, searchFoods, splitMealText } from '@rei/shared';
+import { amountLabel, dailyTargets, dayIntake, type Food, fuelLine, itemFor, type Meal, nutrition, searchFoods, splitMealText } from '@rei/shared';
 import { alpha, C, fontFamily } from '../../lib/theme';
 import { useStore } from '../../state/store';
 
@@ -24,7 +24,8 @@ export default function Fuel() {
   const input = useRef<TextInput>(null);
   const [draft, setDraft] = useState('');
   const [pick, setPick] = useState<{ food: Food; qty: number; unit?: string } | null>(null);
-  const [editing, setEditing] = useState<number | null>(null);
+  // The meal itself, not its place in the list: another device can change the order meanwhile.
+  const [editing, setEditing] = useState<Meal | null>(null);
   // Live matches for what's being typed (the last piece, so "2 roti, da" suggests dal).
   const piece = draft.includes(',') || / and | with |\+/.test(draft) ? null : splitMealText(draft).pop();
   const suggestions = piece && !s.fuelBusy ? searchFoods(piece.query, s.allFoods, 5) : [];
@@ -203,12 +204,12 @@ export default function Fuel() {
         {meals.map((m, i) => {
           const est = m.items?.some(it => !it.food) || m.src === 'photo' || m.src === 'ai';
           return (
-            <Tap key={`${m.time}-${i}`} haptic={false} onPress={() => setEditing(i)}>
+            <Tap key={m.id ?? `${m.time}-${i}`} haptic={false} onPress={() => setEditing(m)}>
               <View style={{ padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: C.line3, backgroundColor: '#0D0F13', gap: 8 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Txt face="mono" size={11} color={C.dim}>{m.time}</Txt>
                   <Txt size={16} w={600} style={{ flex: 1 }} numberOfLines={2}>{m.name}</Txt>
-                  <Tap onPress={() => s.removeMeal(i)} style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
+                  <Tap onPress={() => void s.removeMeal(m)} style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
                     <Icon name="close" size={14} color={C.faint} />
                   </Tap>
                 </View>
@@ -234,7 +235,7 @@ export default function Fuel() {
         })}
       </View>
       <FoodSheet pick={pick} onClose={() => (setPick(null), setDraft(''))} />
-      <MealSheet index={editing} onClose={() => setEditing(null)} />
+      <MealSheet meal={editing} onClose={() => setEditing(null)} />
     </Screen>
   );
 }

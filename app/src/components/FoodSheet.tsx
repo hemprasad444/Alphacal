@@ -1,5 +1,5 @@
 // Bottom sheets for food: pick a portion of a food, or fix a logged meal.
-import { amountLabel, foodFromMeal, type Food, itemFor, type Meal, type MealItem, mealFromItems, unitFor } from '@rei/shared';
+import { amountLabel, findMeal, foodFromMeal, type Food, itemFor, type Meal, type MealItem, mealFromItems, unitFor, withTotals } from '@rei/shared';
 import { useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -173,23 +173,25 @@ function NumField({ label, value, onChange }: { label: string; value: number; on
 }
 
 /** Fix a logged meal: change amounts, correct REI's numbers, or keep it as your own food. */
-export function MealSheet({ index, onClose }: { index: number | null; onClose: () => void }) {
+export function MealSheet({ meal: opened, onClose }: { meal: Meal | null; onClose: () => void }) {
   const s = useStore();
-  const meal = index === null ? null : s.meals[index];
+  // Found by id (by content for older meals), never by position: the list can reorder while this is open.
+  const at = opened ? findMeal(s.meals, opened) : -1;
+  const meal = at >= 0 ? s.meals[at] : null;
   return (
     <Sheet open={!!meal} onClose={onClose}>
-      {meal && index !== null ? <MealSheetBody key={`${index}-${meal.time}-${meal.name}`} meal={meal} index={index} onDone={onClose} /> : null}
+      {meal ? <MealSheetBody key={meal.id ?? `${meal.time}-${meal.name}-${meal.kcal}`} meal={meal} onDone={onClose} /> : null}
     </Sheet>
   );
 }
 
-function MealSheetBody({ meal, index, onDone }: { meal: Meal; index: number; onDone: () => void }) {
+function MealSheetBody({ meal, onDone }: { meal: Meal; onDone: () => void }) {
   const s = useStore();
   const [items, setItems] = useState<MealItem[]>(() => meal.items ?? []);
-  // A meal without items (a photo, or older entries) is edited as one total.
+  // A meal without items (a photo, or older entries) is edited as one total; its fibre, sodium and so on follow the calories.
   const [total, setTotal] = useState({ kcal: meal.kcal, p: meal.p, c: meal.c, f: meal.f });
   const [saved, setSaved] = useState(false);
-  const next: Meal = items.length ? { ...mealFromItems(items, meal.time, meal.src, meal.name), name: meal.name } : { ...meal, ...total, kcal: Math.round(total.kcal), p: Math.round(total.p), c: Math.round(total.c), f: Math.round(total.f) };
+  const next: Meal = items.length ? { ...mealFromItems(items, meal.time, meal.src, meal.name), name: meal.name } : withTotals(meal, total);
   const foodOf = (i: MealItem) => (i.food ? s.allFoods.find(f => f.id === i.food) : undefined);
 
   return (
@@ -254,7 +256,7 @@ function MealSheetBody({ meal, index, onDone }: { meal: Meal; index: number; onD
         <Button
           danger
           onPress={() => {
-            s.removeMeal(index);
+            void s.removeMeal(meal);
             onDone();
           }}
         >
@@ -264,7 +266,7 @@ function MealSheetBody({ meal, index, onDone }: { meal: Meal; index: number; onD
           primary
           disabled={!!meal.items?.length && !items.length}
           onPress={() => {
-            s.updateMeal(index, next);
+            void s.updateMeal(meal, next);
             onDone();
           }}
         >

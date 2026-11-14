@@ -21,7 +21,8 @@ const SHRINK: Measure[] = ['waist', 'hips'];
 
 export default function Progress() {
   const s = useStore();
-  const [today] = useState(() => isoDate());
+  // The store's day, which rolls over at midnight with today's meals: a screen left open stays current.
+  const today = s.day;
   const days = useMemo(() => [...s.pastDays, daySummary(today, { meals: s.meals, sessionDone: s.sessionDone })], [s.pastDays, s.meals, s.sessionDone, today]);
   const st = useMemo(() => calcStreaks(days, s.profile, today), [days, s.profile, today]);
   const bs = useMemo(() => calcBadges({ days, sessions: s.sessions, weighIns: s.weighIns, profile: s.profile }), [days, s.sessions, s.weighIns, s.profile]);

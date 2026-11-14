@@ -10,7 +10,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { checkLiveMeal, hhmm, isoDate, type LiveTool, mealIndex, memoryKind, saysNumber, type Message, parseWorkout, shouldLogMeal, shouldLogWorkout, splitLead, workoutLog, stripTags, todayLine, vowChange } from '@rei/shared';
+import { checkLiveMeal, hhmm, isoDate, type LiveTool, MAX_MEALS, mealIndex, memoryKind, saysNumber, type Message, parseWorkout, shouldLogMeal, shouldLogWorkout, splitLead, workoutLog, stripTags, todayLine, vowChange } from '@rei/shared';
 import { Backdrop } from './Backdrop';
 import { Core, Wave } from './Core';
 import { Icon } from './icons';
@@ -57,8 +57,10 @@ function tools(store: RefObject<Store>, heard: RefObject<string>): Record<LiveTo
       // Same check as chat: food they're talking about now, and not one already in today's log.
       const check = said ? shouldLogMeal(said, meal, store.current.meals, hhmm()) : { ok: true };
       if (!check.ok) return check.why === 'already logged' ? `Not logged: ${name} is already in today's log. Ask if they had it again.` : 'Not logged: they didn’t say they ate that just now. Ask before logging it.';
-      store.current.repeatMeal(meal);
-      const meals = [...store.current.meals, meal];
+      const saved = store.current.repeatMeal(meal);
+      // The store refuses a meal past the day's limit: say so, or REI tells them it's logged.
+      if (!saved) return `Not logged: today's log already holds ${MAX_MEALS} meals, the most a day can. Tell them to edit one of today's meals in the app instead.`;
+      const meals = [...store.current.meals, saved];
       setMeals(meals);
       // The agent's prompt was written at the start; hand it the new totals so it never works from stale numbers.
       return `Logged ${name}, ${meal.kcal} kcal, protein ${meal.p} g. ${todayLine(store.current.profile, meals)}${AND_THE_REST}`;
@@ -68,7 +70,7 @@ function tools(store: RefObject<Store>, heard: RefObject<string>): Record<LiveTo
       const i = mealIndex(meals, String(p.name ?? ''));
       if (i < 0) return `No meal like that today. Today's meals: ${meals.map(m => m.name).join(', ') || 'none'}.`;
       const gone = meals[i];
-      store.current.removeMeal(i);
+      void store.current.removeMeal(gone);
       const left = meals.filter((_, k) => k !== i);
       setMeals(left);
       return `Removed ${gone.name}. ${todayLine(store.current.profile, left)}`;

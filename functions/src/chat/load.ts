@@ -1,4 +1,4 @@
-import { activityFromDay, type ContextInput, type Food, type MemoryItem, readMemory, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type DayDoc, isoDate, isoWeek, type Message, type Profile, type SessionLog, type Settings, type WeekProgram, weekdayIndex, zonedNow } from '@rei/shared';
+import { activityFromDay, dayMeals, type ContextInput, type Food, type MemoryItem, readMemory, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type DayDoc, isoDate, isoWeek, type Message, type Profile, type SessionLog, type Settings, type WeekProgram, weekdayIndex, zonedNow } from '@rei/shared';
 import { FieldPath } from 'firebase-admin/firestore';
 import { db } from '../admin';
 
@@ -82,7 +82,7 @@ export async function loadUser(uid: string): Promise<Loaded> {
     input: {
       profile: { ...DEFAULT_PROFILE, ...(u.profile as Partial<Profile> | undefined) },
       disc: (u.disc as Record<string, boolean> | undefined) ?? DEFAULT_DISCIPLINES,
-      meals: t.meals ?? [],
+      meals: dayMeals(t.meals ?? []),
       sessionDone: !!t.sessionDone,
       history: { kind: 'real', startedOn: typeof u.startedOn === 'string' ? u.startedOn : today, sessions },
       activity: activityFromDay(t.steps, t.sleepMin),

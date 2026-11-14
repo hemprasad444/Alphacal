@@ -2,6 +2,7 @@ import { VOICE_TAGS } from './voices';
 // REI's voice: system prompt, reply clean-up, and offline answers.
 // Ported from design/REI.dc.html.
 import { SESSION_TIME } from './data';
+import { isIsoDate } from './time';
 import type { Meal, Message, Nutrition, Profile, ProfileKey } from './types';
 
 export interface ReiContext {
@@ -130,22 +131,31 @@ const PROFILE_LABELS: Record<ProfileKey, string> = {
 /** "07:00" or "7:00" style 24-hour time. */
 export const isClock = (v: string) => /^([01]?\d|2[0-3]):[0-5]\d$/.test(v);
 
-const NUMERIC_KEYS: ProfileKey[] = ['weight', 'targetWeight', 'bf', 'targetBf', 'kcal', 'protein', 'carbs', 'fat', 'steps', 'sleep', 'sessions'];
+const NUMERIC_KEYS: ProfileKey[] = ['weight', 'targetWeight', 'bf', 'targetBf', 'height', 'age', 'kcal', 'protein', 'carbs', 'fat', 'steps', 'sleep', 'sessions'];
+
+/**
+ * The value to store for a profile field (trimmed), or null when it isn't safe to store:
+ * no empty or zero numbers, half-typed times ("18:") or impossible dates (2026-13-01).
+ */
+export function profileValue(k: ProfileKey, value: unknown): string | null {
+  const v = String(value ?? '').trim();
+  if (!v || v.length > 400) return null;
+  if (NUMERIC_KEYS.includes(k) && !(parseFloat(v) > 0 && Number.isFinite(parseFloat(v)))) return null;
+  if (k === 'deadline' && !isIsoDate(v)) return null;
+  if ((k === 'sessionTime' || k === 'bedtime') && !isClock(v)) return null;
+  return v;
+}
 
 /** One update_vow call → a safe profile change, or null when it isn't one. */
 export function vowChange(field: unknown, value: unknown): [ProfileKey, string] | null {
   if (typeof field !== 'string' || !(PROFILE_KEYS as string[]).includes(field)) return null;
-  const v = String(value ?? '').trim();
   const k = field as ProfileKey;
-  if (NUMERIC_KEYS.includes(k) && !(parseFloat(v) > 0)) return null;
-  if (k === 'deadline' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
-  if (k === 'deadline' && Number.isNaN(new Date(`${v}T00:00:00`).getTime())) return null;
-  if ((k === 'sessionTime' || k === 'bedtime') && !isClock(v)) return null;
-  if (!v || v.length > 400) return null;
-  return [k, v];
+  const v = profileValue(k, value);
+  return v === null ? null : [k, v];
 }
 
-export function applyUpdate(profile: Profile, upd: ParsedReply['upd']): { profile: Profile; note: string } | null {
+/** `keys` are the fields that passed the checks, with their new values in `profile`. */
+export function applyUpdate(profile: Profile, upd: ParsedReply['upd']): { profile: Profile; note: string; keys: ProfileKey[] } | null {
   if (!upd) return null;
   const next = { ...profile };
   const keys: ProfileKey[] = [];
@@ -159,7 +169,7 @@ export function applyUpdate(profile: Profile, upd: ParsedReply['upd']): { profil
     keys.push(k);
   }
   if (!keys.length) return null;
-  return { profile: next, note: 'VOW UPDATED · ' + keys.map(k => PROFILE_LABELS[k]).join(' · ') };
+  return { profile: next, note: 'VOW UPDATED · ' + keys.map(k => PROFILE_LABELS[k]).join(' · '), keys };
 }
 
 /**

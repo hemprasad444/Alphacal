@@ -253,13 +253,15 @@ export async function save(uid: string, data: Awaited<ReturnType<typeof loadUser
   if (meal && data.input.meals.length >= MAX_MEALS) {
     notes.push(`NOT LOGGED · ${MAX_MEALS} MEALS IS THE DAY'S LIMIT`);
   } else if (meal) {
-    batch.set(user.collection('days').doc(data.today), { meals: FieldValue.arrayUnion(meal) }, { merge: true });
+    // Its own id: the phone removes and edits meals one by one, and two identical meals stay two.
+    batch.set(user.collection('days').doc(data.today), { meals: FieldValue.arrayUnion({ ...meal, id: db.collection('_').doc().id.slice(0, 12) }) }, { merge: true });
     notes.push(`MEAL LOGGED · ${meal.kcal} KCAL · P ${meal.p} · C ${meal.c} · F ${meal.f}`);
   }
   const upd = applyUpdate(data.input.profile, vow);
-  if (upd && vow) {
-    batch.set(user, { profile: Object.fromEntries(Object.entries(vow)) }, { mergeFields: Object.keys(vow).map(k => `profile.${k}`) });
-    if (vow.weight) batch.set(user.collection('weighIns').doc(data.today), { kg: parseFloat(vow.weight) });
+  if (upd) {
+    // Only the fields that passed the checks, as checked (trimmed), never the raw tool input.
+    batch.set(user, { profile: Object.fromEntries(upd.keys.map(k => [k, upd.profile[k]])) }, { mergeFields: upd.keys.map(k => `profile.${k}`) });
+    if (upd.keys.includes('weight')) batch.set(user.collection('weighIns').doc(data.today), { kg: parseFloat(upd.profile.weight) });
     notes.push(upd.note);
   }
   if (memory.remember.length || memory.forget.length) {
