@@ -1,4 +1,4 @@
-// Premium voice through ElevenLabs: text → streamed speech, and speech → text.
+// Premium voice through ElevenLabs (or Fish Audio for characters): text → streamed speech, and speech → text.
 // The key stays in Secret Manager. Until it's set (any value shorter than 20
 // characters counts as unset), both endpoints answer 503 and the app falls back
 // to the iPhone's own voice and keyboard dictation.
@@ -15,6 +15,8 @@ export const TTS_API_KEY = defineSecret('TTS_API_KEY');
 export const FISH_API_KEY = defineSecret('FISH_API_KEY');
 /** Fish model: the free S2.1 Pro until Nov 30, 2026, then "s2.1-pro". */
 const FISH_MODEL = defineString('FISH_MODEL', { default: 's2.1-pro-free' });
+/** Who speaks for the characters: "eleven" (their ElevenLabs voices, the default) or "fish" (their Fish Audio voices). */
+export const VOICE_ENGINE = defineString('VOICE_ENGINE', { default: 'eleven' });
 /** REI's voice when the app doesn't pick one (from VOICES). */
 export const VOICE_ID = defineString('TTS_VOICE_ID', { default: DEFAULT_VOICE });
 
@@ -43,14 +45,16 @@ export const tts = onRequest({ secrets: [TTS_API_KEY, FISH_API_KEY], timeoutSeco
     res.status(who.error).json({ error: who.message });
     return;
   }
-  // A voice character ("c:naruto") speaks through Fish Audio when its voice has been added.
+  // A voice character ("c:naruto") speaks in its ElevenLabs voice, or its Fish Audio one when the server is set to Fish
+  // (or has no ElevenLabs key).
   const ch = typeof req.query.v === 'string' && req.query.v.startsWith('c:') ? characterOf(req.query.v.slice(2)) : null;
+  const k = key();
   const fish = FISH_API_KEY.value();
-  if (ch && hasVoice(ch) && fish && !req.query.probe) {
+  const eleven = ch && hasVoice(ch) && ch.eleven && k && VOICE_ENGINE.value() !== 'fish' ? ch.eleven : null;
+  if (ch && hasVoice(ch) && !eleven && fish && !req.query.probe) {
     await fishSpeak(req.query.t, ch.fish, fish, res, who.uid);
     return;
   }
-  const k = key();
   if (!k) {
     res.status(503).json({ error: 'Premium voice is not configured.' });
     return;
@@ -67,7 +71,7 @@ export const tts = onRequest({ secrets: [TTS_API_KEY, FISH_API_KEY], timeoutSeco
     res.status(400).json({ error: 'Missing text.' });
     return;
   }
-  const voice = isVoice(req.query.v) ? req.query.v : VOICE_ID.value();
+  const voice = eleven ?? (isVoice(req.query.v) ? req.query.v : VOICE_ID.value());
   const t0 = Date.now();
   let first = 0;
   try {
@@ -85,6 +89,8 @@ export const tts = onRequest({ secrets: [TTS_API_KEY, FISH_API_KEY], timeoutSeco
     logger.error('tts upstream failed', { voice, model, status: e instanceof TtsError ? e.status : undefined, detail: e instanceof Error ? e.message : String(e) });
     // Once audio has started the status is sent; end what played rather than switch to JSON.
     if (first) res.end();
+    // Nothing played yet: a character falls back to its Fish voice (ElevenLabs out of characters or down).
+    else if (eleven && ch && fish) await fishSpeak(req.query.t, ch.fish, fish, res, who.uid);
     else res.status(502).json({ error: 'Voice unavailable.' });
     return;
   }

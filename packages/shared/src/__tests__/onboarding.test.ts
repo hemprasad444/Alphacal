@@ -119,12 +119,14 @@ describe('characters', () => {
     for (const c of CHARACTERS) {
       expect(hasVoice(c)).toBe(true);
       expect(c.fish).toMatch(/^[0-9a-f]{32}$/);
+      expect(c.eleven).toMatch(/^[A-Za-z0-9]{20}$/);
       expect(c.intro).toContain('{name}');
       // A voice swallows the first word of a clip, so the name never comes first.
       expect(c.intro.startsWith('{name}')).toBe(false);
       expect(['zero', 'shinobi', 'voyager', 'hero', 'cursed', 'slayer']).toContain(c.theme);
     }
     expect(new Set(CHARACTERS.map(c => c.fish)).size).toBe(CHARACTERS.length);
+    expect(new Set(CHARACTERS.map(c => c.eleven)).size).toBe(CHARACTERS.length);
   });
 
   it('greets by name, cleaned up for speaking', () => {

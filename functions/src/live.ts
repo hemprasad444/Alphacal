@@ -7,6 +7,7 @@ import { AccessToken, RoomAgentDispatch, RoomConfiguration } from 'livekit-serve
 import { gzipSync } from 'node:zlib';
 import { loadUser, usageToday } from './chat/load';
 import { OPENROUTER_API_KEY } from './llm';
+import { VOICE_ENGINE } from './voice';
 
 const LIVEKIT_URL = defineString('LIVEKIT_URL', { default: '' });
 const LIVEKIT_API_KEY = defineString('LIVEKIT_API_KEY', { default: '' });
@@ -59,6 +60,8 @@ export const voiceSession = onCall({ secrets: [LIVEKIT_API_SECRET, OPENROUTER_AP
     greeting: await opener(prompt, flow, ctx, historyBlock(recentTurns(data.messages, 8))),
     // The character's own voice once it's added; REI's Fish voice until then.
     voice: (hasVoice(characterOf(data.settings.character)) ? characterOf(data.settings.character).fish : '') || FISH_VOICE_ID.value(),
+    // Its ElevenLabs voice: the agent speaks with it while it has an ElevenLabs key (agents from before 14 Nov 2026 ignore it).
+    eleven: VOICE_ENGINE.value() === 'fish' ? '' : characterOf(data.settings.character).eleven,
     models: LLM_LIVE.value().split(',').map(s => s.trim()).filter(Boolean),
     tools,
     maxSeconds: MAX_SECONDS,

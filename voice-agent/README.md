@@ -1,14 +1,16 @@
-# REI live voice agent (LiveKit + Fish)
+# REI live voice agent (LiveKit + ElevenLabs)
 
 REI's live voice engine:
 Deepgram Flux or Soniox listens and decides when you've finished talking (`REI_STT`), OpenRouter thinks (the same
-fast models as chat), Fish Audio speaks. Soniox listens in English only and knows Indian food names.
+fast models as chat), ElevenLabs speaks in the character's voice (eleven_v4_turbo, `ELEVEN_API_KEY`). Fish Audio takes
+over when ElevenLabs fails or runs out of characters, or for every call when the functions' `VOICE_ENGINE` is `fish`.
+Soniox listens in English only and knows Indian food names.
 
 How a call works:
 
 1. The app calls the `voiceSession` Cloud Function, listing the actions it can carry out.
 2. The function returns a LiveKit join token for a fresh room. The token dispatches the `rei` agent with the
-   session baked in (prompt, greeting, Fish voice, models and tool schemas), gzipped.
+   session baked in (prompt, greeting, ElevenLabs and Fish voices, models and tool schemas), gzipped.
 3. The agent joins, greets the user and talks. Its tools (log meal, log workout, update vow, remember,
    forget, rebuild program) run on the phone over LiveKit RPC (app/src/components/LiveVoice.tsx).
 4. Calls are capped at 10 minutes; the function caps calls per day.
@@ -24,7 +26,7 @@ On an Intel Mac, the `silero` plugin (voice activity, for snappier cut-ins) can'
 build. The agent works without it; the STT's own speech events handle interruptions. Install the rest without it:
 
 ```bash
-.venv/bin/pip install "livekit-agents[deepgram,openai,soniox]==1.8.4" livekit-plugins-fishaudio==1.8.4 python-dotenv
+.venv/bin/pip install "livekit-agents[deepgram,openai,soniox]==1.8.4" livekit-plugins-fishaudio==1.8.4 livekit-plugins-elevenlabs==1.8.4 python-dotenv
 ```
 
 ## Check, run, deploy

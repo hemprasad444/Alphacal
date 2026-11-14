@@ -1,4 +1,5 @@
-"""REI live voice on LiveKit: Deepgram Flux or Soniox listens (and decides when you've finished), OpenRouter thinks, Fish Audio speaks.
+"""REI live voice on LiveKit: Deepgram Flux or Soniox listens (and decides when you've finished), OpenRouter thinks, ElevenLabs
+(or Fish Audio) speaks.
 
 The app's `voiceSession` Cloud Function dispatches this agent into a fresh room with the
 session's job metadata: REI's prompt (personality, memory, today's numbers), greeting, voice,
@@ -21,8 +22,9 @@ from livekit import rtc
 from livekit.agents import Agent, AgentServer, AgentSession, ChatContext, JobContext, JobProcess, MetricsCollectedEvent, RunContext, cli, metrics
 from livekit.agents import llm as lkllm
 from livekit.agents import stt as lkstt
+from livekit.agents import tts as lktts
 from livekit.agents.llm import function_tool
-from livekit.plugins import deepgram, fishaudio, openai, soniox
+from livekit.plugins import deepgram, elevenlabs, fishaudio, openai, soniox
 from livekit.plugins.soniox import stt as soniox_stt
 from livekit.plugins.soniox.stt import ContextGeneralItem, ContextObject, STTOptions, TranslationConfig
 
@@ -41,6 +43,9 @@ AGENT_NAME = os.environ.get("REI_AGENT_NAME", "rei")
 DEFAULT_MODELS = ["openai/gpt-oss-120b", "openai/gpt-6-luna"]
 FISH_MODEL = os.environ.get("FISH_MODEL", "s2.1-pro-free")
 DEFAULT_FISH_VOICE = os.environ.get("FISH_VOICE_ID", "")
+# ElevenLabs speaks when the session names the character's ElevenLabs voice and this key is set; Fish otherwise.
+# eleven_v4_turbo performs the [tags] REI writes ([laughs], [whispers], ...).
+ELEVEN_MODEL = os.environ.get("ELEVEN_MODEL", "eleven_v4_turbo")
 # Logs each line said and each action at INFO, so calls can be reviewed from `lk agent logs` while testing.
 # It records what people say: turn it off before real users.
 LOG_TURNS = os.environ.get("REI_LOG_TURNS") == "1"
@@ -295,6 +300,16 @@ def rpc_tool(room: rtc.Room, user: str, schema: dict[str, Any]):
     return function_tool(call, raw_schema=schema)
 
 
+def make_tts(meta: dict[str, Any]) -> Any:
+    fish = fishaudio.TTS(model=FISH_MODEL, voice_id=meta.get("voice") or DEFAULT_FISH_VOICE, latency_mode="balanced", output_format="pcm", sample_rate=24000)
+    if not (meta.get("eleven") and os.environ.get("ELEVEN_API_KEY")):
+        return fish
+    eleven = elevenlabs.TTS(voice_id=meta["eleven"], model=ELEVEN_MODEL, encoding="pcm_24000")
+    # When ElevenLabs fails (out of characters, down), the character's Fish voice speaks instead, until ElevenLabs is back.
+    # A failure partway through a line cuts that line short; the next one comes from Fish.
+    return lktts.FallbackAdapter([eleven, fish], max_retry_per_tts=1)
+
+
 @server.rtc_session(agent_name=AGENT_NAME)
 async def entry(ctx: JobContext) -> None:
     meta = session_data(ctx.job.metadata or "")
@@ -318,7 +333,7 @@ async def entry(ctx: JobContext) -> None:
     session = AgentSession(
         stt=make_stt(),
         llm=llm,
-        tts=fishaudio.TTS(model=FISH_MODEL, voice_id=meta.get("voice") or DEFAULT_FISH_VOICE, latency_mode="balanced", output_format="pcm", sample_rate=24000),
+        tts=make_tts(meta),
         vad=vad,
         turn_handling={
             "turn_detection": "stt",
