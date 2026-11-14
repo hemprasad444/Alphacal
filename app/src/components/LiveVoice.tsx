@@ -10,7 +10,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { checkLiveMeal, hhmm, isoDate, type LiveTool, MAX_MEALS, mealIndex, memoryKind, saysNumber, type Message, parseWorkout, shouldLogMeal, shouldLogWorkout, splitLead, workoutLog, stripTags, todayLine, vowChange } from '@rei/shared';
+import { checkLiveMeal, groundWorkout, hhmm, isoDate, type LiveTool, MAX_MEALS, mealIndex, memoryKind, saysNumber, type Message, parseWorkout, shouldLogMeal, shouldLogWorkout, splitLead, workoutLog, stripTags, todayLine, vowChange } from '@rei/shared';
 import { Backdrop } from './Backdrop';
 import { Core, Wave } from './Core';
 import { Icon } from './icons';
@@ -48,7 +48,7 @@ function tools(store: RefObject<Store>, heard: RefObject<string>): Record<LiveTo
       // The food list's numbers when it has everything they said; otherwise an estimate that adds up.
       const said = heard.current ?? '';
       const key = name.toLowerCase();
-      const checked = checkLiveMeal({ name, kcal: n(p.kcal), p: n(p.protein), c: n(p.carbs), f: n(p.fat) }, said, store.current.allFoods, hhmm(), redone.has(key));
+      const checked = checkLiveMeal({ name, kcal: n(p.kcal), p: n(p.protein), c: n(p.carbs), f: n(p.fat) }, said, store.current.allFoods, hhmm(), redone.has(key), p.items);
       if ('redo' in checked) {
         redone.add(key);
         return checked.redo;
@@ -76,8 +76,12 @@ function tools(store: RefObject<Store>, heard: RefObject<string>): Record<LiveTo
       return `Removed ${gone.name}. ${todayLine(store.current.profile, left)}`;
     },
     log_workout: (p: Params) => {
-      const w = parseWorkout(p);
-      if (!w) return 'Not logged: need what they did and for how long.';
+      const asked = parseWorkout(p);
+      if (!asked) return 'Not logged: need what they did and for how long.';
+      // The minutes have to be ones they said: REI once logged "a long walk" as 60 minutes it made up.
+      const grounded = heard.current ? groundWorkout(asked, heard.current) : { workout: asked };
+      if ('ask' in grounded) return grounded.ask;
+      const w = grounded.workout;
       // Already saved today (the sets in the app, or earlier on this call): don't log it twice.
       const today = store.current.sessions.filter(x => x.date === isoDate());
       const check = shouldLogWorkout(heard.current ?? '', workoutLog(w, { date: isoDate(), plan: null, kg: 0, now: 0 }), today);

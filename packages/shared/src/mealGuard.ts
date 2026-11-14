@@ -4,9 +4,19 @@
 // accident. Logging from the Fuel screen doesn't go through this: there, logging is the intent.
 import type { Meal, SessionLog } from './types';
 
-const EATING = /\b(ate|eat|eating|eaten|had|have|having|drank|drink|drinking|finished|grabbed|ordered|munch\w*|snack\w*|breakfast|brunch|lunch|dinner|supper|meal|food|cooked|devoured|demolished|smashed)\b/i;
-const AGAIN = /\b(another|again|more|second|2nd|one more|seconds|extra|also)\b/i;
-const STOP = new Set(['and', 'the', 'with', 'from', 'for', 'some', 'cup', 'cups', 'bowl', 'plate', 'piece', 'pieces', 'slice', 'slices', 'glass', 'serving', 'small', 'large', 'medium', 'half', 'full', 'home', 'style', 'cooked', 'fried', 'boiled', 'raw', 'office', 'canteen']);
+const EATING_EN = /\b(ate|eat|eating|eaten|had|have|having|drank|drink|drinking|finished|grabbed|ordered|munch\w*|snack\w*|breakfast|brunch|lunch|dinner|supper|meal|food|cooked|devoured|demolished|smashed)\b/i;
+/** The same in romanised Hindi, Telugu and Tamil ("2 roti khayi", "idli tinnanu", "dosa sapten"). */
+const EATING_ROMAN = /\b(kha(?:ya|yi|ye|a|na)?|kha (?:liya|li|rah\w+)|piya|piyi|pi (?:liya|li)|nashta|nashte|tinna\w*|thinna\w*|taga\w*|tagaanu|sap(?:t|p)\w+|saapt\w+|kudicha\w*)\b/i;
+/**
+ * And in their own scripts (Hindi, Marathi, Telugu, Tamil, Kannada, Malayalam, Bengali, Gujarati): a meal
+ * told to REI in Hindi was never logged, because only English words counted as "they ate".
+ */
+const EATING_SCRIPT = /खा|पी लि|पिया|पी ली|नाश्ता|भोजन|తిన్న|తిన|తాగ|భోజన|టిఫిన్|சாப்பி|குடி|ತಿಂದ|ಕುಡಿ|ಊಟ|കഴിച്ച|കുടിച്ച|খেয়ে|খেলাম|খাই|ખાધ|પીધ/;
+const EATING = { test: (s: string) => EATING_EN.test(s) || EATING_ROMAN.test(s) || EATING_SCRIPT.test(s) };
+/** They point at a meal REI already knows of rather than naming the food. */
+const REFERS = /\b(usual|same|again|another|leftovers?|rest of|that|those|this|these|it|them|yesterday|earlier|before|regular|normal|wahi|same hi)\b/i;
+const AGAIN =/\b(another|again|more|second|2nd|one more|seconds|extra|also)\b/i;
+const STOP = new Set(['and', 'the', 'with', 'from', 'for', 'some', 'cup', 'cups', 'bowl', 'plate', 'piece', 'pieces', 'slice', 'slices', 'glass', 'serving', 'small', 'large', 'medium', 'half', 'full', 'home', 'style', 'cooked', 'fried', 'boiled', 'raw', 'office', 'canteen', 'breakfast', 'brunch', 'lunch', 'dinner', 'supper', 'snack', 'snacks', 'meal', 'food']);
 
 const words = (s: string) => new Set(s.toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(w => w.length >= 3 && !STOP.has(w)));
 /** "rotis" and "roti", "eggs" and "egg" are the same word here. */
@@ -24,6 +34,9 @@ const sameMeal = (a: Meal, b: Meal) => {
   const shared = [...wa].filter(w => wb.has(w)).length;
   return shared > 0 && shared >= Math.min(wa.size, wb.size) / 2 && Math.abs(a.kcal - b.kcal) <= Math.max(a.kcal, b.kcal) * 0.35;
 };
+
+/** The message talks about eating or drinking something ("had", "ate", "lunch", "khaya", "खाया"). */
+export const mentionsEating = (message: string) => EATING.test(message);
 
 /** The most meals one day holds (the database rules allow the same). */
 export const MAX_MEALS = 60;
@@ -99,10 +112,15 @@ const minutesOf = (hhmm: string) => {
  * Should a meal REI wants to log from this chat message be stored? `today` is what's already
  * logged today; `now` is the time of day as "HH:MM".
  */
-export function shouldLogMeal(message: string, meal: Meal, today: Meal[], now: string): { ok: boolean; why?: string } {
+export function shouldLogMeal(message: string, meal: Meal, today: Meal[], now: string, namesFood?: boolean): { ok: boolean; why?: string } {
   const said = new Set([...words(message)].map(stem));
   const named = [...mealWords(meal)].some(w => said.has(w));
   if (!named && !EATING.test(message)) return { ok: false, why: 'not mentioned' };
+  // "Log my snack please", "just had dinner": they ate, but never said what. Whatever REI would log is made
+  // up (once it logged its own suggestion), so nothing is, and REI asks. Skipped when they point at a meal
+  // REI can know ("the usual", "same as yesterday"), give a number ("about 800 calories out"), or write
+  // in a script whose food words we can't read here. `namesFood`: the message names a food on the list.
+  if (!named && namesFood === false && said.size > 0 && !/\d/.test(message) && !REFERS.test(message)) return { ok: false, why: 'no food named' };
   // The same food already logged today: a repeat within three hours, or any time they don't say they ate
   // it again ("the biryani was so good" isn't a second biryani; "had 2 eggs for dinner" is a new meal).
   const t = minutesOf(now);

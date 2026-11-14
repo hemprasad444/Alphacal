@@ -95,8 +95,13 @@ describe('meals logged on a call', () => {
       expect(r.meal.name).toBe('Two eggs');
     }
   });
-  it('catches the 2 eggs and a banana at 7 g protein, 0 g fat from a real call', () => {
+  it('fixes the 2 eggs and a banana logged at 7 g protein, 0 g fat on a real call: both are on the list now', () => {
     const r = checkLiveMeal({ name: 'Eggs and banana', kcal: 250, p: 7, c: 27, f: 0 }, 'I just had 2 eggs and a banana for breakfast', foods, '08:10');
+    expect('meal' in r && [r.meal.kcal, r.meal.items?.map(i => i.food)]).toEqual([268, ['d:boiled-egg', 'i:E009']]);
+    if ('meal' in r) expect(r.meal.p).toBeGreaterThanOrEqual(13);
+  });
+  it('still catches macros that don’t add up for food the list doesn’t have', () => {
+    const r = checkLiveMeal({ name: 'Eggs and a mystery bar', kcal: 250, p: 7, c: 27, f: 0 }, 'I just had 2 eggs and a mystery bar for breakfast', foods, '08:10');
     expect('redo' in r).toBe(true);
   });
   it('keeps an estimate that adds up', () => {

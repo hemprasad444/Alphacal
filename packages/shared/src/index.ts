@@ -27,3 +27,6 @@ export * from './picks';
 export * from './nutrients';
 export * from './intake';
 export * from './mealGuard';
+export * from './facts';
+export * from './recommend';
+export * from './vowText';

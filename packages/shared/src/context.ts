@@ -5,7 +5,10 @@ import type { ReiContext } from './rei';
 import { hhmm, longDate } from './time';
 import type { WeekProgram } from './data';
 import { memoryLines, type MemoryItem } from './memory';
-import type { Activity, History, Meal, Profile } from './types';
+import type { Activity, History, Meal, Profile, SessionLog } from './types';
+import { type DayRecord, factsBlock } from './facts';
+import { recommend, suggestionsBlock } from './recommend';
+import { isoDate } from './time';
 
 export interface ContextInput {
   profile: Profile;
@@ -23,13 +26,21 @@ export interface ContextInput {
   program?: WeekProgram | null;
   /** Lasting facts REI has learned about them. */
   memory?: MemoryItem[];
+  /** Their IANA time zone, when known (the server knows it; the phone's own clock is already theirs). */
+  timeZone?: string;
+  /** Sessions logged in the last week, today included. */
+  sessions?: SessionLog[];
+  /** Earlier days by date (yyyy-mm-dd): meals and whether the session was done. */
+  days?: Record<string, DayRecord>;
 }
 
 export function reiContext(i: ContextInput): ReiContext {
   const plan = todaysPlan(i.now, i.program);
+  const nu = nutrition(i.meals, i.activity);
+  const yesterday = new Date(i.now.getFullYear(), i.now.getMonth(), i.now.getDate() - 1);
   return {
     profile: i.profile,
-    nutrition: nutrition(i.meals, i.activity),
+    nutrition: nu,
     meals: i.meals,
     tough: i.tough,
     bro: !!i.bro,
@@ -41,5 +52,8 @@ export function reiContext(i: ContextInput): ReiContext {
     now: hhmm(i.now),
     today: longDate(i.now),
     memory: memoryLines(i.memory ?? []),
+    // Everything REI would otherwise have to count or guess, worked out here instead.
+    facts: factsBlock({ now: i.now, timeZone: i.timeZone, profile: i.profile, meals: i.meals, sessionDone: i.sessionDone, program: i.program, startedOn: i.history.kind === 'real' ? i.history.startedOn : undefined, sessions: i.sessions, days: i.days }),
+    suggestions: suggestionsBlock(recommend({ now: i.now, profile: i.profile, nutrition: nu, meals: i.meals, recent: i.days?.[isoDate(yesterday)]?.meals, memory: i.memory, plan, sessionDone: i.sessionDone, program: i.program })),
   };
 }
