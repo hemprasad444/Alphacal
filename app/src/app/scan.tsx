@@ -8,8 +8,8 @@ import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, FoodSheetBody } from '../components/FoodSheet';
-import { IconButton, Label, Txt } from '../components/ui';
-import { C, fontFamily } from '../lib/theme';
+import { Corners, Dots, IconButton, Label, Txt } from '../components/ui';
+import { C, F, fontFamily, HIT, SHADOW, SP } from '../lib/theme';
 import { useStore } from '../state/store';
 
 type State =
@@ -43,9 +43,11 @@ export default function Scan() {
   };
 
   const camera = Platform.OS !== 'web' && perm?.granted;
+  // A panel over the camera: arena, with your corner colour along the top.
+  const panel = { backgroundColor: F.arena, borderWidth: 2, borderColor: F.rope, borderTopColor: s.accent, padding: SP.lg, paddingBottom: SP.lg + SHADOW } as const;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
+    <View style={{ flex: 1, backgroundColor: camera && state.k === 'scan' ? '#000' : F.arena }}>
       {camera && state.k === 'scan' ? (
         <CameraView
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
@@ -55,38 +57,42 @@ export default function Scan() {
         />
       ) : null}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 8, paddingBottom: insets.bottom + 20, paddingHorizontal: 20 }} keyboardShouldPersistTaps="handled">
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <IconButton onPress={() => router.back()}>✕</IconButton>
-            <Label color={C.text}>SCAN A BARCODE</Label>
-            <View style={{ width: 36 }} />
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + SP.sm, paddingBottom: insets.bottom + SP.xl, paddingHorizontal: SP.lg }} keyboardShouldPersistTaps="handled">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: HIT }}>
+            <IconButton size={40} onPress={() => router.back()} accessibilityLabel="Close">✕</IconButton>
+            <View accessibilityRole="header" style={{ flex: 1, alignItems: 'flex-start' }}>
+              <Txt face="display" size={26} ls={0.02} fit>SCAN A BARCODE</Txt>
+            </View>
           </View>
 
           {state.k === 'scan' ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 18 }}>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: SP.lg }}>
               {camera ? (
-                <View style={{ width: 260, height: 150, borderRadius: 18, borderWidth: 2, borderColor: s.accent }} />
+                <View style={{ width: 260, height: 150 }}>
+                  <Corners color={s.accent} />
+                </View>
               ) : Platform.OS !== 'web' ? (
-                <View style={{ alignItems: 'center', gap: 12 }}>
-                  <Txt size={15} color={C.body} align="center">REI needs the camera to read barcodes.</Txt>
-                  <View style={{ width: 200, flexDirection: 'row' }}>
+                <View style={{ alignItems: 'center', gap: SP.md }}>
+                  <Txt size={15} w={500} color={C.body} align="center">REI needs the camera to read barcodes.</Txt>
+                  <View style={{ width: 220, flexDirection: 'row' }}>
                     <Button primary onPress={() => requestPerm()}>Allow camera</Button>
                   </View>
                 </View>
               ) : null}
-              <Txt size={13} color={C.muted} align="center">{camera ? 'Hold the barcode inside the frame.' : 'Or type the number under the barcode.'}</Txt>
+              <Txt face="label" w={600} size={13} ls={0.12} color={camera ? F.chalk : F.smoke} align="center">{(camera ? 'Hold the barcode inside the frame.' : 'Or type the number under the barcode.').toUpperCase()}</Txt>
             </View>
           ) : null}
 
           {state.k === 'busy' ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <Txt size={15} color={C.body}>{`Looking up ${state.code}…`}</Txt>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: SP.md }}>
+              <Dots />
+              <Txt face="label" w={600} size={14} ls={0.12} color={F.chalk}>{`LOOKING UP ${state.code}…`}</Txt>
             </View>
           ) : null}
 
           {state.k === 'found' ? (
             <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-              <View style={{ backgroundColor: s.theme.bg, borderRadius: 24, borderWidth: 1, borderColor: C.line3, padding: 20 }}>
+              <View style={panel}>
                 <FoodSheetBody
                   pick={{ food: state.food, qty: 1 }}
                   src="barcode"
@@ -98,10 +104,10 @@ export default function Scan() {
             </View>
           ) : null}
 
-          {state.k === 'missing' ? <LabelForm code={state.code} why={state.why} onSaved={food => setState({ k: 'found', food })} onRetry={() => setState({ k: 'scan' })} /> : null}
+          {state.k === 'missing' ? <LabelForm code={state.code} why={state.why} panel={panel} onSaved={food => setState({ k: 'found', food })} onRetry={() => setState({ k: 'scan' })} /> : null}
 
           {state.k === 'scan' ? (
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+            <View style={{ flexDirection: 'row', gap: SP.sm, marginTop: SP.lg }}>
               <TextInput
                 value={typed}
                 onChangeText={t => setTyped(t.replace(/\D/g, ''))}
@@ -110,9 +116,10 @@ export default function Scan() {
                 placeholderTextColor={C.dim}
                 keyboardType="number-pad"
                 keyboardAppearance="dark"
-                style={{ flex: 1, height: 48, borderRadius: 24, paddingHorizontal: 18, backgroundColor: 'rgba(20,22,26,0.85)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', fontFamily: fontFamily(s.settings.font, 400), fontSize: 16, color: C.text }}
+                accessibilityLabel="Barcode number"
+                style={{ flex: 1, height: 48, paddingHorizontal: SP.lg, backgroundColor: F.canvas, borderWidth: 2, borderColor: typed ? s.accent : F.rope, fontFamily: fontFamily(s.settings.font, 500), fontSize: 16 * s.settings.textSize, color: C.text }}
               />
-              <View style={{ width: 100, flexDirection: 'row' }}>
+              <View style={{ width: 112, flexDirection: 'row' }}>
                 <Button primary disabled={typed.length < 6} onPress={() => look(typed)}>Find</Button>
               </View>
             </View>
@@ -124,38 +131,39 @@ export default function Scan() {
 }
 
 /** For products Open Food Facts lacks: copy the label once, per 100 g. */
-function LabelForm({ code, why, onSaved, onRetry }: { code: string; why: string; onSaved: (f: Food) => void; onRetry: () => void }) {
+function LabelForm({ code, why, panel, onSaved, onRetry }: { code: string; why: string; panel: object; onSaved: (f: Food) => void; onRetry: () => void }) {
   const s = useStore();
   const [v, setV] = useState({ name: '', kcal: '', p: '', c: '', f: '', serving: '' });
   const n = (x: string) => parseFloat(x.replace(',', '.'));
   const ok = v.name.trim() && [v.kcal, v.p, v.c, v.f].every(x => n(x) >= 0);
   const field = (k: keyof typeof v, label: string, numeric = true) => (
-    <View style={{ flex: numeric ? 1 : undefined, gap: 6 }}>
-      <Label size={10}>{label}</Label>
+    <View style={{ flex: numeric ? 1 : undefined, gap: SP.xs }}>
+      <Label size={11}>{label}</Label>
       <TextInput
         value={v[k]}
         onChangeText={t => setV(cur => ({ ...cur, [k]: t }))}
         keyboardType={numeric ? 'decimal-pad' : 'default'}
         keyboardAppearance="dark"
-        style={{ height: 44, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 12, fontFamily: fontFamily(s.settings.font, 400), fontSize: 16, color: C.text }}
+        accessibilityLabel={label}
+        style={{ height: HIT, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas, paddingHorizontal: SP.sm, fontFamily: fontFamily(s.settings.font, 500), fontSize: 16 * s.settings.textSize, color: C.text }}
       />
     </View>
   );
   return (
-    <View style={{ flex: 1, justifyContent: 'flex-end', marginTop: 20 }}>
-      <View style={{ backgroundColor: s.theme.bg, borderRadius: 24, borderWidth: 1, borderColor: C.line3, padding: 20, gap: 14 }}>
-        <Label size={10}>{`BARCODE ${code}`}</Label>
+    <View style={{ flex: 1, justifyContent: 'flex-end', marginTop: SP.xl }}>
+      <View style={[panel, { gap: SP.md }]}>
+        <Label size={11}>{`BARCODE ${code}`}</Label>
         <Txt size={15} color={C.body} lh={1.4}>{`${why} Copy the label once and it’s yours from then on.`}</Txt>
         {field('name', 'NAME', false)}
-        <Label size={10} color={C.muted}>PER 100 G (OR 100 ML)</Label>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Label size={11} color={C.muted}>PER 100 G (OR 100 ML)</Label>
+        <View style={{ flexDirection: 'row', gap: SP.sm }}>
           {field('kcal', 'KCAL')}
           {field('p', 'PROTEIN')}
           {field('c', 'CARBS')}
           {field('f', 'FAT')}
         </View>
         {field('serving', 'SERVING SIZE, G (OPTIONAL)')}
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flexDirection: 'row', gap: SP.sm }}>
           <Button onPress={onRetry}>Scan again</Button>
           <Button
             primary
