@@ -1,17 +1,16 @@
-// The cinematic moments of onboarding: the chapter-card wipe between chapters, the hold-to-seal
-// ring, the flash when the pact seals, the dive into the app, and the arrival fade inside it.
+// The big moments of onboarding: the round card between rounds, holding to sign the contract, the
+// flash when it is signed, the walk out to the ring, and the arrival fade inside the app.
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
-import { Core } from '../Core';
-import { Icon, type IconKey } from '../icons';
+import Svg, { Polygon } from 'react-native-svg';
+import { CutBox, cutPoints, useSize } from '../cut';
+import { Icon } from '../icons';
 import { Txt } from '../ui';
-import { alpha, C } from '../../lib/theme';
-import { Halftone } from './kit';
+import { C, CUT, cutDx, F, onColor, SHADOW } from '../../lib/theme';
 
-/** Full-screen slanted wipe that shows the next chapter's crest and title. Calls `onSwap` mid-wipe, `onEnd` when gone. */
-export function ChapterCard({ n, icon, t, total, acc, bg, onSwap, onEnd }: { n: number; icon: IconKey; t: string; total: number; acc: string; bg: string; onSwap: () => void; onEnd: () => void }) {
+/** The round card: a slanted wipe in your colour carrying the next round's number and name. Calls `onSwap` mid-wipe, `onEnd` when gone. */
+export function ChapterCard({ n, t, total, acc, bg, onSwap, onEnd }: { n: number; t: string; total: number; acc: string; bg: string; onSwap: () => void; onEnd: () => void }) {
   const { width: W, height: H } = useWindowDimensions();
   const [v] = useState(() => new Animated.Value(0));
   useEffect(() => {
@@ -23,35 +22,33 @@ export function ChapterCard({ n, icon, t, total, acc, bg, onSwap, onEnd }: { n: 
   }, []);
   const wipe = (lag: number) => ({
     transform: [
-      { translateX: v.interpolate({ inputRange: [0, 0.38 + lag, 0.62 + lag, 1], outputRange: [-1.4 * W, 0, 0, 1.4 * W], extrapolate: 'clamp' }) },
-      { skewX: '-16deg' },
+      { translateX: v.interpolate({ inputRange: [0, 0.38 + lag, 0.62 + lag, 1], outputRange: [-1.5 * W, 0, 0, 1.5 * W], extrapolate: 'clamp' }) },
+      { skewX: `-${CUT}deg` },
     ],
   });
   const card = {
     opacity: v.interpolate({ inputRange: [0, 0.26, 0.4, 0.64, 0.82, 1], outputRange: [0, 0, 1, 1, 0, 0] }),
     transform: [{ scale: v.interpolate({ inputRange: [0, 0.26, 0.4, 0.64, 0.82, 1], outputRange: [1.35, 1.35, 1, 1, 0.94, 0.94] }) }],
   };
-  const panel = { position: 'absolute' as const, top: -H * 0.2, left: -W * 0.4, width: W * 1.8, height: H * 1.4 };
+  const panel = { position: 'absolute' as const, top: -H * 0.2, left: -W * 0.45, width: W * 1.9, height: H * 1.4 };
+  const ink = onColor(acc);
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 60, overflow: 'hidden' }]}>
-      <Animated.View style={[panel, { backgroundColor: bg }, wipe(0)]} />
-      <Animated.View style={[panel, { backgroundColor: acc, overflow: 'hidden' }, wipe(0.05)]}>
-        <View style={{ position: 'absolute', left: W * 0.4, top: H * 0.2 }}><Halftone width={W} height={H} color={C.ink} opacity={0.22} step={7} /></View>
-      </Animated.View>
-      <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', gap: 14 }, card]}>
-        <Txt face="mono" size={12} w={500} ls={0.3} color={C.ink}>{`CHAPTER ${String(n).padStart(2, '0')} / ${total}`}</Txt>
-        <View style={{ width: 150, height: 150, borderRadius: 24, borderWidth: 3, borderColor: C.ink, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-6deg' }] }}>
-          <Icon name={icon} size={104} color={C.ink} tint={0.18} strokeWidth={1.5} />
-        </View>
-        <View style={{ backgroundColor: C.ink, paddingHorizontal: 16, paddingVertical: 4, marginTop: 6, transform: [{ skewX: '-8deg' }] }}>
-          <Txt size={30} w={600} color={acc} ls={-0.01}>{t}</Txt>
-        </View>
+    <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, { zIndex: 60, overflow: 'hidden' }]}>
+      <Animated.View style={[panel, { backgroundColor: F.chalk }, wipe(0)]} />
+      <Animated.View style={[panel, { backgroundColor: acc }, wipe(0.05)]} />
+      <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }, card]}>
+        <Txt face="labelItalic" w={600} size={20} ls={0.3} color={ink}>ROUND</Txt>
+        <Txt face="display" size={168} lh={1.05} color={ink}>{String(n).padStart(2, '0')}</Txt>
+        <Txt face="label" w={600} size={14} ls={0.2} color={ink}>{`OF ${total}`}</Txt>
+        <CutBox fill={bg} shadow={F.chalk} style={{ marginTop: 18, minHeight: 52, paddingHorizontal: 28, justifyContent: 'center' }}>
+          <Txt face="display" lean={false} size={30} lh={1.2} ls={0.02} color={acc}>{t}</Txt>
+        </CutBox>
       </Animated.View>
     </View>
   );
 }
 
-/** A quick white flash, for the moment the pact seals. */
+/** A quick chalk flash, for the moment the contract is signed. */
 export function Flash({ onEnd }: { onEnd: () => void }) {
   const [v] = useState(() => new Animated.Value(0));
   useEffect(() => {
@@ -64,35 +61,34 @@ export function Flash({ onEnd }: { onEnd: () => void }) {
   return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 70, backgroundColor: C.text, opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0, 0.85] }) }]} />;
 }
 
-/** Press and hold for 1.6 s to seal. Letting go drains it back. */
+const SEAL_H = 72;
+
+/**
+ * The signature slab: press and hold for 1.6 s and your colour inks across it; letting go drains
+ * it back. With a screen reader, activating it signs straight away (a timed hold isn't possible there).
+ */
 export function HoldSeal({ acc, onSeal }: { acc: string; onSeal: () => void }) {
   const [v] = useState(() => new Animated.Value(0));
   const [hold, setHold] = useState(0);
+  const [size, onLayout] = useSize();
   const sealed = useRef(false);
-  const [shake] = useState(() => new Animated.Value(0));
   useEffect(() => {
     const id = v.addListener(({ value }) => setHold(value));
     return () => v.removeListener(id);
   }, [v]);
-  useEffect(() => {
-    if (hold <= 0.05) return;
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(shake, { toValue: 1, duration: 50, useNativeDriver: true }),
-      Animated.timing(shake, { toValue: -1, duration: 50, useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, [hold > 0.05, shake]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const done = () => {
+    if (sealed.current) return;
+    sealed.current = true;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    onSeal();
+  };
   const start = () => {
     if (sealed.current) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     v.stopAnimation(h => {
       Animated.timing(v, { toValue: 1, duration: (1 - h) * 1600, easing: Easing.linear, useNativeDriver: false }).start(({ finished }) => {
-        if (!finished || sealed.current) return;
-        sealed.current = true;
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        onSeal();
+        if (finished) done();
       });
     });
   };
@@ -101,35 +97,46 @@ export function HoldSeal({ acc, onSeal }: { acc: string; onSeal: () => void }) {
     v.stopAnimation(h => Animated.timing(v, { toValue: 0, duration: h * 400, useNativeDriver: false }).start());
   };
 
-  const R = 52, len = 2 * Math.PI * R;
+  const w = size?.w ?? 0, dx = cutDx(SEAL_H);
+  // The ink's leading edge, measured at the middle of the slab (the edge itself is cut).
+  const inkW = hold > 0 ? dx + (w - dx) * hold : 0;
+  const words = (color: string) => (
+    <View style={{ width: w, height: SEAL_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+      <Icon name="scroll" size={24} color={color} tint={0} strokeWidth={2.2} />
+      <Txt face="display" lean={false} size={26} lh={1.2} ls={0.03} color={color}>HOLD TO SIGN</Txt>
+    </View>
+  );
   return (
-    <View style={{ alignItems: 'center', gap: 12 }}>
-      <View style={{ width: 112, height: 112, alignItems: 'center', justifyContent: 'center', transform: [{ scale: 1 + hold * 0.08 }] }}>
-        <Pressable onPressIn={start} onPressOut={end} style={{ width: 112, height: 112, alignItems: 'center', justifyContent: 'center' }}>
-          <Svg width={112} height={112} style={{ position: 'absolute' }}>
-            <Defs>
-              <RadialGradient id="sealIn" cx="50%" cy="40%" r="60%">
-                <Stop offset="0" stopColor={acc} stopOpacity={0.24} />
-                <Stop offset="0.7" stopColor="#FFFFFF" stopOpacity={0.02} />
-              </RadialGradient>
-            </Defs>
-            <Circle cx={56} cy={56} r={R} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={4} />
-            <Circle cx={56} cy={56} r={R} fill="none" stroke={acc} strokeWidth={4} strokeDasharray={`${len * hold} ${len}`} transform="rotate(-90 56 56)" />
-            <Circle cx={56} cy={56} r={47} fill="url(#sealIn)" stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
-          </Svg>
-          <View style={{ shadowColor: acc, shadowOpacity: 0.55, shadowRadius: hold * 30, shadowOffset: { width: 0, height: 0 } }}>
-            <Animated.View style={{ transform: [{ translateX: shake.interpolate({ inputRange: [-1, 1], outputRange: [-1.5, 1.5] }) }, { translateY: shake.interpolate({ inputRange: [-1, 1], outputRange: [1, -1] }) }] }}>
-              <Icon name="scroll" size={44} color={acc} tint={0.25 + hold * 0.4} />
-            </Animated.View>
-          </View>
-        </Pressable>
-      </View>
-      <Txt face="mono" size={11} ls={0.2} color={C.muted}>{hold > 0 ? `SEALING · ${Math.round(hold * 100)}%` : 'HOLD TO SEAL'}</Txt>
+    <View style={{ gap: 8 }}>
+      <Pressable
+        onPressIn={start} onPressOut={end}
+        accessibilityRole="button" accessibilityLabel="Sign the contract" accessibilityHint="Press and hold to sign"
+        accessibilityActions={[{ name: 'activate' }]} onAccessibilityAction={done}
+        style={{ paddingRight: SHADOW, paddingBottom: SHADOW }}
+      >
+        <View onLayout={onLayout} style={{ height: SEAL_H, transform: hold > 0 ? [{ translateX: SHADOW / 2 }, { translateY: SHADOW / 2 }] : undefined }}>
+          {size ? (
+            <>
+              <Svg width={w + SHADOW} height={SEAL_H + SHADOW} style={{ position: 'absolute', left: 0, top: 0 }}>
+                {hold > 0 ? null : <Polygon points={cutPoints(w, SEAL_H, { ox: SHADOW, oy: SHADOW })} fill={F.chalk} />}
+                <Polygon points={cutPoints(w, SEAL_H, { inset: 1 })} fill={F.canvas} stroke={acc} strokeWidth={2} />
+                {inkW > 0 ? <Polygon points={cutPoints(inkW, SEAL_H, { inset: 2 })} fill={acc} /> : null}
+              </Svg>
+              {words(F.chalk)}
+              {/* The same words in ink, shown only where your colour has reached. */}
+              <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, height: SEAL_H, width: Math.max(0, inkW - dx / 2), overflow: 'hidden' }}>
+                {words(onColor(acc))}
+              </View>
+            </>
+          ) : null}
+        </View>
+      </Pressable>
+      <Txt face="label" w={600} size={12} ls={0.14} color={F.smoke} align="center">{hold > 0 ? `SIGNING · ${Math.round(hold * 100)}%` : 'YOUR SIGNATURE · PRESS AND HOLD'}</Txt>
     </View>
   );
 }
 
-/** The dive into REI: the core rises, greets them by name, then swallows the screen. */
+/** The walk out: the arena goes dark, your lights sweep across, the announcer calls your name, then the cut to the app. */
 export function EnterFx({ name, acc, bg, onEnd }: { name: string; acc: string; bg: string; onEnd: () => void }) {
   const { width: W, height: H } = useWindowDimensions();
   const [v] = useState(() => new Animated.Value(0));
@@ -139,33 +146,42 @@ export function EnterFx({ name, acc, bg, onEnd }: { name: string; acc: string; b
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const dive = Math.hypot(W, H) * 1.1;
+  const band = (width: number, from: number, to: number, opacity: number) => (
+    <Animated.View
+      style={{
+        position: 'absolute', top: -H * 0.2, left: 0, width, height: H * 1.4, backgroundColor: acc, opacity,
+        transform: [{ translateX: v.interpolate({ inputRange: [0, from, to, 1], outputRange: [-W * 0.8, -W * 0.8, W * 1.6, W * 1.6] }) }, { skewX: `-${CUT}deg` }],
+      }}
+    />
+  );
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 80, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }]}>
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: alpha(bg, 0.92), opacity: v.interpolate({ inputRange: [0, 0.26, 1], outputRange: [0, 1, 1] }) }]} />
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: bg, opacity: v.interpolate({ inputRange: [0, 0.16, 1], outputRange: [0, 1, 1] }) }]} />
+      {band(W * 0.34, 0.1, 0.52, 0.22)}
+      {band(W * 0.08, 0.16, 0.6, 0.9)}
+      {band(W * 0.03, 0.22, 0.66, 0.9)}
       <Animated.View
         style={{
-          zIndex: 3,
-          opacity: v.interpolate({ inputRange: [0, 0.06, 0.36, 1], outputRange: [0, 0, 1, 1] }),
-          transform: [{ scale: v.interpolate({ inputRange: [0, 0.06, 0.36, 0.74, 1], outputRange: [0.35, 0.35, 1, 1.1, 9] }) }],
+          alignSelf: 'stretch', paddingHorizontal: 16, alignItems: 'center', gap: 6,
+          opacity: v.interpolate({ inputRange: [0, 0.2, 0.34, 0.7, 0.8, 1], outputRange: [0, 0, 1, 1, 0, 0] }),
+          transform: [{ scale: v.interpolate({ inputRange: [0, 0.2, 0.34, 0.7, 1], outputRange: [1.3, 1.3, 1, 1.04, 1.04] }) }],
         }}
       >
-        <Core size={130} color={acc} />
+        <Txt face="labelItalic" w={600} size={15} ls={0.24} color={acc}>NOW ENTERING THE RING</Txt>
+        <Txt face="display" size={76} lh={1.1} align="center" fit>{name.toUpperCase()}</Txt>
+        <Txt face="label" w={600} size={15} ls={0.16} color={F.smoke}>DAY ONE · FIRST BELL</Txt>
       </Animated.View>
+      {/* The cut to the app: the arena colour wipes across and stays. */}
       <Animated.View
         style={{
-          position: 'absolute', left: 0, right: 0, bottom: 150, alignItems: 'center', gap: 6, zIndex: 4,
-          opacity: v.interpolate({ inputRange: [0, 0.24, 0.4, 0.68, 0.84, 1], outputRange: [0, 0, 1, 1, 0, 0] }),
-          transform: [{ translateY: v.interpolate({ inputRange: [0, 0.24, 0.4, 0.68, 0.84, 1], outputRange: [12, 12, 0, 0, -8, -8] }) }],
+          position: 'absolute', top: -H * 0.2, left: -W * 0.45, width: W * 1.9, height: H * 1.4, backgroundColor: acc,
+          transform: [{ translateX: v.interpolate({ inputRange: [0, 0.72, 0.94, 1], outputRange: [-2 * W, -2 * W, 0, 0] }) }, { skewX: `-${CUT}deg` }],
         }}
-      >
-        <Txt size={28} w={600} ls={-0.03}>{`Welcome, ${name}.`}</Txt>
-        <Txt size={14} color={C.sub}>Day one starts now.</Txt>
-      </Animated.View>
+      />
       <Animated.View
         style={{
-          position: 'absolute', width: dive, height: dive, borderRadius: dive / 2, backgroundColor: bg, zIndex: 6,
-          transform: [{ scale: v.interpolate({ inputRange: [0, 0.72, 1], outputRange: [0, 0, 1] }) }],
+          position: 'absolute', top: -H * 0.2, left: -W * 0.45, width: W * 1.9, height: H * 1.4, backgroundColor: bg,
+          transform: [{ translateX: v.interpolate({ inputRange: [0, 0.78, 1], outputRange: [-2 * W, -2 * W, 0] }) }, { skewX: `-${CUT}deg` }],
         }}
       />
     </View>
@@ -178,8 +194,8 @@ export const markArrival = () => {
   arriving = true;
 };
 
-/** Over the first app screen after onboarding: the dive's colour fades away as REI settles in. */
-export function Arrival({ bg = '#050608' }: { bg?: string }) {
+/** Over the first app screen after onboarding: the walkout's colour fades away as REI settles in. */
+export function Arrival({ bg = F.arena }: { bg?: string }) {
   const [show] = useState(() => {
     const a = arriving;
     arriving = false;

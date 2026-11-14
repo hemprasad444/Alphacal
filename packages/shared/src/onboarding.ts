@@ -1,6 +1,11 @@
-// First-run onboarding ("The Pact Arc"): sixteen short chapters in which REI learns who the user
-// is, then turns the answers into their profile, targets, settings and lasting memory.
+// First-run onboarding (the pre-fight training camp): fourteen short rounds in which REI learns who
+// the user is, then turns the answers into their profile, targets, settings and lasting memory.
 // Screens live in the app (app/src/app/onboarding.tsx); everything that decides numbers is here.
+//
+// The rounds are ordered by what REI needs first: who you are and what you want (name, look, goal),
+// the numbers the targets come from (body, target), then what the first week is built on (training,
+// kitchen). The corner pick is the breather before the last short forms; the fuel numbers are the
+// payoff once everything they depend on is in; the optional extras come last, then the contract.
 import { characterOf } from './characters';
 import type { IconKey } from './icons';
 import { isoDate } from './time';
@@ -47,29 +52,46 @@ export const TONES: { id: Tone; icon: IconKey; sub: string }[] = [
   { id: 'Bro', icon: 'fist', sub: 'Hype first, truth second.' },
 ];
 
-export type StepId = 'boot' | 'name' | 'ideal' | 'vow' | 'body' | 'target' | 'power' | 'train' | 'life' | 'kitchen' | 'fuel' | 'weak' | 'tone' | 'partner' | 'world' | 'link' | 'pact' | 'done';
+export type StepId = 'boot' | 'name' | 'ideal' | 'vow' | 'body' | 'target' | 'train' | 'kitchen' | 'partner' | 'life' | 'fuel' | 'power' | 'weak' | 'tone' | 'pact' | 'done';
 
 /**
- * In order. Chapters have an `icon` and a title `t`; the cover and the bond after the pact don't.
- * The account comes first now (sign-in screen), so there is no account step in here.
+ * In order. Rounds have an `icon` and a title `t`; the cover and the walkout after the contract don't.
+ * The account comes first (sign-in screen), so there is no account step in here.
+ *
+ * What each round collects, and why it sits where it does:
+ * - name: `name`. Everything REI says uses it; the corner voices are prepared from it.
+ * - ideal: `arch` (and through it a starting `goal`, `disc` and target). One tap.
+ * - vow: `goal`, `weeks`, `why`. The goal drives calories; the weeks set the deadline.
+ * - body: `sex`, `height`, `weight`, `bf`, `age`. Calories, the target and the first program need them.
+ * - target: `targetWeight`, `targetBf`. Needs the look and the body; judged against the weeks.
+ * - train: `exp`, `disc`, `sessions`, `length`, `time`, `equip`. What the first program is built on.
+ * - kitchen: `diet`, `cuisine`, `meals`, `cook`, `alcohol`. What REI plans meals around.
+ * - partner: `character`, `theme`. The breather: pick the corner voice and the world.
+ * - life: `job`, `wake`, `bed`, `stress`, `steps`. The job is the last input the calories need.
+ * - fuel: `kcalAdj`. The payoff: calories and macros from everything above.
+ * - power: `bench`, `squat`, `dead`, `pullups`, `run5k`, `tested`. Optional; skipping is fine.
+ * - weak: `quit`, `injuries`, `note`. Optional; lasting memory.
+ * - tone: `tone`, `nudge`, `speak`. How REI talks and when.
+ * - pact: nothing new. Read it, hold to sign.
+ *
+ * `waist`, `intensity`, `health` and `photo` are still on the intake (old drafts and saved intakes
+ * have them) but no round asks for them: nothing in the app read them.
  */
 export const STEPS: { id: StepId; icon?: IconKey; t?: string; cta?: string }[] = [
   { id: 'boot' },
-  { id: 'name', icon: 'profile', t: 'NAME', cta: 'That’s me' },
-  { id: 'ideal', icon: 'star', t: 'THE IDEAL', cta: 'This is who I become' },
-  { id: 'vow', icon: 'vow', t: 'THE VOW', cta: 'Lock the vow' },
-  { id: 'body', icon: 'weight', t: 'BODY SCAN', cta: 'Scan complete' },
-  { id: 'target', icon: 'target', t: 'TARGET', cta: 'Set the target' },
-  { id: 'power', icon: 'strength', t: 'POWER LEVEL', cta: 'Log my numbers' },
-  { id: 'train', icon: 'train', t: 'TRAINING', cta: 'Confirm the split' },
-  { id: 'life', icon: 'sleep', t: 'DAILY LIFE', cta: 'That’s my day' },
-  { id: 'kitchen', icon: 'fuel', t: 'KITCHEN', cta: 'Run my numbers' },
+  { id: 'name', icon: 'profile', t: 'RING NAME', cta: 'That’s me' },
+  { id: 'ideal', icon: 'star', t: 'FIGHTER TYPE', cta: 'This is who I become' },
+  { id: 'vow', icon: 'vow', t: 'THE GOAL', cta: 'Lock the goal' },
+  { id: 'body', icon: 'weight', t: 'WEIGH-IN', cta: 'Weigh-in done' },
+  { id: 'target', icon: 'target', t: 'FIGHT WEIGHT', cta: 'Set the target' },
+  { id: 'train', icon: 'train', t: 'TRAINING CAMP', cta: 'Confirm the camp' },
+  { id: 'kitchen', icon: 'fuel', t: 'KITCHEN', cta: 'That’s how I eat' },
+  { id: 'partner', icon: 'rei', t: 'YOUR CORNER', cta: 'You’re in my corner' },
+  { id: 'life', icon: 'sleep', t: 'DAILY LIFE', cta: 'Run my numbers' },
   { id: 'fuel', icon: 'kcal', t: 'FUEL', cta: 'Accept the fuel' },
+  { id: 'power', icon: 'strength', t: 'FIGHT RECORD', cta: 'Log my numbers' },
   { id: 'weak', icon: 'heart', t: 'WEAK POINTS', cta: 'Remember this' },
-  { id: 'tone', icon: 'voice', t: 'TONE', cta: 'That’s how you talk to me' },
-  { id: 'partner', icon: 'rei', t: 'PARTNER', cta: 'You’re in my corner' },
-  { id: 'world', icon: 'look', t: 'WORLD', cta: 'Wear it' },
-  { id: 'link', icon: 'link', t: 'LINK', cta: 'Connect' },
+  { id: 'tone', icon: 'voice', t: 'CORNER TALK', cta: 'That’s how you talk to me' },
   { id: 'pact', icon: 'scroll', t: 'THE PACT' },
   { id: 'done' },
 ];
@@ -224,14 +246,14 @@ export function vowSentence(d: Intake, now: Date): string {
   }[d.goal];
 }
 
-/** What REI says at the top of each chapter. */
+/** What REI says at the top of each round. */
 export function reiLine(step: StepId, d: Intake): string {
   const n = nameOf(d), a = archetypeOf(d);
   switch (step) {
-    case 'name': return 'First panel. What do I call you? I’ll be using it a lot. Especially when you’re slacking.';
-    case 'ideal': return a ? a.quip : d.arch === 'none' ? 'Your own vision. Good. Describe it in your vow and I’ll reverse-engineer the plan from it.' : `Every hero has a form they’re chasing, ${n}. Pick yours. Or bring your own.`;
+    case 'name': return 'Round one. What do I call you? I’ll be using it a lot. Especially when you’re slacking.';
+    case 'ideal': return a ? a.quip : d.arch === 'none' ? 'Your own vision. Good. Describe it in your goal and I’ll reverse-engineer the plan from it.' : `Every fighter has a form they’re chasing, ${n}. Pick yours. Or bring your own.`;
     case 'vow': return `Now say it properly, ${n}. Not a wish. A target with a date. And tell me why, because I’ll quote it back to you.`;
-    case 'body': return 'The honest part. Real numbers. I can’t fix what you round down.';
+    case 'body': return 'Step on the scale. Real numbers. I can’t fix what you round down.';
     case 'target': {
       const r = weeklyRate(d), pct = (Math.abs(r) / d.weight) * 100, x = Math.abs(r).toFixed(2);
       const pre = a && !d.targetTouched ? `Worked back from ${a.name}. ` : '';
@@ -241,7 +263,7 @@ export function reiLine(step: StepId, d: Intake): string {
       if (pct < 0.25) return pre + `${x} kg a week. Comfortable doesn’t change physiques. Tighten the date.`;
       return pre + `${x} kg a week for ${d.weeks} weeks. Realistic. Which means there’s no excuse.`;
     }
-    case 'power': return 'Show me your power level. Best recent numbers. I’ll set your first targets from these, not from a template.';
+    case 'power': return 'Your record so far. Best recent numbers, so your first targets aren’t from a template. Skip what you don’t know.';
     case 'train': return 'How many days can you actually train? Pick what you’ll do on a bad week, not a good one.';
     case 'life': {
       const h = sleepHours(d);
@@ -249,20 +271,18 @@ export function reiLine(step: StepId, d: Intake): string {
     }
     case 'kitchen': return 'How you actually eat, not how you wish you ate. I plan your meals around this.';
     case 'fuel': return `I ran your numbers. This is your daily fuel, ${n}. Protein first, every single day.`;
-    case 'weak': return 'Every protagonist has a weakness. Tell me yours now. I’ll be waiting for it.';
-    case 'tone': return 'How hard do you want me to push? Choose carefully. I stick to it.';
+    case 'weak': return 'Every fighter has a weakness. Tell me yours now. I’ll be waiting for it.';
+    case 'tone': return 'How do you want me to talk to you between rounds? Choose carefully. I stick to it.';
     case 'partner': {
       const c = characterOf(d.character);
-      return c.id === 'rei' ? 'Who’s in your corner? Me, by default. Or pick a partner from another world. Tap one to hear them.' : `${c.name}. Good pick. They’ll speak for me on calls and replies. Tap anyone else to hear them.`;
+      return c.id === 'rei' ? 'Halfway. Take a breather. Who’s in your corner? Me, by default. Or pick another voice. Tap one to hear them.' : `${c.name}. Good pick. They’ll speak for me on calls and replies. Tap anyone else to hear them.`;
     }
-    case 'world': return 'Pick my world. I’ll wear its colors everywhere you see me.';
-    case 'link': return 'Give me eyes. I can’t call you out on what I can’t see.';
-    case 'pact': return 'Read it. Then hold to seal it. Once it’s sealed, I hold you to every line.';
+    case 'pact': return 'Your contract. Read it. Then hold to sign it. Once it’s signed, I hold you to every line.';
     default: return '';
   }
 }
 
-/** How REI would sound in each voice, for the tone chapter. */
+/** How REI would sound in each voice, for the tone round. */
 export function toneSample(tone: Tone, d: Intake): string {
   const n = nameOf(d), t = trainTime(d);
   if (tone === 'Coach') return `Two sessions missed this week, ${n}. Tonight’s push puts you back on plan. ${t}, 52 minutes, top set 82.5 × 6.`;
@@ -280,7 +300,7 @@ export function pactRows(d: Intake): [string, string][] {
     ['FUEL', `${c.kcal.toLocaleString('en-US')} kcal · ${c.p} g protein`],
     ['SLEEP', `${clockOf(d.bed)} → ${clockOf(d.wake)} · ${sleepHours(d).toFixed(1)} h`],
     ['WATCH FOR', picked(d.quit).slice(0, 2).join(', ') || 'Nothing. We will see.'],
-    ['VOICE', `${d.tone} · ${d.intensity}/5 · ${characterOf(d.character).name}`],
+    ['CORNER', `${characterOf(d.character).name} · ${d.tone}`],
   ];
 }
 
