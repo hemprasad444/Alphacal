@@ -270,6 +270,8 @@ export interface LadderRow {
   name: string;
   score: number;
   you?: boolean;
+  /** A quiet second line under the name (their rank, say). */
+  tag?: string;
 }
 
 /** What it takes to climb: the gap from your row to the one above, or null when you lead or aren't on the board. */
@@ -296,10 +298,13 @@ export function Ladder({ rows, unit = 'XP', showGap = true, accent, style }: { r
         // Never shorter than 62%, so the name and score always fit.
         const width = `${Math.round((0.62 + 0.38 * (r.score / top)) * 100)}%` as const;
         return (
-          <View key={r.id ?? `${r.rank}-${r.name}`} accessible accessibilityLabel={`Place ${r.rank}, ${r.name}${r.you ? ', you' : ''}, ${num(r.score)} ${unit}`} style={{ width, paddingRight: SHADOW, paddingBottom: r.you ? SHADOW : 0 }}>
+          <View key={r.id ?? `${r.rank}-${r.name}`} accessible accessibilityLabel={`Place ${r.rank}, ${r.name}${r.you ? ', you' : ''}${r.tag ? `, ${r.tag}` : ''}, ${num(r.score)} ${unit}`} style={{ width, paddingRight: SHADOW, paddingBottom: r.you ? SHADOW : 0 }}>
             <CutBox fill={r.you ? acc : F.canvas} stroke={r.you ? undefined : r.rank === 1 ? F.chalk : F.rope} shadow={r.you ? F.chalk : undefined} style={{ minHeight: 40, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Txt face="display" lean={false} size={22} lh={1.15} color={ink} style={{ minWidth: 18 }}>{r.rank}</Txt>
-              <Txt size={15} w={600} color={ink} numberOfLines={1} style={{ flexShrink: 1 }}>{r.name}</Txt>
+              <View style={{ flexShrink: 1, paddingVertical: r.tag ? 4 : 0 }}>
+                <Txt size={15} w={600} color={ink} numberOfLines={1}>{r.name}</Txt>
+                {r.tag ? <Txt face="label" w={600} size={12} ls={0.1} lh={1.1} color={r.you ? ink : F.smoke} numberOfLines={1}>{r.tag.toUpperCase()}</Txt> : null}
+              </View>
               {r.you ? <Txt face="label" w={600} size={12} ls={0.12} color={ink}>YOU</Txt> : null}
               <View style={{ flex: 1 }} />
               <Txt face="display" lean={false} size={20} lh={1.15} color={ink}>{num(r.score)}</Txt>

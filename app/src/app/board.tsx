@@ -1,13 +1,12 @@
-// The weekly leaderboard: XP earned since Monday by everyone in the beta. Resets every Monday.
+// The weekly ladder: XP earned since Monday by everyone in the beta. Resets every Monday.
 import { RANKS } from '@rei/shared';
 import { router } from 'expo-router';
 import { View } from 'react-native';
-import { BoardRow, useBoard } from '../components/Board';
-import { Icon } from '../components/icons';
-import { Panel } from '../components/manga';
+import { BoardLadder, useBoard } from '../components/Board';
+import { SectionHeader } from '../components/fight';
 import { Screen, SubHeader } from '../components/Screen';
 import { Row, Toggle, Txt } from '../components/ui';
-import { C } from '../lib/theme';
+import { F, SP } from '../lib/theme';
 import { useGame } from '../state/game';
 import { useStore } from '../state/store';
 
@@ -19,32 +18,48 @@ export default function Board() {
   const shown = s.settings.board !== false;
   const place = rows ? rows.findIndex(r => r.uid === me) + 1 : 0;
   const dayOfWeek = (new Date().getDay() + 6) % 7;
+  const left = 7 - dayOfWeek;
   return (
     <Screen tabs={false}>
-      <SubHeader title="WEEKLY BOARD" onBack={() => router.back()} />
-      <Panel acc={s.accent} style={{ marginTop: 22 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <Icon name="board" size={40} color={s.accent} tint={0.3} />
-          <View style={{ flex: 1, gap: 3 }}>
-            <Txt size={20} w={600}>{place ? `You're #${place}` : !s.cloud ? 'Sample board' : shown ? 'Not on the board yet' : 'Hidden from the board'}</Txt>
-            <Txt size={13} color={C.sub}>{`${g.weekXp} XP this week · resets in ${7 - dayOfWeek} day${7 - dayOfWeek === 1 ? '' : 's'}`}</Txt>
+      <SubHeader title="Weekly ladder" onBack={() => router.back()} />
+
+      <View style={{ marginTop: SP.lg, gap: SP.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: SP.md }}>
+          <View accessibilityRole="header" style={{ flexShrink: 1, alignItems: 'flex-start' }}>
+            {place ? <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>YOUR PLACE</Txt> : null}
+            <Txt face="display" size={place ? 56 : 30} lh={place ? 1.1 : 1.2} color={place ? s.accent : F.chalk}>
+              {place ? `#${place}` : !s.cloud ? 'SAMPLE LADDER' : shown ? 'NOT ON THE LADDER YET' : 'HIDDEN FROM THE LADDER'}
+            </Txt>
+          </View>
+          <View style={{ alignItems: 'flex-end', paddingBottom: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+              <Txt face="display" size={32} lh={1.15}>{g.weekXp.toLocaleString('en-US')}</Txt>
+              <Txt face="label" w={600} size={14} ls={0.1} color={F.smoke}>XP</Txt>
+            </View>
+            <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{`THIS WEEK · RESETS IN ${left} DAY${left === 1 ? '' : 'S'}`}</Txt>
           </View>
         </View>
-        <Txt size={12} color={C.faint} style={{ marginTop: 12 }}>XP comes from what you log: meals, protein days, sessions, runs, weigh-ins and streaks. Same rules for everyone.</Txt>
+        <Txt size={14} w={500} lh={1.4} color={F.smoke}>XP comes from what you log: meals, protein days, sessions, runs, weigh-ins and streaks. Same rules for everyone.</Txt>
         {s.cloud ? (
-          <View style={{ marginTop: 6 }}>
-            <Row title="Show me on the board" sub="Your first name and XP, seen by everyone in the beta" right={<Toggle on={shown} onPress={() => s.setOpt('board', !shown)} />} last />
+          <View style={{ backgroundColor: F.canvas, paddingHorizontal: SP.md }}>
+            <Row title="Show me on the board" sub="Your first name and XP, seen by everyone in the beta" right={<Toggle on={shown} onPress={() => s.setOpt('board', !shown)} accessibilityLabel="Show me on the board" />} last />
           </View>
         ) : null}
-      </Panel>
-      <View style={{ marginTop: 18, gap: 8 }}>
-        {rows === null ? <Txt size={14} color={C.dim}>Loading the board…</Txt> : null}
-        {rows?.length === 0 ? <Txt size={14} color={C.dim}>Nobody has scored this week yet. Log anything to take first place.</Txt> : null}
-        {rows?.map((r, i) => <BoardRow key={r.uid} r={r} place={i + 1} me={r.uid === me} />)}
       </View>
-      <Txt face="mono" size={10} ls={0.12} color={C.faint} style={{ marginTop: 22 }}>
-        {`RANKS · ${RANKS.map(r => `${r.name.toUpperCase()} ${r.min}`).join(' · ')}`}
-      </Txt>
+
+      <SectionHeader title="This week" meta={rows?.length ? `${rows.length} on the ladder` : undefined} style={{ marginTop: SP.xxl }} />
+      <View style={{ marginTop: SP.md }}>
+        {rows === null ? <Txt size={14} w={500} color={F.smoke}>Loading the board…</Txt> : null}
+        {rows?.length === 0 ? <Txt size={14} w={500} lh={1.4} color={F.smoke}>Nobody has scored this week yet. Log anything to take first place.</Txt> : null}
+        {rows?.length ? <BoardLadder rows={rows} /> : null}
+      </View>
+
+      <SectionHeader title="Ranks" meta="Total XP" style={{ marginTop: SP.xxl }} />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: SP.lg, rowGap: SP.xs, marginTop: SP.md }}>
+        {RANKS.map(r => (
+          <Txt key={r.id} face="label" w={600} size={13} ls={0.1} color={r.id === g.rank.id ? s.accent : F.smoke}>{`${r.name.toUpperCase()} ${r.min.toLocaleString('en-US')}`}</Txt>
+        ))}
+      </View>
     </Screen>
   );
 }

@@ -3,20 +3,20 @@
 import { distanceKcal, type Movement, movementKcal, pace, parseClock, searchMovements, sessionXp } from '@rei/shared';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { TextInput, View } from 'react-native';
-import { Icon, type IconKey } from '../components/icons';
-import { Panel, Stamp } from '../components/manga';
+import { View } from 'react-native';
+import { Field, QuietButton, StatStrip } from '../components/dojo';
+import { CutButton, MoveRow, RoundStamp } from '../components/fight';
 import { Screen, SubHeader } from '../components/Screen';
-import { Tap, Txt } from '../components/ui';
-import { alpha, C, fontFamily } from '../lib/theme';
+import { Segmented, Tap, Txt } from '../components/ui';
+import { F, HIT, SP } from '../lib/theme';
 import { useStore } from '../state/store';
 
 type Kind = 'run' | 'walk' | 'cycle' | 'sport';
-const KINDS: { id: Kind; icon: IconKey; label: string }[] = [
-  { id: 'run', icon: 'run', label: 'Run' },
-  { id: 'walk', icon: 'steps', label: 'Walk' },
-  { id: 'cycle', icon: 'ride', label: 'Ride' },
-  { id: 'sport', icon: 'sport', label: 'Sport' },
+const KINDS: { id: Kind; label: string }[] = [
+  { id: 'run', label: 'Run' },
+  { id: 'walk', label: 'Walk' },
+  { id: 'cycle', label: 'Ride' },
+  { id: 'sport', label: 'Sport' },
 ];
 const isKind = (k: unknown): k is Kind => KINDS.some(x => x.id === k);
 
@@ -56,37 +56,19 @@ export default function LogTraining() {
     setTimeout(() => (router.canGoBack() ? router.back() : router.replace('/dojo')), 1300);
   };
 
-  const field = (value: string, set: (v: string) => void, placeholder: string, label: string, keyboard: 'decimal-pad' | 'numbers-and-punctuation' | 'default' = 'decimal-pad') => (
-    <View style={{ flex: 1, gap: 8 }}>
-      <Txt face="mono" size={10} ls={0.14} color={C.muted}>{label}</Txt>
-      <TextInput
-        value={value}
-        onChangeText={set}
-        placeholder={placeholder}
-        placeholderTextColor={C.faint}
-        keyboardType={keyboard}
-        keyboardAppearance="dark"
-        style={{ height: 64, borderRadius: 12, borderWidth: 1.5, borderColor: value ? alpha(accent, 0.6) : 'rgba(255,255,255,0.12)', paddingHorizontal: 16, fontFamily: fontFamily(s.settings.font, 300), fontSize: keyboard === 'default' ? 20 : 30, color: C.text, backgroundColor: '#0D0F13' }}
-      />
-    </View>
-  );
   const chips = (values: string[], set: (v: string) => void, unit: string) => (
-    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-      {values.map(v => (
-        <Tap key={v} onPress={() => set(v)} style={{ paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: C.line3, backgroundColor: 'rgba(255,255,255,0.03)' }}>
-          <Txt face="mono" size={12} color={C.body}>{`${v} ${unit}`}</Txt>
-        </Tap>
-      ))}
+    <View style={{ flexDirection: 'row', gap: SP.sm, flexWrap: 'wrap' }}>
+      {values.map(v => <QuietButton key={v} label={`${v} ${unit}`} onPress={() => set(v)} accessibilityLabel={`Set ${v} ${unit}`} style={{ minWidth: 72 }} />)}
     </View>
   );
 
   if (saved !== null) {
     return (
       <Screen tabs={false}>
-        <View style={{ height: 560, alignItems: 'center', justifyContent: 'center', gap: 18 }}>
-          <Icon name="check" size={70} color={accent} strokeWidth={2.4} />
-          <Txt size={30} w={600}>Logged</Txt>
-          <Stamp text={`+${saved} XP`} color={C.warn} size={14} />
+        <View accessibilityLiveRegion="polite" style={{ height: 560, alignItems: 'center', justifyContent: 'center', gap: SP.lg }}>
+          <Txt face="display" size={56} lh={1.1} align="center">HIT LANDED</Txt>
+          <Txt face="label" w={600} size={14} ls={0.12} color={F.smoke}>LOGGED</Txt>
+          <RoundStamp label={`+${saved} XP`} tone="accent" style={{ alignSelf: 'center' }} />
         </View>
       </Screen>
     );
@@ -94,94 +76,58 @@ export default function LogTraining() {
 
   return (
     <Screen tabs={false}>
-      <SubHeader title={fixed ? `LOG A ${meta.label.toUpperCase()}` : 'LOG TRAINING'} onBack={() => router.back()} />
+      <SubHeader title={fixed ? `Log a ${meta.label}` : 'Log training'} onBack={() => router.back()} />
 
       {fixed ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 22 }}>
-          <View style={{ width: 56, height: 56, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#12171B', borderWidth: 1.5, borderColor: accent }}>
-            <Icon name={meta.icon} size={32} color={accent} tint={0.3} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Txt size={24} w={600}>{kind === 'sport' ? 'Sport or activity' : `${meta.label}`}</Txt>
-            <Txt size={13} color={C.sub}>{kind === 'sport' ? 'Pick it, then how long.' : 'Distance and time. Pace and burn work themselves out.'}</Txt>
-          </View>
+        <View style={{ marginTop: SP.lg, alignItems: 'flex-start', gap: SP.xs }}>
+          <Txt face="display" size={36} lh={1.15}>{(kind === 'sport' ? 'Sport or activity' : meta.label).toUpperCase()}</Txt>
+          <Txt size={14} w={500} lh={1.4} color={F.smoke}>{kind === 'sport' ? 'Pick it, then how long.' : 'Distance and time. Pace and burn work themselves out.'}</Txt>
         </View>
       ) : (
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 22 }}>
-        {KINDS.map(k => {
-          const on = kind === k.id;
-          return (
-            <Tap key={k.id} onPress={() => setKind(k.id)} style={{ flex: 1 }}>
-              <View style={{ height: 76, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderColor: on ? accent : C.line3, backgroundColor: on ? alpha(accent, 0.12) : '#0D0F13' }}>
-                <Icon name={k.icon} size={26} color={on ? accent : C.muted} tint={on ? 0.3 : 0.12} />
-                <Txt size={12} w={500} color={on ? C.text : C.muted}>{k.label}</Txt>
-              </View>
-            </Tap>
-          );
-        })}
-      </View>
+        <View style={{ marginTop: SP.lg, alignItems: 'flex-start' }}>
+          <Segmented value={kind} options={KINDS.map(k => [k.id, k.label] as [Kind, string])} onChange={setKind} />
+        </View>
       )}
 
-      <Panel acc={accent} tone={0.35} style={{ marginTop: 22 }}>
+      <View style={{ marginTop: SP.xl, gap: SP.lg }}>
         {distance ? (
-          <View style={{ gap: 16 }}>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              {field(km, setKm, kind === 'cycle' ? '20' : '5.0', 'DISTANCE · KM')}
-              {field(time, setTime, kind === 'cycle' ? '45:00' : '28:30', 'TIME · MM:SS', 'numbers-and-punctuation')}
+          <>
+            <View style={{ flexDirection: 'row', gap: SP.md }}>
+              <Field size="lg" style={{ flex: 1 }} value={km} onChangeText={setKm} placeholder={kind === 'cycle' ? '20' : '5.0'} label="Distance · km" keyboardType="decimal-pad" />
+              <Field size="lg" style={{ flex: 1 }} value={time} onChangeText={setTime} placeholder={kind === 'cycle' ? '45:00' : '28:30'} label="Time · mm:ss" keyboardType="numbers-and-punctuation" />
             </View>
             {chips(kind === 'cycle' ? ['10', '20', '40'] : kind === 'walk' ? ['2', '4', '6'] : ['3', '5', '10'], setKm, 'km')}
-          </View>
+          </>
+        ) : sport ? (
+          <>
+            <Tap onPress={() => setSport(null)} accessibilityLabel={`${sport.name}. Change`} style={{ minHeight: HIT, flexDirection: 'row', alignItems: 'center', gap: SP.md, backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: accent, paddingHorizontal: SP.md, paddingVertical: SP.sm }}>
+              <Txt size={17} w={600} style={{ flex: 1 }}>{sport.name}</Txt>
+              <Txt face="label" w={600} size={13} ls={0.1} color={accent}>CHANGE</Txt>
+            </Tap>
+            <Field size="lg" value={minutes} onChangeText={setMinutes} placeholder="60" label="Minutes" keyboardType="decimal-pad" />
+            {chips(['30', '45', '60', '90'], setMinutes, 'min')}
+          </>
         ) : (
-          sport ? (
-            <View style={{ gap: 16 }}>
-              <Tap onPress={() => setSport(null)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Icon name="sport" size={22} color={accent} />
-                <Txt size={20} w={600} style={{ flex: 1 }}>{sport.name}</Txt>
-                <Txt size={13} color={C.dim}>change</Txt>
-              </Tap>
-              {field(minutes, setMinutes, '60', 'MINUTES')}
-              {chips(['30', '45', '60', '90'], setMinutes, 'min')}
+          <View style={{ gap: SP.sm }}>
+            <Field value={q} onChangeText={setQ} autoFocus placeholder="Football, badminton, yoga, swimming…" accessibilityLabel="Search sports and activities" />
+            <View style={{ gap: SP.xs }}>
+              {searchMovements(q, 8).map(m => <MoveRow key={m.id} name={m.name} detail={`~${movementKcal(m.met, kg, 60)} KCAL/H`} onPress={() => setSport(m)} />)}
             </View>
-          ) : (
-            <View style={{ gap: 6 }}>
-              <TextInput
-                value={q}
-                onChangeText={setQ}
-                autoFocus
-                placeholder="Football, badminton, yoga, swimming…"
-                placeholderTextColor={C.dim}
-                keyboardAppearance="dark"
-                style={{ height: 52, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 14, fontFamily: fontFamily(s.settings.font, 400), fontSize: 17, color: C.text, marginBottom: 6 }}
-              />
-              {searchMovements(q, 8).map(m => (
-                <Tap key={m.id} onPress={() => setSport(m)} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line }}>
-                  <Txt size={16}>{m.name}</Txt>
-                  <Txt face="mono" size={11} color={C.dim}>{`~${movementKcal(m.met, kg, 60)} KCAL/H`}</Txt>
-                </Tap>
-              ))}
-            </View>
-          )
-        )}
-      </Panel>
-
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
-        {[
-          ['PACE', distance && ok && kind !== 'cycle' ? pace(dist, secs!) : '—'],
-          ['BURN', kcal ? `~${kcal} kcal` : '—'],
-          ['XP', xp ? `+${xp}` : '—'],
-        ].map(([k, v]) => (
-          <View key={k} style={{ flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: C.line3, alignItems: 'center', gap: 4 }}>
-            <Txt size={17} w={500} color={k === 'XP' && xp ? C.warn : C.text}>{v}</Txt>
-            <Txt face="mono" size={9.5} ls={0.14} color={C.dim}>{k}</Txt>
           </View>
-        ))}
+        )}
       </View>
 
-      <Tap disabled={!ok} onPress={save} style={{ marginTop: 22, height: 56, borderRadius: 14, backgroundColor: ok ? accent : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 }}>
-        <Icon name="check" size={20} color={ok ? C.ink : C.dim} tint={0} strokeWidth={2.2} />
-        <Txt size={17} w={600} color={ok ? C.ink : C.dim}>{ok ? `Save · +${xp} XP` : 'Fill in the details'}</Txt>
-      </Tap>
-      <Txt size={12} color={C.faint} style={{ marginTop: 12, textAlign: 'center' }}>Counts as today’s training. Burn estimates come from the Compendium of Physical Activities.</Txt>
+      <StatStrip
+        style={{ marginTop: SP.xl }}
+        items={[
+          { k: 'Pace', v: distance && ok && kind !== 'cycle' ? pace(dist, secs!) : '—' },
+          { k: 'Burn', v: kcal ? `~${kcal} kcal` : '—' },
+          { k: 'XP', v: xp ? `+${xp}` : '—', hot: !!xp },
+        ]}
+      />
+
+      <CutButton icon="check" label={ok ? 'Save' : 'Fill in the details'} meta={ok ? `+${xp} XP` : undefined} disabled={!ok} onPress={save} style={{ marginTop: SP.xl }} />
+      <Txt size={13} w={500} lh={1.4} color={F.smoke} align="center" style={{ marginTop: SP.md }}>Counts as today’s training. Burn estimates come from the Compendium of Physical Activities.</Txt>
     </Screen>
   );
 }

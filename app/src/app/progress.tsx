@@ -1,17 +1,21 @@
-// Progress: REI's weekly report, streaks, badges, body measurements and private photos.
+// Progress: REI's weekly report, streaks as combos, badges as special moves, body measurements and private photos.
 import { daySummary, isoDate, isoWeek, MEASURES, type Measure, measureChanges, parseIsoDate, type ProgressPhoto, streaks as calcStreaks, type WeeklyReport } from '@rei/shared';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Image } from 'expo-image';
-import { Alert, Platform, ScrollView, TextInput, View } from 'react-native';
-import { Button, Sheet } from '../components/FoodSheet';
+import { Platform, ScrollView, View } from 'react-native';
+import { ConfirmSheet } from '../components/ConfirmSheet';
+import { CutShape } from '../components/cut';
+import { BadgeGrid, Field, QuietButton } from '../components/dojo';
+import { Combo, CutButton, RoundStamp, SectionHeader } from '../components/fight';
+import { Sheet } from '../components/FoodSheet';
 import { LineChart } from '../components/LineChart';
 import { Screen, SubHeader } from '../components/Screen';
-import { Card, Label, Segmented, Tap, Txt } from '../components/ui';
+import { Segmented, Tap, Txt } from '../components/ui';
 import { photoUrl } from '../lib/photos';
-import { C, fontFamily } from '../lib/theme';
+import { C, F, HIT, RADIUS, SP } from '../lib/theme';
 import { useGame } from '../state/game';
 import { useStore } from '../state/store';
 
@@ -31,60 +35,43 @@ export default function Progress() {
   const changes = useMemo(() => measureChanges(s.measurements), [s.measurements]);
   const [measuring, setMeasuring] = useState(false);
   const [open, setOpen] = useState<Measure | null>(null);
+  const [badge, setBadge] = useState<string | null>(null);
   const { earned, locked } = g;
 
   return (
     <Screen tabs={false}>
-      <SubHeader title="PROGRESS" onBack={() => router.back()} />
+      <SubHeader title="Progress" onBack={() => router.back()} />
 
       <ReportCard />
 
-      <Label style={{ marginTop: 28 }}>STREAKS</Label>
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-        {([['FOOD LOGGED', st.logging, 'days'], ['PROTEIN HIT', st.protein, 'days'], ['ON TARGET', st.weeks, 'wks']] as const).map(([k, v, unit]) => (
-          <Card key={k} style={{ flex: 1, padding: 14, gap: 6 }}>
-            <Txt size={30} w={300} color={v.current ? s.accent : C.text}>{v.current}</Txt>
-            <Label size={9} ls={0.12}>{k}</Label>
-            <Txt face="mono" size={10} color={C.dim}>{`${unit.toUpperCase()} · BEST ${v.best}`}</Txt>
-          </Card>
-        ))}
-      </View>
-
-      <Label style={{ marginTop: 28 }}>{`BADGES · ${earned.length} / ${earned.length + locked.length}`}</Label>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-        {[...earned, ...locked].map(b => (
-          <View key={b.id} style={{ width: '31.5%', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: b.earned ? s.accent : C.line3, backgroundColor: b.earned ? 'rgba(255,255,255,0.05)' : 'transparent', gap: 6, opacity: b.earned ? 1 : 0.65 }}>
-            <Txt size={13} w={500} color={b.earned ? C.text : C.body}>{b.title}</Txt>
-            <Txt size={11} lh={1.3} color={C.dim}>{b.desc}</Txt>
-            {b.earned ? (
-              <Txt face="mono" size={9} color={s.accent}>{short(b.earned).toUpperCase()}</Txt>
-            ) : (
-              <View style={{ height: 2, backgroundColor: C.line, borderRadius: 1 }}>
-                <View style={{ height: 2, width: `${Math.round(b.progress * 100)}%`, backgroundColor: C.muted, borderRadius: 1 }} />
-              </View>
-            )}
+      <SectionHeader title="Combos" meta="Streaks" style={{ marginTop: SP.xxl }} />
+      <View style={{ flexDirection: 'row', backgroundColor: F.canvas, marginTop: SP.md }}>
+        {([['Food', 'logged', st.logging, 'days'], ['Protein', 'hit', st.protein, 'days'], ['Weeks', 'on target', st.weeks, 'wks']] as const).map(([top, bottom, v, unit], i) => (
+          <View key={top} style={{ flex: 1, paddingVertical: SP.md, paddingHorizontal: SP.sm, gap: SP.xs, borderLeftWidth: i ? 2 : 0, borderLeftColor: F.arena }}>
+            <Combo count={v.current} top={top} bottom={bottom} size="sm" />
+            <Txt face="label" w={600} size={12} ls={0.1} color={F.smoke} numberOfLines={1}>{`${unit.toUpperCase()} · BEST ${v.best}`}</Txt>
           </View>
         ))}
       </View>
 
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 28 }}>
-        <Label>BODY · CM</Label>
-        <Tap onPress={() => setMeasuring(true)}>
-          <Label color={s.accent}>+ LOG</Label>
-        </Tap>
-      </View>
-      <View style={{ marginTop: 8 }}>
-        {!changes.length ? <Txt size={14} color={C.dim} style={{ paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.line }}>No measurements yet. Waist is the one that matters most.</Txt> : null}
+      <SectionHeader title="Special moves" meta={`${earned.length} / ${earned.length + locked.length}`} onMeta={() => router.push('/badges')} style={{ marginTop: SP.xxl }} />
+      <BadgeGrid badges={[...earned, ...locked]} open={badge} onOpen={setBadge} style={{ marginTop: SP.md }} />
+
+      <SectionHeader title="Body · cm" meta="+ Log" onMeta={() => setMeasuring(true)} style={{ marginTop: SP.xxl }} />
+      <View style={{ marginTop: SP.md, gap: SP.xs }}>
+        {!changes.length ? <Txt size={14} w={500} lh={1.4} color={F.smoke}>No measurements yet. Waist is the one that matters most.</Txt> : null}
         {changes.map(c => {
           const good = c.change === 0 ? null : SHRINK.includes(c.measure) ? c.change < 0 : c.change > 0;
+          const delta = c.change ? `${c.change > 0 ? '+' : ''}${c.change}` : '—';
+          const expanded = open === c.measure;
           return (
-            <Tap key={c.measure} haptic={false} onPress={() => setOpen(o => (o === c.measure ? null : c.measure))} style={{ paddingVertical: 13, borderTopWidth: 1, borderTopColor: C.line, gap: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
-                <Txt size={15} style={{ flex: 1 }}>{cap(c.measure)}</Txt>
-                <Txt face="mono" size={15}>{`${c.latest}`}</Txt>
-                <Txt face="mono" size={12} color={good == null ? C.dim : good ? s.accent : C.alert} style={{ minWidth: 60, textAlign: 'right' }}>{c.change ? `${c.change > 0 ? '+' : ''}${c.change}` : '—'}</Txt>
+            <Tap key={c.measure} haptic={false} onPress={() => setOpen(o => (o === c.measure ? null : c.measure))} accessibilityState={{ expanded }} accessibilityLabel={`${cap(c.measure)} ${c.latest} centimetres${c.change ? `, change ${delta}` : ''}`} style={{ backgroundColor: F.canvas, paddingHorizontal: SP.md, paddingVertical: SP.sm, gap: SP.md }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: HIT - SP.sm * 2 }}>
+                <Txt size={15} w={600} style={{ flex: 1 }}>{cap(c.measure)}</Txt>
+                <Txt face="label" w={600} size={14} ls={0.07} color={good == null ? F.smoke : good ? s.accent : C.alertSoft} align="right" style={{ minWidth: 48 }}>{delta}</Txt>
+                <Txt face="display" size={22} lh={1.15} align="right" style={{ minWidth: 56 }}>{`${c.latest}`}</Txt>
               </View>
-              {open === c.measure && c.points.length > 1 ? <LineChart values={c.points.map(p => p.v)} labels={c.points.map(p => short(p.date))} color={s.accent} height={110} unit=" cm" /> : null}
+              {expanded && c.points.length > 1 ? <LineChart values={c.points.map(p => p.v)} labels={c.points.map(p => short(p.date))} color={s.accent} height={110} unit=" cm" /> : null}
             </Tap>
           );
         })}
@@ -111,41 +98,51 @@ function ReportCard() {
       setBusy(false);
     }
   };
+  const line = (tag: string, text: string, color: string, key?: number) => (
+    <View key={key} style={{ flexDirection: 'row', gap: SP.sm }}>
+      <View style={{ width: 44, paddingTop: 3 }}>
+        <Txt face="label" w={600} size={12} ls={0.12} color={color}>{tag}</Txt>
+      </View>
+      <Txt size={14} w={500} lh={1.4} style={{ flex: 1 }}>{text}</Txt>
+    </View>
+  );
   return (
-    <Card style={{ marginTop: 22, padding: 18, gap: 12 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Label>{report ? `WEEKLY REPORT · ${report.week.split('-')[1]}` : 'WEEKLY REPORT'}</Label>
-        {report ? <Label color={C.dim}>{report.ai ? 'BY REI' : 'FROM YOUR NUMBERS'}</Label> : null}
+    <View style={{ marginTop: SP.lg, gap: SP.md }}>
+      <SectionHeader title={report ? `Weekly report · ${report.week.split('-')[1]}` : 'Weekly report'} meta={report ? (report.ai ? 'By REI' : 'From your numbers') : undefined} />
+      <View style={{ backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: report ? s.accent : F.rope, padding: SP.lg, gap: SP.md }}>
+        {report ? (
+          <>
+            <View style={{ alignItems: 'flex-start' }}>
+              <Txt face="display" size={26} lh={1.2}>{report.headline.toUpperCase()}</Txt>
+            </View>
+            <Txt size={14} w={500} lh={1.5} color={C.body}>{report.summary}</Txt>
+            <View style={{ gap: SP.sm }}>
+              {report.wins.map((w, i) => (
+                <View key={i} style={{ flexDirection: 'row', gap: SP.sm }}>
+                  <View accessible accessibilityLabel="Win" style={{ width: 44, paddingTop: 5 }}>
+                    <CutShape width={14} height={10} fill={s.accent} />
+                  </View>
+                  <Txt size={14} w={500} lh={1.4} style={{ flex: 1 }}>{w}</Txt>
+                </View>
+              ))}
+              {line('FIX', report.fix, C.warn)}
+              {line('NEXT', report.focus, s.accent)}
+            </View>
+            <View style={{ flexDirection: 'row', gap: SP.sm, flexWrap: 'wrap' }}>
+              {[
+                `${report.stats.sessions.done}/${report.stats.sessions.planned} SESSIONS`,
+                report.stats.food.avgProtein != null ? `${report.stats.food.avgProtein} G PROTEIN AVG` : null,
+                report.stats.weight.change != null ? `${report.stats.weight.change > 0 ? '+' : ''}${report.stats.weight.change} KG` : null,
+                report.stats.prs.length ? `${report.stats.prs.length} PR` : null,
+              ].filter((t): t is string => !!t).map(t => <RoundStamp key={t} label={t} tone="outline" size="sm" />)}
+            </View>
+          </>
+        ) : (
+          <Txt size={14} w={500} lh={1.45} color={C.body}>REI writes your week up every Sunday evening, before planning the next one.</Txt>
+        )}
+        <QuietButton lit={!busy} icon="rei" disabled={busy} onPress={write} label={busy ? 'REI is reading your week…' : report?.week === week ? 'Rewrite this week’s report' : 'Write this week so far'} />
       </View>
-      {report ? (
-        <>
-          <Txt size={21} w={500} ls={-0.02} lh={1.25}>{report.headline}</Txt>
-          <Txt size={14} lh={1.5} color={C.body}>{report.summary}</Txt>
-          {report.wins.map((w, i) => (
-            <Txt key={i} size={14} lh={1.4} color={C.textSoft}>{`✓  ${w}`}</Txt>
-          ))}
-          <Txt size={14} lh={1.4} color={C.warn}>{`!  ${report.fix}`}</Txt>
-          <Txt size={14} lh={1.4} color={s.accent}>{`→  ${report.focus}`}</Txt>
-          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-            {[
-              `${report.stats.sessions.done}/${report.stats.sessions.planned} SESSIONS`,
-              report.stats.food.avgProtein != null ? `${report.stats.food.avgProtein} G PROTEIN AVG` : null,
-              report.stats.weight.change != null ? `${report.stats.weight.change > 0 ? '+' : ''}${report.stats.weight.change} KG` : null,
-              report.stats.prs.length ? `${report.stats.prs.length} PR` : null,
-            ].filter(Boolean).map(t => (
-              <View key={t} style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: C.line3 }}>
-                <Txt face="mono" size={10} color={C.muted}>{t}</Txt>
-              </View>
-            ))}
-          </View>
-        </>
-      ) : (
-        <Txt size={14} lh={1.45} color={C.body}>REI writes your week up every Sunday evening, before planning the next one.</Txt>
-      )}
-      <View style={{ flexDirection: 'row', marginTop: 4 }}>
-        <Button onPress={write} disabled={busy}>{busy ? 'REI is reading your week…' : report?.week === week ? 'Rewrite this week’s report' : 'Write this week so far'}</Button>
-      </View>
-    </Card>
+    </View>
   );
 }
 
@@ -156,45 +153,35 @@ function MeasureSheet({ open, onClose }: { open: boolean; onClose: () => void })
   const entries = MEASURES.map(k => [k, parseFloat((v[k] ?? '').replace(',', '.'))] as const).filter(([, n]) => n > 0 && n < 300);
   return (
     <Sheet open={open} onClose={onClose}>
-      <View style={{ gap: 14 }}>
-        <Txt size={22} w={500}>Measurements</Txt>
-        <Txt size={13} color={C.dim}>Centimetres, relaxed, same time of day. Leave blank what you don’t measure.</Txt>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+      <View style={{ gap: SP.md }}>
+        <View accessibilityRole="header" style={{ alignItems: 'flex-start' }}>
+          <Txt face="display" size={26} lh={1.2}>MEASUREMENTS</Txt>
+        </View>
+        <Txt size={14} w={500} lh={1.4} color={F.smoke}>Centimetres, relaxed, same time of day. Leave blank what you don’t measure.</Txt>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.md }}>
           {MEASURES.map(k => (
-            <View key={k} style={{ width: '31%', gap: 6 }}>
-              <Label size={10}>{k.toUpperCase()}</Label>
-              <TextInput
-                value={v[k] ?? ''}
-                onChangeText={t => setV(cur => ({ ...cur, [k]: t }))}
-                placeholder={last?.[k] ? String(last[k]) : '—'}
-                placeholderTextColor={C.faint}
-                keyboardType="decimal-pad"
-                keyboardAppearance="dark"
-                style={{ height: 46, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 12, fontFamily: fontFamily(s.settings.font, 400), fontSize: 17, color: C.text }}
-              />
-            </View>
+            <Field key={k} label={k} value={v[k] ?? ''} onChangeText={t => setV(cur => ({ ...cur, [k]: t }))} placeholder={last?.[k] ? String(last[k]) : '—'} accessibilityLabel={`${cap(k)} in centimetres`} keyboardType="decimal-pad" style={{ width: '30%', flexGrow: 1 }} />
           ))}
         </View>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Button onPress={onClose}>Cancel</Button>
-          <Button
-            primary
+        <View style={{ gap: SP.sm, marginTop: SP.xs }}>
+          <CutButton
+            size="md"
+            label="Save"
             disabled={!entries.length}
             onPress={() => {
               s.saveMeasurement({ date: isoDate(), ...Object.fromEntries(entries) });
               setV({});
               onClose();
             }}
-          >
-            Save
-          </Button>
+          />
+          <QuietButton label="Cancel" onPress={onClose} />
         </View>
       </View>
     </Sheet>
   );
 }
 
-function PhotoImage({ p, height }: { p: ProgressPhoto; height: number }) {
+function PhotoImage({ p, height, label }: { p: ProgressPhoto; height: number; label: string }) {
   const [uri, setUri] = useState<string | null>(p.path.startsWith('users/') ? null : p.path);
   useEffect(() => {
     let live = true;
@@ -204,21 +191,24 @@ function PhotoImage({ p, height }: { p: ProgressPhoto; height: number }) {
     };
   }, [p.path]);
   // Cached on disk by Storage path, so the signed URL changing doesn't refetch the image.
-  return <Image source={uri ? { uri, cacheKey: p.path } : undefined} cachePolicy="memory-disk" transition={120} contentFit="cover" style={{ width: '100%', height, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.05)' }} />;
+  return <Image source={uri ? { uri, cacheKey: p.path } : undefined} accessibilityLabel={label} cachePolicy="memory-disk" transition={120} contentFit="cover" style={{ width: '100%', height, borderRadius: RADIUS.sm, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas }} />;
 }
 
 function Photos() {
   const s = useStore();
   const [pose, setPose] = useState<ProgressPhoto['pose']>('front');
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ title: string; message: string } | null>(null);
+  const [deleting, setDeleting] = useState<ProgressPhoto | null>(null);
   const mine = useMemo(() => s.photos.filter(p => p.pose === pose).sort((a, b) => a.createdAt - b.createdAt), [s.photos, pose]);
   const first = mine[0], latest = mine.length > 1 ? mine[mine.length - 1] : null;
+  const say = (p: ProgressPhoto) => `${cap(p.pose)} photo, ${short(p.date)}${p.kg ? `, ${p.kg} kilograms` : ''}`;
 
   const add = async (library: boolean) => {
     const useLibrary = library || Platform.OS === 'web';
     if (!useLibrary) {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) return Alert.alert('Camera is off', 'Allow camera access in Settings to take progress photos.');
+      if (!perm.granted) return setNotice({ title: 'Camera is off', message: 'Allow camera access in Settings to take progress photos.' });
     }
     const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1 };
     const res = useLibrary ? await ImagePicker.launchImageLibraryAsync(opts) : await ImagePicker.launchCameraAsync(opts);
@@ -231,62 +221,67 @@ function Photos() {
       if (out.base64) await s.addPhoto(out.base64, out.uri, pose);
     } catch (e) {
       console.warn('REI: progress photo failed', e);
-      Alert.alert('Photo not saved', 'Try again in a moment.');
+      setNotice({ title: 'Photo not saved', message: 'Try again in a moment.' });
     } finally {
       setBusy(false);
     }
   };
 
-  const remove = (p: ProgressPhoto) => {
-    const go = () => s.removePhoto(p);
-    if (Platform.OS === 'web') return go();
-    Alert.alert('Delete this photo?', 'It’s removed from your account for good.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: go }]);
-  };
-
   return (
     <>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 28 }}>
-        <Label>PHOTOS · PRIVATE</Label>
+      <SectionHeader title="Photos · private" style={{ marginTop: SP.xxl }} />
+      <View style={{ marginTop: SP.md, alignItems: 'flex-start' }}>
         <Segmented value={pose} options={[['front', 'Front'], ['side', 'Side'], ['back', 'Back']]} onChange={setPose} />
       </View>
       {first ? (
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+        <View style={{ flexDirection: 'row', gap: SP.sm, marginTop: SP.md }}>
           {[first, latest].map((p, i) =>
             p ? (
-              <View key={p.id} style={{ flex: 1, gap: 6 }}>
-                <PhotoImage p={p} height={220} />
-                <Txt face="mono" size={10} color={i ? s.accent : C.dim}>{`${i ? 'NOW' : 'FIRST'} · ${short(p.date).toUpperCase()}${p.kg ? ` · ${p.kg} KG` : ''}`}</Txt>
+              <View key={p.id} style={{ flex: 1, gap: SP.xs }}>
+                <PhotoImage p={p} height={220} label={say(p)} />
+                <Txt face="label" w={600} size={12} ls={0.1} color={i ? s.accent : F.smoke}>{`${i ? 'NOW' : 'FIRST'} · ${short(p.date).toUpperCase()}${p.kg ? ` · ${p.kg} KG` : ''}`}</Txt>
               </View>
             ) : (
-              <View key="none" style={{ flex: 1, height: 220, borderRadius: 14, borderWidth: 1, borderColor: C.line3, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-                <Txt size={13} color={C.dim} align="center">Take the next one in a few weeks, same spot, same light.</Txt>
+              <View key="none" style={{ flex: 1, height: 220, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center', padding: SP.lg }}>
+                <Txt size={14} w={500} lh={1.4} color={F.smoke} align="center">Take the next one in a few weeks, same spot, same light.</Txt>
               </View>
             ),
           )}
         </View>
       ) : (
-        <Txt size={14} color={C.dim} lh={1.45} style={{ marginTop: 10 }}>Photos show what the scale can’t. Only you can see them.</Txt>
+        <Txt size={14} w={500} lh={1.45} color={F.smoke} style={{ marginTop: SP.md }}>Photos show what the scale can’t. Only you can see them.</Txt>
       )}
       {mine.length > 2 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }} contentContainerStyle={{ gap: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: SP.md }} contentContainerStyle={{ gap: SP.sm }}>
           {mine.map(p => (
-            <Tap key={p.id} onLongPress={() => remove(p)} style={{ width: 72, gap: 4 }}>
-              <PhotoImage p={p} height={96} />
-              <Txt face="mono" size={9} color={C.dim}>{short(p.date)}</Txt>
+            <Tap key={p.id} onLongPress={() => setDeleting(p)} accessibilityLabel={say(p)} accessibilityHint="Hold to delete" style={{ width: 72, gap: SP.xs }}>
+              <PhotoImage p={p} height={96} label={say(p)} />
+              <Txt face="label" w={600} size={12} ls={0.08} color={F.smoke}>{short(p.date).toUpperCase()}</Txt>
             </Tap>
           ))}
         </ScrollView>
       ) : null}
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-        <Button primary disabled={busy} onPress={() => add(false)}>{busy ? 'Saving…' : 'Take photo'}</Button>
-        <Button disabled={busy} onPress={() => add(true)}>From library</Button>
+      <View style={{ gap: SP.sm, marginTop: SP.lg }}>
+        <CutButton size="md" icon="camera" label={busy ? 'Saving…' : 'Take photo'} disabled={busy} onPress={() => add(false)} />
+        <QuietButton label="From library" disabled={busy} onPress={() => add(true)} />
       </View>
-      {mine.length ? <Txt size={11} color={C.faint} style={{ marginTop: 8 }}>{mine.length > 2 ? 'Hold a photo to delete it.' : ''}</Txt> : null}
+      {mine.length > 2 ? <Txt size={13} w={500} color={F.smoke} style={{ marginTop: SP.sm }}>Hold a photo to delete it.</Txt> : null}
       {mine.length && mine.length <= 2 ? (
-        <Tap onLongPress={() => remove(mine[mine.length - 1])}>
-          <Txt size={11} color={C.faint}>Hold here to delete the latest photo.</Txt>
+        <Tap onLongPress={() => setDeleting(mine[mine.length - 1])} accessibilityLabel="Delete the latest photo" accessibilityHint="Hold to delete" style={{ minHeight: HIT, justifyContent: 'center', marginTop: SP.xs }}>
+          <Txt size={13} w={500} color={F.smoke}>Hold here to delete the latest photo.</Txt>
         </Tap>
       ) : null}
+
+      <ConfirmSheet
+        open={!!deleting}
+        title="Delete this photo?"
+        message="It’s removed from your account for good."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => deleting && s.removePhoto(deleting)}
+        onClose={() => setDeleting(null)}
+      />
+      <ConfirmSheet open={!!notice} title={notice?.title ?? ''} message={notice?.message} cancelLabel={null} onClose={() => setNotice(null)} />
     </>
   );
 }

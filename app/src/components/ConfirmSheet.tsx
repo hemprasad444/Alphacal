@@ -1,0 +1,52 @@
+// The in-app confirm: a Fight Night sheet that replaces the native alert. One question, one clear
+// answer, and a quiet way out. With `cancelLabel={null}` it is a notice with a single button.
+import { Modal, Pressable, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CutButton } from './fight';
+import { Txt } from './ui';
+import { F, SP } from '../lib/theme';
+
+export interface ConfirmSheetProps {
+  open: boolean;
+  title: string;
+  message?: string;
+  /** The answer that does the thing ("Remove", "Delete"). */
+  confirmLabel?: string;
+  /** The way out. `null` hides it (a notice with one button). */
+  cancelLabel?: string | null;
+  /** The action can't be undone: the confirm button is drawn in chalk, not your corner colour. */
+  destructive?: boolean;
+  /** Called when the confirm button is pressed, before `onClose`. */
+  onConfirm?: () => void;
+  /** Called on confirm, on cancel, and when the backdrop or the back button dismisses the sheet. */
+  onClose: () => void;
+}
+
+export function ConfirmSheet({ open, title, message, confirmLabel = 'OK', cancelLabel = 'Cancel', destructive, onConfirm, onClose }: ConfirmSheetProps) {
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={cancelLabel ?? 'Dismiss'} onPress={onClose} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(11,12,16,0.78)' }} />
+        <View accessibilityViewIsModal style={{ backgroundColor: F.arena, borderTopWidth: 2, borderTopColor: F.chalk, paddingHorizontal: SP.lg, paddingTop: SP.xl, paddingBottom: Math.max(insets.bottom, SP.lg) + SP.sm, gap: SP.md }}>
+          <View accessibilityRole="header" style={{ alignItems: 'flex-start' }}>
+            <Txt face="display" size={26} lh={1.2} ls={0.01}>{title.toUpperCase()}</Txt>
+          </View>
+          {message ? <Txt size={15} w={500} lh={1.4} color={F.smoke}>{message}</Txt> : null}
+          <View style={{ gap: SP.sm, marginTop: SP.sm }}>
+            <CutButton
+              size="md"
+              tone={destructive ? 'chalk' : 'accent'}
+              label={confirmLabel}
+              onPress={() => {
+                onConfirm?.();
+                onClose();
+              }}
+            />
+            {cancelLabel ? <CutButton size="md" tone="quiet" label={cancelLabel} onPress={onClose} /> : null}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}

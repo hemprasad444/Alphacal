@@ -3,11 +3,13 @@ import { exerciseById, findExercise, liftHistory, liftKey, parseIsoDate, records
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { View } from 'react-native';
+import { StatStrip } from '../components/dojo';
 import { ExerciseInfo } from '../components/ExerciseSheet';
+import { MoveRow, SectionHeader } from '../components/fight';
 import { LineChart } from '../components/LineChart';
 import { Screen, SubHeader } from '../components/Screen';
-import { Card, Label, Txt } from '../components/ui';
-import { C } from '../lib/theme';
+import { Txt } from '../components/ui';
+import { F, SP } from '../lib/theme';
 import { useStore } from '../state/store';
 
 const short = (iso: string) => (parseIsoDate(iso) ?? new Date()).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -24,48 +26,44 @@ export default function Lift() {
 
   return (
     <Screen tabs={false}>
-      <SubHeader title="LIFT" onBack={() => router.back()} />
-      <Txt size={30} w={300} ls={-0.03} style={{ marginTop: 22 }}>{title}</Txt>
+      <SubHeader title="Lift" onBack={() => router.back()} />
+      <View accessibilityRole="header" style={{ marginTop: SP.lg, alignItems: 'flex-start' }}>
+        <Txt face="display" size={36} lh={1.15} numberOfLines={3}>{title.toUpperCase()}</Txt>
+      </View>
 
       {rec ? (
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 18 }}>
-          {[
-            [rec.best.e1rm ? `${Math.round(rec.best.e1rm)} kg` : `${rec.best.reps}`, rec.best.e1rm ? 'EST. MAX' : 'BEST REPS'],
-            [rec.heaviest ? `${rec.heaviest.kg} × ${rec.heaviest.reps}` : '—', 'HEAVIEST'],
-            [String(rec.sessions), 'SESSIONS'],
-          ].map(([v, k]) => (
-            <Card key={k} style={{ flex: 1, paddingVertical: 14, alignItems: 'center', gap: 6 }}>
-              <Txt size={18} w={300}>{v}</Txt>
-              <Label size={9} ls={0.12}>{k}</Label>
-            </Card>
-          ))}
-        </View>
+        <StatStrip
+          style={{ marginTop: SP.lg }}
+          items={[
+            { k: rec.best.e1rm ? 'Est. max' : 'Best reps', v: rec.best.e1rm ? `${Math.round(rec.best.e1rm)} kg` : `${rec.best.reps}`, hot: true },
+            { k: 'Heaviest', v: rec.heaviest ? `${rec.heaviest.kg} × ${rec.heaviest.reps}` : '—' },
+            { k: 'Sessions', v: String(rec.sessions) },
+          ]}
+        />
       ) : (
-        <Txt size={14} color={C.dim} style={{ marginTop: 12 }}>Not logged yet. Hold a set in a session to log its reps and weight.</Txt>
+        <Txt size={14} w={500} lh={1.4} color={F.smoke} style={{ marginTop: SP.md }}>Not logged yet. Tick a set in a workout to log its reps and weight.</Txt>
       )}
 
       {withMax.length || bodyweight ? (
-        <Card style={{ marginTop: 14, padding: 16 }}>
-          <Label size={10} style={{ marginBottom: 12 }}>{bodyweight ? 'BEST SET · REPS' : 'EST. ONE-REP MAX'}</Label>
-          <LineChart
-            values={bodyweight ? points.map(p => p.reps) : withMax.map(p => p.e1rm!)}
-            labels={(bodyweight ? points : withMax).map(p => short(p.date))}
-            color={s.accent}
-            unit={bodyweight ? '' : ' kg'}
-          />
-        </Card>
+        <>
+          <SectionHeader title={bodyweight ? 'Best set · reps' : 'Est. one-rep max'} style={{ marginTop: SP.xxl }} />
+          <View style={{ marginTop: SP.md, padding: SP.lg, backgroundColor: F.canvas }}>
+            <LineChart
+              values={bodyweight ? points.map(p => p.reps) : withMax.map(p => p.e1rm!)}
+              labels={(bodyweight ? points : withMax).map(p => short(p.date))}
+              color={s.accent}
+              unit={bodyweight ? '' : ' kg'}
+            />
+          </View>
+        </>
       ) : null}
 
       {points.length ? (
         <>
-          <Label style={{ marginTop: 26 }}>SESSIONS</Label>
-          <View style={{ marginTop: 8 }}>
+          <SectionHeader title="Sessions" meta={`${points.length}`} style={{ marginTop: SP.xxl }} />
+          <View style={{ marginTop: SP.md, gap: SP.xs }}>
             {[...points].reverse().map((p, i) => (
-              <View key={`${p.date}-${i}`} style={{ flexDirection: 'row', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line, alignItems: 'baseline' }}>
-                <Txt face="mono" size={11} color={C.dim} style={{ width: 54 }}>{short(p.date)}</Txt>
-                <Txt face="mono" size={12} color={C.body} style={{ flex: 1 }}>{p.sets}</Txt>
-                {p.e1rm ? <Txt face="mono" size={12} color={s.accent}>{`${Math.round(p.e1rm)} kg`}</Txt> : null}
-              </View>
+              <MoveRow key={`${p.date}-${i}`} index={short(p.date).toUpperCase()} indexWidth={52} name={p.sets} value={p.e1rm ? `${Math.round(p.e1rm)} KG` : undefined} done />
             ))}
           </View>
         </>
@@ -73,7 +71,7 @@ export default function Lift() {
 
       {ex ? (
         <>
-          <Label style={{ marginTop: 28, marginBottom: 12 }}>HOW TO</Label>
+          <SectionHeader title="How to" style={{ marginTop: SP.xxl, marginBottom: SP.md }} />
           <ExerciseInfo ex={ex} steps={6} />
         </>
       ) : null}

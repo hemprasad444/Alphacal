@@ -1,47 +1,49 @@
-// The weekly leaderboard: live rows from Firestore (a sample board in demo mode).
+// The weekly leaderboard as a ladder: live rows from Firestore (a sample board in demo mode).
 import { isoWeek, RANKS } from '@rei/shared';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { Icon } from './icons';
+import { Ladder, type LadderRow } from './fight';
 import { Txt } from './ui';
 import { onBoard, type Player } from '../lib/sync';
-import { alpha, C, THEMES } from '../lib/theme';
+import { F, SP } from '../lib/theme';
 import { useStore } from '../state/store';
 
-/** Top three this week and where you stand. Demo mode shows a sample board. */
-export function BoardPreview({ you }: { you: number }) {
-  const s = useStore();
-  const rows = useBoard();
-  const me = s.account.uid;
-  const list = rows ?? [];
-  const mine = list.findIndex(r => r.uid === me);
-  const top = list.slice(0, 3);
-  if (!list.length) {
-    return <Txt size={14} color={C.dim} style={{ marginTop: 12 }}>{s.cloud ? 'Nobody on the board yet this week. Log anything to claim first place.' : 'Sign in to join the weekly board.'}</Txt>;
-  }
+const rankName = (id: string) => RANKS.find(x => x.id === id)?.name ?? 'Rookie';
+
+/**
+ * The board as rungs, best first. `limit` keeps the top few and still shows your rung when you
+ * are below them. `you` is your live XP this week (the board can lag behind what you just logged).
+ * The line underneath says what it takes to pass the player above you.
+ */
+export function BoardLadder({ rows, limit, you }: { rows: Player[]; limit?: number; you?: number }) {
+  const me = useStore(s => s.account.uid);
+  const mine = rows.findIndex(r => r.uid === me);
+  const rung = (r: Player, i: number): LadderRow => ({ id: r.uid, rank: i + 1, name: r.name, score: r.xp, you: r.uid === me, tag: rankName(r.rank) });
+  const shown = rows.map(rung).filter((_, i) => !limit || i < limit);
+  if (limit && mine >= limit) shown.push({ ...rung(rows[mine], mine), score: Math.max(you ?? 0, rows[mine].xp) });
+  const myXp = shown.find(r => r.you)?.score ?? 0;
+  const above = mine > 0 ? rows[mine - 1] : null;
   return (
-    <View style={{ marginTop: 12, gap: 8 }}>
-      {top.map((r, i) => <BoardRow key={r.uid} r={r} place={i + 1} me={r.uid === me} />)}
-      {mine >= 3 ? <BoardRow r={{ ...list[mine], xp: Math.max(you, list[mine].xp) }} place={mine + 1} me /> : null}
+    <View style={{ gap: SP.sm }}>
+      <Ladder rows={shown} showGap={false} />
+      {mine >= 0 ? (
+        <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>
+          {above ? `${Math.max(1, above.xp - myXp + 1).toLocaleString('en-US')} XP TO PASS ${above.name.toUpperCase()}` : 'TOP OF THE LADDER. HOLD IT.'}
+        </Txt>
+      ) : null}
     </View>
   );
 }
 
-export function BoardRow({ r, place, me }: { r: Player; place: number; me?: boolean }) {
-  const t = THEMES.find(x => x.id === r.theme) ?? THEMES[0];
-  const medal = place === 1 ? '#F5C542' : place === 2 ? '#C9D3DE' : place === 3 ? '#D9925B' : C.muted;
-  const rank = RANKS.find(x => x.id === r.rank);
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1.5, borderColor: me ? t.acc : C.line3, backgroundColor: me ? alpha(t.acc, 0.08) : '#0D0F13' }}>
-      <Txt face="mono" size={16} w={500} color={medal} style={{ width: 26 }}>{String(place).padStart(2, '0')}</Txt>
-      <Icon name={t.icon} size={20} color={t.acc} />
-      <View style={{ flex: 1 }}>
-        <Txt size={15} w={500} numberOfLines={1}>{me ? `${r.name} (you)` : r.name}</Txt>
-        <Txt face="mono" size={9.5} ls={0.12} color={C.dim}>{(rank?.name ?? 'Rookie').toUpperCase()}</Txt>
-      </View>
-      <Txt face="mono" size={14} color={me ? t.acc : C.body}>{`${r.xp.toLocaleString('en-US')} XP`}</Txt>
-    </View>
-  );
+/** Top three this week and where you stand. Demo mode shows a sample board. */
+export function BoardPreview({ you }: { you: number }) {
+  const cloud = useStore(s => s.cloud);
+  const rows = useBoard();
+  const list = rows ?? [];
+  if (!list.length) {
+    return <Txt size={14} w={500} lh={1.4} color={F.smoke}>{cloud ? 'Nobody on the board yet this week. Log anything to claim first place.' : 'Sign in to join the weekly board.'}</Txt>;
+  }
+  return <BoardLadder rows={list} limit={3} you={you} />;
 }
 
 /** This week's board, live; null while loading. Demo mode gets a sample so the screen isn't empty. */

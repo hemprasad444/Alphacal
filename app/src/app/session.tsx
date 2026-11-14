@@ -1,21 +1,26 @@
 // A workout: today's planned session, or a gym session ("mode=free") built from today's plan or your
 // own picks. Nothing runs until you start: train now (live timer and rests), or log one you've
 // already done (just the duration). Tick sets as you finish them; every exercise shows its XP.
+//
+// This is the fight itself: each exercise is a round, each set a hit landed, the rest timer a round break.
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Modal, ScrollView, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Modal, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
+import { ConfirmSheet } from '../components/ConfirmSheet';
+import { CutBox, CutShape } from '../components/cut';
+import { Chip, Field, QuietButton } from '../components/dojo';
 import { ExerciseSheet } from '../components/ExerciseSheet';
+import { CutButton, MeterBar, MoveRow, RoundStamp, SectionHeader } from '../components/fight';
 import { Icon } from '../components/icons';
-import { Gauge, Heading, Panel, Stamp, Tile } from '../components/manga';
 import { IconButton, Tap, Txt } from '../components/ui';
 import {
   clock, defaultSets, e1rm, type Exercise, exerciseXp, findExercise, isBodyweight, lastLifts, type LibExercise, liftKey, pad, PICK_GROUPS,
-  dayName, nextPlan, records, restSeconds, searchExercises, SESSION_ICON, sessionLine, sessionXp, SESSIONS, type SessionPlan, type SetLog, todaysPlan,
+  dayName, nextPlan, records, restSeconds, searchExercises, sessionLine, sessionXp, SESSIONS, type SessionPlan, type SetLog, todaysPlan,
 } from '@rei/shared';
-import { alpha, C, fontFamily } from '../lib/theme';
+import { C, F, fontFamily, HIT, onColor, SP } from '../lib/theme';
 import { useStore } from '../state/store';
 
 interface Rest {
@@ -57,6 +62,8 @@ export default function Session() {
   const finished = useRef(false);
   const [info, setInfo] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
+  /** The exercise the picker is asking to remove (it has ticked sets). */
+  const [asking, setAsking] = useState<{ name: string; ticked: number } | null>(null);
   const restDone = useRef(false);
 
   useEffect(() => {
@@ -95,6 +102,9 @@ export default function Session() {
   const done = rows.reduce((a, r) => a + r.done.filter(Boolean).length, 0);
   const total = rows.reduce((a, r) => a + r.done.length, 0);
   const xp = done ? sessionXp({ date: s.day, plan: 'GYM', done, total, seconds: elapsed, sets: setLogs }) : 0;
+  // The round you're in: the first exercise with a set still to land.
+  const open = rows.findIndex(r => r.done.some(v => !v));
+  const round = exercises.length ? (open < 0 ? exercises.length : open + 1) : 0;
 
   const update = (i: number, f: (r: Row) => Row) => setRows(all => all.map((r, a) => (a === i ? f(r) : r)));
 
@@ -104,7 +114,6 @@ export default function Session() {
     update(i, r => ({ ...r, done: r.done.map((v, b) => (b === j ? on : v)) }));
     if (on) startRest(rows[i].reps[j], rows[i].kg[j]);
   };
-
 
   const addSet = (i: number) =>
     update(i, r => ({ reps: [...r.reps, r.reps[r.reps.length - 1] ?? 10], kg: [...r.kg, r.kg[r.kg.length - 1] ?? null], done: [...r.done, false] }));
@@ -139,10 +148,11 @@ export default function Session() {
     if (i < 0) return;
     const ticked = rows[i].done.filter(Boolean).length;
     if (!ticked) return removeExercise(i);
-    Alert.alert(`Remove ${exercises[i].name}?`, `You've ticked ${ticked} set${ticked > 1 ? 's' : ''} on it.`, [
-      { text: 'Keep it', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => removeExercise(i) },
-    ]);
+    setAsking({ name: exercises[i].name, ticked });
+  };
+  const confirmRemove = () => {
+    const i = asking ? exercises.findIndex(e => liftKey(e.name) === liftKey(asking.name)) : -1;
+    if (i >= 0) removeExercise(i);
   };
 
   const swap = (i: number, to: LibExercise) => {
@@ -168,88 +178,98 @@ export default function Session() {
     return prev != null && est != null && est > prev;
   };
 
+  const title = free ? 'GYM WORKOUT' : today ? `TODAY · ${plan.title.toUpperCase()}` : `EXTRA · ${plan.title.toUpperCase()}`;
+  const live = phase === 'live';
+
   return (
     <View style={{ flex: 1 }}>
       <Backdrop />
-      <View style={{ paddingTop: insets.top + 6, paddingHorizontal: 20 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <IconButton size={40} onPress={() => router.back()}>
-            <Icon name="close" size={18} color={C.body} />
+
+      {/* The HUD: which fight, which round, the clock and the hits landed */}
+      <View style={{ paddingTop: insets.top + 6, paddingHorizontal: SP.lg, paddingBottom: SP.md, gap: SP.sm, borderBottomWidth: 2, borderBottomColor: F.rope }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+          <IconButton size={HIT} onPress={() => router.back()} accessibilityLabel="Close workout">
+            <Icon name="close" size={20} color={F.chalk} tint={0} strokeWidth={2} />
           </IconButton>
-          <Txt face="mono" size={11} ls={0.16} color={C.muted}>{free ? 'GYM WORKOUT' : today ? `TODAY · ${plan.title.toUpperCase()}` : `EXTRA · ${plan.title.toUpperCase()}`}</Txt>
-          <Stamp text={`+${xp} XP`} color={xp ? C.warn : C.dim} tilt={0} />
+          <View accessibilityRole="header" style={{ flex: 1 }}>
+            <Txt face="labelItalic" w={600} size={14} ls={0.14} numberOfLines={1}>{title}</Txt>
+            <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} numberOfLines={1}>{round ? `ROUND ${round} OF ${exercises.length}` : 'NO ROUNDS YET'}</Txt>
+          </View>
+          <RoundStamp label={`+${xp} XP`} tone={xp ? 'accent' : 'outline'} size="sm" />
         </View>
-        {phase === 'past' ? (
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 18 }}>
-            <View style={{ gap: 6 }}>
-              <Txt face="mono" size={10} ls={0.14} color={C.muted}>HOW LONG IT TOOK</Txt>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Tap onPress={() => setMinutes(m => Math.max(5, m - 5))} style={{ width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, borderColor: C.line3, alignItems: 'center', justifyContent: 'center' }}>
-                  <Txt size={20} color={C.body}>−</Txt>
-                </Tap>
-                <Txt face="mono" size={40} ls={-0.04}>{`${minutes}`}<Txt face="mono" size={16} color={C.muted}> min</Txt></Txt>
-                <Tap onPress={() => setMinutes(m => Math.min(300, m + 5))} style={{ width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, borderColor: C.line3, alignItems: 'center', justifyContent: 'center' }}>
-                  <Txt size={20} color={C.body}>+</Txt>
-                </Tap>
+
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: SP.md }}>
+          {phase === 'past' ? (
+            <View style={{ gap: SP.xs }}>
+              <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>HOW LONG IT TOOK</Txt>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+                <IconButton size={HIT} onPress={() => setMinutes(m => Math.max(5, m - 5))} accessibilityLabel="5 minutes less">−</IconButton>
+                <View accessible accessibilityLabel={`${minutes} minutes`} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                  <Txt face="display" size={44} lh={1.1}>{`${minutes}`}</Txt>
+                  <Txt face="label" w={600} size={14} ls={0.1} color={F.smoke}>MIN</Txt>
+                </View>
+                <IconButton size={HIT} onPress={() => setMinutes(m => Math.min(300, m + 5))} accessibilityLabel="5 minutes more">+</IconButton>
               </View>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Txt face="mono" size={10} ls={0.14} color={C.muted}>SETS DONE</Txt>
-              <Txt size={30} w={300}>{done}<Txt size={30} w={300} color={C.dim}>{` / ${total}`}</Txt></Txt>
+          ) : (
+            <View style={{ alignItems: 'flex-start' }}>
+              <Txt face="label" w={600} size={12} ls={0.12} color={live ? accent : F.smoke}>{live ? 'TRAINING' : 'NOT STARTED'}</Txt>
+              <Txt face="display" size={56} lh={1.08} ls={0.01} color={live ? F.chalk : F.smoke} accessibilityLabel={`${Math.floor(elapsed / 60)} minutes ${elapsed % 60} seconds`}>{`${pad(Math.floor(elapsed / 60))}:${pad(elapsed % 60)}`}</Txt>
+            </View>
+          )}
+          <View accessible accessibilityLabel={`${done} of ${total} sets done`} style={{ alignItems: 'flex-end', paddingBottom: 4 }}>
+            <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>HITS LANDED</Txt>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+              <Txt face="display" size={36} lh={1.12} color={done ? accent : F.chalk}>{done}</Txt>
+              <Txt face="label" w={400} size={18} ls={0.03} color={F.smoke}>{`/ ${total}`}</Txt>
             </View>
           </View>
-        ) : (
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 18 }}>
-            <View>
-              <Txt face="mono" size={10} ls={0.14} color={phase === 'live' ? accent : C.muted}>{phase === 'live' ? 'TRAINING' : 'NOT STARTED'}</Txt>
-              <Txt face="mono" size={44} ls={-0.04} color={phase === 'live' ? C.text : C.ghost}>{`${pad(Math.floor(elapsed / 60))}:${pad(elapsed % 60)}`}</Txt>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Txt face="mono" size={10} ls={0.14} color={C.muted}>SETS DONE</Txt>
-              <Txt size={30} w={300}>{done}<Txt size={30} w={300} color={C.dim}>{` / ${total}`}</Txt></Txt>
-            </View>
-          </View>
-        )}
-        <View style={{ marginTop: 10 }}>
-          <Gauge pct={total ? done / total : 0} acc={accent} segments={24} height={6} />
         </View>
-        {phase === 'live' && !free ? <Txt size={13} lh={1.4} color={C.sub} style={{ marginTop: 10 }}>{sessionLine(total ? done / total : 0, plan)}</Txt> : null}
+
+        <MeterBar pct={total ? done / total : 0} segments={total > 1 && total <= 24 ? total : undefined} height={16} accessibilityLabel={`${done} of ${total} sets done`} />
+        {live && !free ? <Txt size={14} w={500} lh={1.4} color={F.smoke}>{sessionLine(total ? done / total : 0, plan)}</Txt> : null}
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 14, paddingHorizontal: 20, paddingBottom: 24, gap: 14 }} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: SP.lg, paddingHorizontal: SP.lg, paddingBottom: SP.xxl, gap: SP.lg }} keyboardShouldPersistTaps="handled">
         {!exercises.length ? (
-          <TodayPlan plan={today} next={next} acc={accent} byRei={!!s.program} onUse={usePlan} onBuild={() => setAdding(true)} />
+          <TodayPlan plan={today} next={next} byRei={!!s.program} onUse={usePlan} onBuild={() => setAdding(true)} />
         ) : (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Txt face="mono" size={9.5} ls={0.12} color={C.faint} style={{ flex: 1 }}>TAP ✓ WHEN A SET IS DONE · TAP NUMBERS TO CHANGE · TAP A NAME FOR FORM TIPS</Txt>
-            <Tap onPress={() => router.push({ pathname: '/talk', params: { draft: 'Change today’s workout: ' } })} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Icon name="rei" size={14} color={accent} />
-              <Txt size={12} color={accent}>Ask REI</Txt>
-            </Tap>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+            <Txt face="label" w={400} size={12} ls={0.1} lh={1.3} color={F.smoke} style={{ flex: 1 }}>TAP THE TICK WHEN A SET LANDS · TAP NUMBERS TO CHANGE · TAP A NAME FOR FORM TIPS</Txt>
+            <QuietButton lit icon="rei" label="Ask REI" accessibilityLabel="Ask REI to change today's workout" onPress={() => router.push({ pathname: '/talk', params: { draft: 'Change today’s workout: ' } })} />
           </View>
         )}
+
         {exercises.map((ex, i) => {
           const r = rows[i];
           const n = r.done.filter(Boolean).length;
+          const won = n === r.done.length;
           return (
-            <Panel key={`${i}-${ex.name}`} acc={n ? accent : C.muted} tone={n ? 0.35 : 0.15} dots={false} pad={14}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Tap haptic={false} onPress={() => setInfo(i)} style={{ flex: 1 }}>
-                  <Txt size={17} w={600} numberOfLines={1}>{ex.name}</Txt>
-                  <Txt face="mono" size={10} color={C.dim}>{last[liftKey(ex.name)] ?? (ex.last || 'FIRST TIME · TAP FOR FORM TIPS')}</Txt>
+            <View key={`${i}-${ex.name}`} style={{ backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: won ? accent : n ? F.chalk : F.rope, paddingVertical: SP.md, paddingLeft: SP.md, paddingRight: SP.sm, gap: SP.md }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
+                <Tap haptic={false} onPress={() => setInfo(i)} accessibilityLabel={`Round ${i + 1}, ${ex.name}. ${n} of ${r.done.length} sets done`} accessibilityHint="Form tips and swaps" style={{ flex: 1, minHeight: HIT, justifyContent: 'center', gap: 2 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
+                    <Txt face="labelItalic" w={600} size={12} ls={0.14} color={i + 1 === round && !won ? accent : F.smoke}>{`ROUND ${i + 1}`}</Txt>
+                    <View style={{ flexDirection: 'row', gap: 3 }}>
+                      {r.done.slice(0, 10).map((v, j) => <CutShape key={j} width={9} height={12} fill={v ? (isPr(i, j) ? F.gold : F.chalk) : F.rope} />)}
+                    </View>
+                  </View>
+                  <Txt size={17} w={600} lh={1.25} numberOfLines={1}>{ex.name}</Txt>
+                  <Txt face="label" w={400} size={12} ls={0.08} color={F.smoke} numberOfLines={1}>{(last[liftKey(ex.name)] ?? (ex.last || 'First time · tap for form tips')).toUpperCase()}</Txt>
                 </Tap>
-                <Stamp text={n ? `+${exerciseXp(n)} XP` : `${r.done.length} sets`} color={n ? C.warn : C.muted} tilt={0} size={8.5} />
-                <Tap onPress={() => removeExercise(i)} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="close" size={14} color={C.faint} />
+                {won ? <RoundStamp label={`+${exerciseXp(n)} XP`} size="sm" /> : <RoundStamp label={n ? `+${exerciseXp(n)} XP` : `${r.done.length} sets`} tone={n ? 'accent' : 'outline'} size="sm" />}
+                <Tap onPress={() => removeExercise(i)} accessibilityLabel={`Remove ${ex.name}`} style={{ width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="close" size={16} color={F.smoke} tint={0} strokeWidth={2} />
                 </Tap>
               </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 6, paddingHorizontal: 2 }}>
-                <Txt face="mono" size={9} ls={0.14} color={C.faint} style={{ width: 30 }}>SET</Txt>
-                <Txt face="mono" size={9} ls={0.14} color={C.faint} style={{ flex: 1.15, textAlign: 'center' }}>WEIGHT · KG</Txt>
-                <Txt face="mono" size={9} ls={0.14} color={C.faint} style={{ flex: 1, textAlign: 'center' }}>REPS</Txt>
-                <View style={{ width: 46 }} />
-              </View>
-              <View style={{ gap: 6 }}>
+
+              <View style={{ gap: SP.xs, paddingRight: SP.xs }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm, paddingHorizontal: 6 }}>
+                  <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} style={{ width: 30 }}>SET</Txt>
+                  <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} align="center" style={{ flex: 1.15 }}>WEIGHT · KG</Txt>
+                  <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} align="center" style={{ flex: 1 }}>REPS</Txt>
+                  <View style={{ width: 52 }} />
+                </View>
                 {r.reps.map((reps, j) => (
                   <SetRow
                     key={j}
@@ -265,96 +285,91 @@ export default function Session() {
                   />
                 ))}
               </View>
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                <Tap onPress={() => addSet(i)} style={{ flex: 1, height: 40, borderRadius: 10, borderWidth: 1.5, borderStyle: 'dashed', borderColor: alpha(accent, 0.5), alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
-                  <Icon name="plus" size={15} color={accent} />
-                  <Txt size={13} w={500} color={accent}>Add set</Txt>
-                </Tap>
-                {r.reps.length > 1 && !r.done[r.done.length - 1] ? (
-                  <Tap onPress={() => dropSet(i)} style={{ height: 40, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1.5, borderColor: C.line3, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
-                    <Icon name="close" size={13} color={C.muted} />
-                    <Txt size={13} color={C.muted}>Last set</Txt>
-                  </Tap>
-                ) : null}
+
+              <View style={{ flexDirection: 'row', gap: SP.sm, paddingRight: SP.xs }}>
+                <QuietButton icon="plus" label="Add set" onPress={() => addSet(i)} accessibilityLabel={`Add a set to ${ex.name}`} style={{ flex: 1 }} />
+                {r.reps.length > 1 && !r.done[r.done.length - 1] ? <QuietButton icon="close" label="Last set" onPress={() => dropSet(i)} accessibilityLabel={`Remove the last set of ${ex.name}`} /> : null}
               </View>
-            </Panel>
+            </View>
           );
         })}
 
-        {exercises.length ? (
-          <Tap onPress={() => setAdding(true)} style={{ height: 56, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: alpha(accent, 0.6), alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
-            <Icon name="plus" size={18} color={accent} />
-            <Txt size={15} w={500} color={accent}>Add exercise</Txt>
-          </Tap>
-        ) : null}
+        {exercises.length ? <QuietButton icon="plus" label="Add exercise" onPress={() => setAdding(true)} style={{ minHeight: 52 }} /> : null}
       </ScrollView>
 
-      {rest && phase === 'live' ? (
-        <View style={{ marginHorizontal: 20, marginBottom: 10, padding: 14, borderRadius: 14, borderWidth: 1.5, borderColor: restLeft ? C.line3 : accent, backgroundColor: '#0D0F13', gap: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Icon name="timer" size={20} color={restLeft ? C.muted : accent} />
-              <Txt face="mono" size={24} color={restLeft ? C.text : accent}>{restLeft ? clock(restLeft) : 'Next set'}</Txt>
+      {/* The round break */}
+      {rest && live ? (
+        <View accessibilityLiveRegion="polite" style={{ marginHorizontal: SP.lg, marginBottom: SP.sm, padding: SP.md, backgroundColor: F.canvas, borderWidth: 2, borderColor: restLeft ? F.rope : accent, gap: SP.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SP.md }}>
+            <View style={{ alignItems: 'flex-start', flexShrink: 1 }}>
+              <Txt face="labelItalic" w={600} size={12} ls={0.14} color={restLeft ? F.smoke : accent}>{restLeft ? 'ROUND BREAK' : 'BELL'}</Txt>
+              <Txt face="display" size={32} lh={1.15} color={restLeft ? F.chalk : accent} accessibilityLabel={restLeft ? `Rest, ${restLeft} seconds left` : 'Rest over. Next set'}>{restLeft ? clock(restLeft) : 'NEXT SET'}</Txt>
             </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {restLeft ? (
-                <Tap onPress={() => setRest(x => (x ? { ...x, endsAt: x.endsAt + 30000, total: x.total + 30 } : x))} style={{ height: 34, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: C.line3, justifyContent: 'center' }}>
-                  <Txt face="mono" size={12} color={C.body}>+30</Txt>
-                </Tap>
-              ) : null}
-              <Tap onPress={() => setRest(null)} style={{ height: 34, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: C.line3, justifyContent: 'center' }}>
-                <Txt face="mono" size={12} color={C.body}>{restLeft ? 'SKIP' : 'OK'}</Txt>
-              </Tap>
+            <View style={{ flexDirection: 'row', gap: SP.sm }}>
+              {restLeft ? <QuietButton label="+30" accessibilityLabel="Rest 30 seconds longer" onPress={() => setRest(x => (x ? { ...x, endsAt: x.endsAt + 30000, total: x.total + 30 } : x))} style={{ minWidth: 56 }} /> : null}
+              <QuietButton label={restLeft ? 'Skip' : 'OK'} accessibilityLabel={restLeft ? 'Skip the rest' : 'Dismiss'} onPress={() => setRest(null)} style={{ minWidth: 56 }} />
             </View>
           </View>
-          <Gauge pct={restLeft / rest.total} acc={accent} segments={24} height={4} />
+          <MeterBar pct={1 - restLeft / rest.total} height={8} accessibilityLabel="Rest timer" />
         </View>
       ) : null}
 
-      <View style={{ paddingTop: 12, paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 20), borderTopWidth: 1, borderTopColor: C.line, gap: 10 }}>
+      <View style={{ paddingTop: SP.md, paddingHorizontal: SP.lg, paddingBottom: Math.max(insets.bottom, SP.lg), borderTopWidth: 2, borderTopColor: F.rope, backgroundColor: F.arena, gap: SP.sm }}>
         {phase === 'ready' ? (
           <>
-            <Tap onPress={start} disabled={!exercises.length} style={{ height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, backgroundColor: exercises.length ? accent : '#14161A' }}>
-              <Icon name="timer" size={20} color={exercises.length ? C.ink : C.dim} tint={0} strokeWidth={2} />
-              <Txt size={17} w={600} color={exercises.length ? C.ink : C.dim}>{exercises.length ? 'Start workout' : 'Pick exercises first'}</Txt>
-            </Tap>
-            <Tap onPress={() => setPhase('past')} disabled={!exercises.length} style={{ height: 44, borderRadius: 12, borderWidth: 1.5, borderColor: C.line3, alignItems: 'center', justifyContent: 'center' }}>
-              <Txt size={14} color={exercises.length ? C.body : C.dim}>Already done? Log it without the timer</Txt>
+            <CutButton icon="timer" label={exercises.length ? 'Start workout' : 'Pick exercises first'} meta={exercises.length ? `${exercises.length} round${exercises.length === 1 ? '' : 's'}` : undefined} disabled={!exercises.length} onPress={start} />
+            <Tap onPress={() => setPhase('past')} disabled={!exercises.length} style={{ minHeight: HIT, alignItems: 'center', justifyContent: 'center' }}>
+              <Txt face="label" w={600} size={14} ls={0.08} color={exercises.length ? F.chalk : C.faint} align="center">ALREADY DONE? LOG IT WITHOUT THE TIMER</Txt>
             </Tap>
           </>
         ) : (
-          <Tap onPress={complete} disabled={!done} style={{ height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, backgroundColor: done ? accent : '#14161A' }}>
-            <Icon name="check" size={20} color={done ? C.ink : C.dim} tint={0} strokeWidth={2.2} />
-            <Txt size={17} w={600} color={done ? C.ink : C.dim}>{done ? `${phase === 'past' ? 'Save workout' : 'Finish workout'} · +${xp} XP` : 'Tick the sets you did'}</Txt>
-          </Tap>
+          <CutButton icon="check" label={done ? (phase === 'past' ? 'Save workout' : 'Finish workout') : 'Tick the sets you did'} meta={done ? `+${xp} XP` : undefined} disabled={!done} onPress={complete} />
         )}
       </View>
 
-      <AddExercise open={adding} onClose={() => setAdding(false)} onAdd={add} onRemove={unadd} have={exercises.map(e => liftKey(e.name))} planned={plan.exercises.map(e => e.name)} planTitle={today ? `${dayName()} · ${today.title}` : next ? `Next · ${next.day} · ${next.plan.title}` : plan.title} yours={Object.values(best).sort((a, b) => (a.lastDate < b.lastDate ? 1 : -1)).slice(0, 8).map(r => r.name)} />
+      <AddExercise open={adding} onClose={() => setAdding(false)} onAdd={add} onRemove={unadd} have={exercises.map(e => liftKey(e.name))} planned={plan.exercises.map(e => e.name)} planTitle={today ? `${dayName()} · ${today.title}` : next ? `Next · ${next.day} · ${next.plan.title}` : plan.title} yours={Object.values(best).sort((a, b) => (a.lastDate < b.lastDate ? 1 : -1)).slice(0, 8).map(r => r.name)}>
+        {/* Inside the picker's modal, so it shows on top of it. */}
+        <ConfirmSheet
+          open={!!asking}
+          title={`Remove ${asking?.name ?? ''}?`}
+          message={asking ? `You've ticked ${asking.ticked} set${asking.ticked > 1 ? 's' : ''} on it.` : undefined}
+          confirmLabel="Remove"
+          cancelLabel="Keep it"
+          destructive
+          onConfirm={confirmRemove}
+          onClose={() => setAsking(null)}
+        />
+      </AddExercise>
       <ExerciseSheet name={info === null ? null : exercises[info]?.name ?? null} onClose={() => setInfo(null)} onSwap={to => info !== null && swap(info, to)} />
     </View>
   );
 }
 
-/** One set: weight and reps you can step or type, and the done button. Bodyweight shows BW until a load is added. */
+/** One set: weight and reps you can step or type, and the hit button. Bodyweight shows BW until a load is added. */
 function SetRow({ n, kg, reps, done, pr, acc, onKg, onReps, onToggle }: { n: number; kg: number | null; reps: number; done: boolean; pr: boolean; acc: string; onKg: (v: number | null) => void; onReps: (v: number) => void; onToggle: () => void }) {
-  const lit = pr ? C.warn : acc;
+  const lit = pr ? F.gold : acc;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 6, borderRadius: 12, borderWidth: 1.5, borderColor: done ? lit : C.line3, backgroundColor: done ? '#12171B' : '#0B0D10' }}>
-      <View style={{ width: 26, height: 26, borderRadius: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? lit : '#16191E' }}>
-        <Txt face="mono" size={pr ? 9 : 12} w={600} color={done ? C.ink : C.muted}>{pr ? 'PR' : String(n)}</Txt>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm, padding: 4, borderWidth: 2, borderColor: done ? lit : F.rope, backgroundColor: done ? F.canvas2 : F.arena }}>
+      <View accessible accessibilityLabel={pr ? `Set ${n}, personal record` : `Set ${n}`} style={{ width: 30, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+        <CutShape width={30} height={24} fill={done ? lit : F.canvas2} style={{ position: 'absolute', left: 0, top: 0 }} />
+        <Txt face="label" w={600} size={pr ? 12 : 14} color={done ? onColor(lit) : F.smoke}>{pr ? 'PR' : String(n)}</Txt>
       </View>
-      <Stepper flex={1.15} value={kg} step={2.5} min={0} decimals onChange={v => onKg(v === 0 ? null : v)} empty="BW" />
-      <Stepper flex={1} value={reps} step={1} min={1} onChange={v => onReps(Math.max(1, Math.round(v ?? 1)))} />
-      <Tap haptic={false} onPress={onToggle} style={{ width: 46, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? lit : 'transparent', borderWidth: 1.5, borderColor: done ? lit : alpha(acc, 0.45) }}>
-        <Icon name="check" size={20} color={done ? C.ink : acc} tint={0} strokeWidth={2.4} />
+      <Stepper flex={1.15} what={`Set ${n} weight`} value={kg} step={2.5} min={0} decimals onChange={v => onKg(v === 0 ? null : v)} empty="BW" />
+      <Stepper flex={1} what={`Set ${n} reps`} value={reps} step={1} min={1} onChange={v => onReps(Math.max(1, Math.round(v ?? 1)))} />
+      <Tap haptic={false} onPress={onToggle} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`Set ${n} done`} style={{ width: 52, height: HIT }}>
+        <CutBox fill={done ? lit : F.arena} stroke={done ? undefined : acc} style={{ width: 52, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
+          {/* In a View so it stacks above the cut shape on the web too. */}
+          <View>
+            <Icon name="check" size={22} color={done ? onColor(lit) : acc} tint={0} strokeWidth={2.6} />
+          </View>
+        </CutBox>
       </Tap>
     </View>
   );
 }
 
 /** − value + with the value typeable. `empty` is shown for null (bodyweight). */
-function Stepper({ value, step, min, onChange, empty, decimals, flex }: { value: number | null; step: number; min: number; onChange: (v: number | null) => void; empty?: string; decimals?: boolean; flex: number }) {
+function Stepper({ value, step, min, onChange, empty, decimals, flex, what }: { value: number | null; step: number; min: number; onChange: (v: number | null) => void; empty?: string; decimals?: boolean; flex: number; what: string }) {
   const s = useStore();
   const [text, setText] = useState<string | null>(null);
   const shown = text ?? (value == null ? '' : String(+value.toFixed(2)));
@@ -364,16 +379,17 @@ function Stepper({ value, step, min, onChange, empty, decimals, flex }: { value:
     setText(null);
     onChange(v);
   };
-  const btn = { width: 28, height: 40, alignItems: 'center' as const, justifyContent: 'center' as const };
+  const btn = { width: 32, height: HIT, alignItems: 'center' as const, justifyContent: 'center' as const };
   return (
-    <View style={{ flex, flexDirection: 'row', alignItems: 'center', borderRadius: 10, backgroundColor: '#16191E' }}>
-      <Tap haptic={false} onPress={() => bump(-step)} style={btn}>
-        <Txt size={18} color={C.muted}>−</Txt>
+    <View style={{ flex, flexDirection: 'row', alignItems: 'center', backgroundColor: F.canvas2 }}>
+      <Tap haptic={false} onPress={() => bump(-step)} accessibilityLabel={`${what}: ${step} less`} style={btn}>
+        <Txt size={20} w={600} color={F.smoke}>−</Txt>
       </Tap>
       <TextInput
         value={shown}
         placeholder={empty}
-        placeholderTextColor={C.muted}
+        placeholderTextColor={F.smoke}
+        accessibilityLabel={what}
         onChangeText={t => {
           setText(t);
           const v = parseFloat(t.replace(',', '.'));
@@ -384,87 +400,68 @@ function Stepper({ value, step, min, onChange, empty, decimals, flex }: { value:
         keyboardType={decimals ? 'decimal-pad' : 'number-pad'}
         keyboardAppearance="dark"
         selectTextOnFocus
-        style={{ flex: 1, minWidth: 0, height: 40, padding: 0, textAlign: 'center', fontFamily: fontFamily('mono', 500), fontSize: 16 * s.settings.textSize, color: C.text }}
+        style={{ flex: 1, minWidth: 0, height: HIT, padding: 0, textAlign: 'center', fontFamily: fontFamily('display', 400), fontSize: 20 * s.settings.textSize, color: F.chalk }}
       />
-      <Tap haptic={false} onPress={() => bump(step)} style={btn}>
-        <Txt size={18} color={C.muted}>+</Txt>
+      <Tap haptic={false} onPress={() => bump(step)} accessibilityLabel={`${what}: ${step} more`} style={btn}>
+        <Txt size={20} w={600} color={F.smoke}>+</Txt>
       </Tap>
     </View>
   );
 }
 
+/** "4 × 6 · 82.5 kg" → the loud part ("4 × 6") and the quiet part ("82.5 kg"). */
+const splitTarget = (target: string): [string, string | undefined] => {
+  const [value, ...rest] = target.split(' · ');
+  return [value, rest.length ? rest.join(' · ') : undefined];
+};
+
 /** Today's session as REI planned it: use it as is, ask REI to change it, or build your own. */
-function TodayPlan({ plan, next, acc, byRei, onUse, onBuild }: { plan: SessionPlan | null; next: { day: string; plan: SessionPlan } | null; acc: string; byRei: boolean; onUse: (p: SessionPlan) => void; onBuild: () => void }) {
+function TodayPlan({ plan, next, byRei, onUse, onBuild }: { plan: SessionPlan | null; next: { day: string; plan: SessionPlan } | null; byRei: boolean; onUse: (p: SessionPlan) => void; onBuild: () => void }) {
+  const askRei = () => router.push({ pathname: '/talk', params: { draft: 'Change today’s workout: ' } });
   return (
     <>
-      <Heading icon="today" title={`${dayName()}'s plan`} acc={acc} right={byRei ? 'WRITTEN BY REI' : 'DEFAULT SPLIT'} />
+      <SectionHeader title={`${dayName()}'s plan`} meta={byRei ? 'Written by REI' : 'Default split'} />
       {plan ? (
-        <Panel acc={acc} pad={16}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{ width: 46, height: 46, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#12171B', borderWidth: 1.5, borderColor: acc }}>
-              <Icon name={SESSION_ICON[plan.key]} size={26} color={acc} tint={0.3} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Txt size={22} w={600}>{plan.title}</Txt>
-              <Txt size={12} color={C.sub}>{plan.sub}</Txt>
-            </View>
+        <View style={{ gap: SP.md }}>
+          <View style={{ alignItems: 'flex-start', gap: 2 }}>
+            <Txt face="display" size={32} lh={1.15}>{plan.title.toUpperCase()}</Txt>
+            <Txt size={14} w={500} lh={1.4} color={F.smoke}>{plan.sub}</Txt>
           </View>
-          <View style={{ marginTop: 14, gap: 2 }}>
-            {plan.exercises.map((e, i) => (
-              <View key={e.name} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: i ? 1 : 0, borderTopColor: C.line }}>
-                <Txt face="mono" size={11} color={C.dim} style={{ width: 18 }}>{String(i + 1)}</Txt>
-                <Txt size={15} style={{ flex: 1 }} numberOfLines={1}>{e.name}</Txt>
-                <Txt face="mono" size={11} color={C.muted}>{e.target}</Txt>
-              </View>
-            ))}
+          <View style={{ gap: SP.xs }}>
+            {plan.exercises.map((e, i) => {
+              const [value, detail] = splitTarget(e.target);
+              return <MoveRow key={e.name} index={i + 1} name={e.name} detail={detail} value={value} />;
+            })}
           </View>
-          <Tap onPress={() => onUse(plan)} style={{ marginTop: 14, height: 50, borderRadius: 12, backgroundColor: acc, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
-            <Icon name="check" size={18} color={C.ink} tint={0} strokeWidth={2.2} />
-            <Txt size={16} w={600} color={C.ink}>Use today’s plan</Txt>
-          </Tap>
-          <Tap onPress={() => router.push({ pathname: '/talk', params: { draft: 'Change today’s workout: ' } })} style={{ marginTop: 10, height: 44, borderRadius: 12, borderWidth: 1.5, borderColor: alpha(acc, 0.5), alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
-            <Icon name="rei" size={16} color={acc} />
-            <Txt size={14} color={acc}>Ask REI to change it</Txt>
-          </Tap>
-        </Panel>
+          <CutButton size="md" icon="check" label="Use today’s plan" meta={`${plan.exercises.length} rounds`} onPress={() => onUse(plan)} />
+          <QuietButton lit icon="rei" label="Ask REI to change it" onPress={askRei} />
+        </View>
       ) : (
-        <Panel acc={C.muted} tone={0.2} pad={16}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Icon name="sleep" size={30} color={C.muted} />
-            <View style={{ flex: 1 }}>
-              <Txt size={18} w={600}>{`${dayName()} · Rest day`}</Txt>
-              <Txt size={13} color={C.sub}>REI planned recovery today. Training anyway? Pull your next session forward or build your own.</Txt>
-            </View>
+        <View style={{ gap: SP.md }}>
+          <View style={{ alignItems: 'flex-start', gap: SP.xs }}>
+            <Txt face="display" size={28} lh={1.2}>{`${dayName()} · REST DAY`.toUpperCase()}</Txt>
+            <Txt size={14} w={500} lh={1.4} color={F.smoke}>REI planned recovery today. Training anyway? Pull your next session forward or build your own.</Txt>
           </View>
           {next ? (
             <>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, padding: 12, borderRadius: 10, backgroundColor: '#14161A' }}>
-                <Icon name={SESSION_ICON[next.plan.key]} size={22} color={acc} />
-                <View style={{ flex: 1 }}>
-                  <Txt face="mono" size={9.5} ls={0.14} color={C.muted}>{`NEXT UP · ${next.day.toUpperCase()}`}</Txt>
-                  <Txt size={16} w={600}>{next.plan.title}</Txt>
-                  <Txt size={12} color={C.sub} numberOfLines={1}>{next.plan.exercises.map(e => e.name).join(' · ')}</Txt>
-                </View>
+              <View style={{ backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: F.rope, padding: SP.md, gap: 2 }}>
+                <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{`NEXT UP · ${next.day.toUpperCase()}`}</Txt>
+                <Txt size={17} w={600}>{next.plan.title}</Txt>
+                <Txt size={13} w={500} color={F.smoke} numberOfLines={1}>{next.plan.exercises.map(e => e.name).join(' · ')}</Txt>
               </View>
-              <Tap onPress={() => onUse(next.plan)} style={{ marginTop: 10, height: 46, borderRadius: 12, borderWidth: 1.5, borderColor: acc, alignItems: 'center', justifyContent: 'center' }}>
-                <Txt size={15} w={600} color={acc}>{`Do ${next.day}'s ${next.plan.title} today`}</Txt>
-              </Tap>
+              <CutButton size="md" label={`Do ${next.day}'s ${next.plan.title} today`} onPress={() => onUse(next.plan)} />
             </>
           ) : null}
-        </Panel>
+        </View>
       )}
-      <Tap onPress={onBuild} style={{ height: 56, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.line3, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
-        <Icon name="plus" size={18} color={C.body} />
-        <Txt size={15} w={500} color={C.body}>Build my own workout</Txt>
-      </Tap>
+      <QuietButton icon="plus" label="Build my own workout" onPress={onBuild} style={{ minHeight: 52 }} />
     </>
   );
 }
 
-/** Pick exercises: your lifts, today's plan, a muscle group, or search the whole library. */
-function AddExercise({ open, onClose, onAdd, onRemove, have, planned, planTitle, yours }: { open: boolean; onClose: () => void; onAdd: (name: string) => void; onRemove: (name: string) => void; have: string[]; planned: string[]; planTitle: string; yours: string[] }) {
-  const s = useStore();
-  const { accent, theme } = s;
+/** Pick exercises: your lifts, today's plan, a muscle group, or search the whole library. `children` render inside the modal (a confirm on top of it). */
+function AddExercise({ open, onClose, onAdd, onRemove, have, planned, planTitle, yours, children }: { open: boolean; onClose: () => void; onAdd: (name: string) => void; onRemove: (name: string) => void; have: string[]; planned: string[]; planTitle: string; yours: string[]; children?: ReactNode }) {
+  const accent = useStore(s => s.accent);
   const insets = useSafeAreaInsets();
   const [group, setGroup] = useState<string>('chest');
   const [q, setQ] = useState('');
@@ -473,89 +470,69 @@ function AddExercise({ open, onClose, onAdd, onRemove, have, planned, planTitle,
     ? searchExercises(q, 24).filter(e => e.category !== 'stretching').map(e => e.name)
     : group === 'plan' ? planned : group === 'yours' ? yours : g?.lifts ?? [];
   const title = q.trim() ? `Results for “${q.trim()}”` : group === 'plan' ? `Today · ${planTitle}` : group === 'yours' ? 'Your lifts' : g?.name ?? '';
-  const iconFor = (id: string) => (id === 'plan' ? 'today' : id === 'yours' ? 'log' : PICK_GROUPS.find(x => x.id === id)?.icon ?? 'gym');
   return (
     <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: theme.bg }}>
-        <View style={{ paddingTop: 18, paddingHorizontal: 20, paddingBottom: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: C.line }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{ width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#12171B', borderWidth: 1.5, borderColor: alpha(accent, 0.5), transform: [{ rotate: '-4deg' }] }}>
-              <Icon name="gym" size={22} color={accent} tint={0.3} />
+      <View style={{ flex: 1, backgroundColor: F.arena }}>
+        <View style={{ paddingTop: SP.lg, paddingHorizontal: SP.lg, paddingBottom: SP.md, gap: SP.md, borderBottomWidth: 2, borderBottomColor: F.rope }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+            <View style={{ flex: 1, alignItems: 'flex-start' }}>
+              <View accessibilityRole="header">
+                <Txt face="display" size={26} lh={1.2}>ADD EXERCISES</Txt>
+              </View>
+              <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{`${have.length} IN THIS WORKOUT · TAP AGAIN TO REMOVE`}</Txt>
             </View>
-            <View style={{ flex: 1 }}>
-              <Txt size={22} w={600}>Add exercises</Txt>
-              <Txt face="mono" size={9.5} ls={0.14} color={C.muted}>{`${have.length} IN THIS WORKOUT · TAP AGAIN TO REMOVE`}</Txt>
-            </View>
-            <Tap onPress={onClose} style={{ height: 38, paddingHorizontal: 16, borderRadius: 10, backgroundColor: accent, justifyContent: 'center' }}>
-              <Txt size={15} w={600} color={C.ink}>Done</Txt>
+            <Tap onPress={onClose} accessibilityLabel="Done adding exercises" style={{ minHeight: HIT, minWidth: 72, paddingHorizontal: SP.lg, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}>
+              <Txt face="display" lean={false} size={18} ls={0.04} color={onColor(accent)}>DONE</Txt>
             </Tap>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, height: 48, borderRadius: 12, borderWidth: 1.5, borderColor: q ? alpha(accent, 0.6) : C.line3, paddingHorizontal: 14, backgroundColor: '#0D0F13' }}>
-            <Icon name="search" size={18} color={C.muted} tint={0} />
-            <TextInput
-              value={q}
-              onChangeText={setQ}
-              placeholder="Search 750+ exercises"
-              placeholderTextColor={C.dim}
-              keyboardAppearance="dark"
-              style={{ flex: 1, fontFamily: fontFamily(s.settings.font, 400), fontSize: 16, color: C.text }}
-            />
+          <View>
+            <Field value={q} onChangeText={setQ} placeholder="Search 750+ exercises" accessibilityLabel="Search exercises" autoCorrect={false} />
             {q ? (
-              <Tap onPress={() => setQ('')}>
-                <Icon name="close" size={16} color={C.muted} />
+              <Tap onPress={() => setQ('')} accessibilityLabel="Clear search" style={{ position: 'absolute', right: 2, top: 2, width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="close" size={16} color={F.smoke} tint={0} strokeWidth={2} />
               </Tap>
             ) : null}
           </View>
         </View>
-        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 30, gap: 16 }} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ padding: SP.lg, paddingBottom: insets.bottom + SP.huge, gap: SP.lg }} keyboardShouldPersistTaps="handled">
           {!q.trim() ? (
             <>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: SP.sm }}>
                 {([['plan', 'Today’s plan', planTitle], ['yours', 'Your lifts', yours.length ? `${yours.length} logged` : 'none yet']] as const).map(([id, label, sub]) => (
-                  <Tile key={id} icon={iconFor(id)} label={label} sub={sub} acc={accent} hot={group === id} onPress={() => setGroup(id)} />
+                  <Chip key={id} label={label} sub={sub} on={group === id} onPress={() => setGroup(id)} style={{ flex: 1, minHeight: 52 }} />
                 ))}
               </View>
-              <Heading icon="fist" title="By muscle" acc={accent} />
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                {PICK_GROUPS.map(x => {
-                  const on = group === x.id;
-                  return (
-                    <Tap key={x.id} onPress={() => setGroup(x.id)} style={{ width: '31%', flexGrow: 1 }}>
-                      <View style={{ height: 74, borderRadius: 12, borderWidth: 1.5, borderColor: on ? accent : C.line3, backgroundColor: on ? '#12171B' : '#0D0F13', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                        <Icon name={x.icon} size={24} color={on ? accent : C.muted} tint={on ? 0.3 : 0.1} />
-                        <Txt size={13} w={600} color={on ? C.text : C.body}>{x.name}</Txt>
-                      </View>
-                    </Tap>
-                  );
-                })}
+              <SectionHeader title="By muscle" />
+              <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm }}>
+                {PICK_GROUPS.map(x => <Chip key={x.id} label={x.name} on={group === x.id} onPress={() => setGroup(x.id)} style={{ width: '31%', flexGrow: 1, alignItems: 'center' }} />)}
               </View>
             </>
           ) : null}
-          <Heading icon={q.trim() ? 'search' : iconFor(group)} title={title} acc={accent} right={`${list.length}`} />
-          <View style={{ gap: 8 }}>
+          <SectionHeader title={title} meta={`${list.length}`} />
+          <View style={{ gap: SP.xs }}>
             {list.map((name, i) => {
               const added = have.includes(liftKey(name));
               const lib = findExercise(name);
               return (
-                <Tap key={`${name}-${i}`} onPress={() => (added ? onRemove(name) : onAdd(name))}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: added ? accent : C.line3, backgroundColor: added ? '#12171B' : '#0D0F13' }}>
-                    <Icon name={isBodyweight(name) ? 'fist' : 'gym'} size={22} color={added ? accent : C.body} />
+                <Tap key={`${name}-${i}`} onPress={() => (added ? onRemove(name) : onAdd(name))} accessibilityRole="checkbox" accessibilityState={{ checked: added }} accessibilityLabel={`${name}${added ? ', added' : ''}`}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: 52, paddingVertical: SP.sm, paddingLeft: SP.md, paddingRight: SP.sm, backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: added ? accent : F.canvas }}>
                     <View style={{ flex: 1 }}>
-                      <Txt size={15} w={600} color={C.text}>{name}</Txt>
-                      {lib ? <Txt face="mono" size={9.5} ls={0.06} color={C.dim}>{[lib.primary.join(', '), lib.equipment].filter(Boolean).join(' · ').toUpperCase()}</Txt> : null}
+                      <Txt size={15} w={600} lh={1.3}>{name}</Txt>
+                      {lib ? <Txt face="label" w={400} size={12} ls={0.08} color={F.smoke} numberOfLines={1}>{[lib.primary.join(', '), lib.equipment].filter(Boolean).join(' · ').toUpperCase()}</Txt> : null}
                     </View>
-                    {added ? <Txt face="mono" size={9} ls={0.12} color={accent}>ADDED</Txt> : null}
-                    <View style={{ width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: added ? accent : '#14161A', borderWidth: 1.5, borderColor: added ? accent : C.line3 }}>
-                      <Icon name={added ? 'check' : 'plus'} size={16} color={added ? C.ink : C.body} tint={0} strokeWidth={2.2} />
+                    {added ? <Txt face="label" w={600} size={12} ls={0.12} color={accent}>ADDED</Txt> : null}
+                    <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: added ? accent : F.arena, borderWidth: 2, borderColor: added ? accent : F.rope }}>
+                      <Icon name={added ? 'check' : 'plus'} size={18} color={added ? onColor(accent) : F.chalk} tint={0} strokeWidth={2.2} />
                     </View>
                   </View>
                 </Tap>
               );
             })}
-            {!list.length ? <Txt size={14} color={C.dim}>{group === 'yours' && !q ? 'Lifts you log show up here.' : 'Nothing found. Try another word.'}</Txt> : null}
+            {!list.length ? <Txt size={14} w={500} color={F.smoke}>{group === 'yours' && !q ? 'Lifts you log show up here.' : 'Nothing found. Try another word.'}</Txt> : null}
           </View>
         </ScrollView>
       </View>
+      {children}
     </Modal>
   );
 }
