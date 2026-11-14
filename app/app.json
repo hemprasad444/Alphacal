@@ -26,7 +26,8 @@
           }
         }
       },
-      "bitcode": false
+      "bitcode": false,
+      "buildNumber": "2"
     },
     "android": {
       "package": "com.alphacal.rei",
