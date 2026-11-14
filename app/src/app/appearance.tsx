@@ -4,7 +4,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { Screen, SubHeader } from '../components/Screen';
 import { Icon } from '../components/icons';
 import { Card, Label, Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
-import { ACCENT_EXTRAS, alpha, C, DEFAULT_EMBLEM, EMBLEMS, FONT_KEYS, fontFamily, THEMES, type Theme } from '../lib/theme';
+import { ACCENT_EXTRAS, C, DEFAULT_EMBLEM, EMBLEMS, THEMES, type Theme } from '../lib/theme';
 import { useStore } from '../state/store';
 
 const TEXT_SIZES: [number, string, number][] = [[0.82, 'SMALLEST', 11], [0.9, 'SMALL', 13], [1, 'DEFAULT', 15], [1.08, 'LARGE', 17]];
@@ -58,9 +58,9 @@ export default function Appearance() {
         </View>
       </Card>
 
-      <Label style={{ marginTop: 30 }}>THEME</Label>
+      <Label style={{ marginTop: 30 }}>WORLD</Label>
       <Card style={{ marginTop: 10, padding: 16 }}>
-        <Txt size={16}>Theme</Txt>
+        <Txt size={16}>Your corner</Txt>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
           {THEMES.map(t => {
             const on = theme.id === t.id;
@@ -94,23 +94,10 @@ export default function Appearance() {
           })}
         </View>
 
-        <Txt size={16} style={{ marginTop: 22 }}>Typeface</Txt>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-          {FONT_KEYS.map(k => {
-            const on = settings.font === k;
-            return (
-              <Tap key={k} onPress={() => s.setOpt('font', k)} style={{ width: '48.5%', flexGrow: 1, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 16, gap: 6, backgroundColor: on ? alpha(accent, 0.12) : C.card2, borderWidth: 1, borderColor: on ? alpha(accent, 0.5) : C.line3 }}>
-                <Txt size={26} ls={-0.03} style={{ fontFamily: fontFamily(k, 400) }}>Aa 01</Txt>
-                <Txt size={13} color={on ? C.text : C.muted} style={{ fontFamily: fontFamily(k, 400) }}>{k}</Txt>
-              </Tap>
-            );
-          })}
-        </View>
       </Card>
 
       <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
-        <Row title="Japanese accents" sub="Kanji labels and side text" right={<Toggle on={settings.hud} onPress={() => s.setOpt('hud', !settings.hud)} />} />
-        <Row title="HUD texture" sub="Background grid and scanlines" right={<Toggle on={settings.fx} onPress={() => s.setOpt('fx', !settings.fx)} />} last />
+        <Row title="Arena lights" sub="Your colour and the far corner's, across the background" right={<Toggle on={settings.fx} onPress={() => s.setOpt('fx', !settings.fx)} accessibilityLabel="Arena lights" />} last />
       </Card>
 
       <Label style={{ marginTop: 30 }}>REI BACKGROUND</Label>
@@ -128,7 +115,7 @@ export default function Appearance() {
           </Tap>
           {emblems.length === 0 ? (
             <View style={{ flex: 2, aspectRatio: 2, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', padding: 10 }}>
-              <Txt size={12} lh={1.4} color={C.dim} align="center">Emblems for this theme are coming soon.</Txt>
+              <Txt size={12} lh={1.4} color={C.dim} align="center">Emblems for this world are coming soon.</Txt>
             </View>
           ) : null}
           {emblems.map((e, i) => {
@@ -145,7 +132,7 @@ export default function Appearance() {
           {emblems.length === 1 ? <View style={{ flex: 1 }} /> : null}
         </View>
         <View style={{ marginTop: 6 }}>
-          <Row title="Emblem strength" sub="Watermark behind your screens" right={<Segmented value={settings.bgStrength} options={[['Subtle', 'Subtle'], ['Medium', 'Medium'], ['Bold', 'Bold']]} onChange={v => s.setOpt('bgStrength', v)} />} />
+          <Row title="Emblem strength" sub="Faint art behind your screens" right={<Segmented value={settings.bgStrength} options={[['Subtle', 'Subtle'], ['Medium', 'Medium'], ['Bold', 'Bold']]} onChange={v => s.setOpt('bgStrength', v)} />} />
           <Row title="Emblem size" sub="Small, medium, large" right={<Segmented value={settings.emblemSize} options={[['S', 'S'], ['M', 'M'], ['L', 'L']]} onChange={v => s.setOpt('emblemSize', v)} />} />
           <Row title="Position" sub="Where it sits" right={<Segmented value={settings.emblemPos} options={[['Top', 'Top'], ['Center', 'Center'], ['Bottom', 'Bottom']]} onChange={v => s.setOpt('emblemPos', v)} />} last />
         </View>

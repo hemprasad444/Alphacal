@@ -20,10 +20,12 @@ export default function Settings() {
   const character = characterOf(settings.character);
   const rooms: { icon: IconKey; title: string; sub: string; to: () => void }[] = [
     { icon: 'rei', title: 'REI', sub: `${settings.tone} · voice of ${character.name}`, to: () => router.push('/rei-settings') },
-    { icon: 'look', title: 'Look', sub: `${theme.name} · ${settings.font}`, to: () => router.push('/appearance') },
+    { icon: 'look', title: 'Look', sub: `${theme.name} world`, to: () => router.push('/appearance') },
     { icon: 'memory', title: 'Memory', sub: s.memory.length ? `${s.memory.length} things REI knows` : 'What REI knows about you', to: () => router.push('/memory') },
     { icon: 'door', title: 'Account', sub: s.cloud ? 'Signed in · data · credits' : 'Demo · data · credits', to: () => router.push('/account') },
   ];
+  // Development builds only: every Fight Night part, in every world.
+  if (__DEV__) rooms.push({ icon: 'badge', title: 'Gallery', sub: 'Fight Night parts, all six worlds', to: () => router.push('/gallery') });
 
   return (
     <Screen tabs={false}>

@@ -1,12 +1,16 @@
-// The unlock moment: the medal slams in with a chime, a stamp lands. One badge at a time.
+// The unlock moment: "NEW SPECIAL MOVE UNLOCKED". A super flash, the card slams in with a chime,
+// REI calls it from the corner. One badge at a time.
 import type { GameBadge } from '@rei/shared';
 import { useAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
-import { Animated, Easing, Modal, StyleSheet, View } from 'react-native';
-import { Medal, Stamp, TIER } from './manga';
+import { Animated, Easing, Modal, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { G, Polygon, Rect } from 'react-native-svg';
+import { CoachShout, CutButton, MoveCardArt, RoundStamp, TIER_COLOR } from './fight';
 import { Tap, Txt } from './ui';
-import { alpha, C } from '../lib/theme';
+import { C, HIT, onColor } from '../lib/theme';
+import { useStore } from '../state/store';
 
 export function BadgeUnlock({ badges, onDone }: { badges: GameBadge[]; onDone: (ids: string[]) => void }) {
   const [i, setI] = useState(0);
@@ -23,13 +27,20 @@ export function BadgeUnlock({ badges, onDone }: { badges: GameBadge[]; onDone: (
   );
 }
 
+const BAND = 48, BAND_TILT = 6;
+// Twelve flat wedges radiating from the card: alternately your colour and chalk.
+const WEDGES = ['0,0 600,0 591,104', '0,0 520,300 460,386', '0,0 300,520 205,564', '0,0 0,600 -104,591', '0,0 -300,520 -386,460', '0,0 -520,300 -564,205', '0,0 -600,0 -591,-104', '0,0 -520,-300 -460,-386', '0,0 -300,-520 -205,-564', '0,0 0,-600 104,-591', '0,0 300,-520 386,-460', '0,0 520,-300 564,-205'];
+
 function Burst({ b, more, onNext, onSkip }: { b: GameBadge; more: number; onNext: () => void; onSkip: () => void }) {
-  const col = TIER[b.tier];
+  const col = TIER_COLOR[b.tier];
+  const accent = useStore(s => s.accent);
+  const insets = useSafeAreaInsets();
+  const { width: W, height: H } = useWindowDimensions();
   const [v] = useState(() => new Animated.Value(0));
   const chime = useAudioPlayer(require('../../assets/sounds/unlock.wav'));
   useEffect(() => {
     Animated.timing(v, { toValue: 1, duration: 1100, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-    // The chime and the buzz land with the medal (a third of the way in).
+    // The chime and the buzz land with the card (a third of the way in).
     const t = setTimeout(() => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       try {
@@ -42,28 +53,66 @@ function Burst({ b, more, onNext, onSkip }: { b: GameBadge; more: number; onNext
     }, 300);
     return () => clearTimeout(t);
   }, [v, chime]);
+
+  const drop = W * Math.tan((BAND_TILT * Math.PI) / 180);
+  const bandTop = insets.top + 28;
+  const cardW = Math.min(168, H * 0.2), cardH = (cardW * 60) / 52;
+  const stackTop = bandTop + drop + BAND + 34;
+  const cy = stackTop + cardH / 2;
+
   return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(5,6,8,0.94)', alignItems: 'center', justifyContent: 'center' }]}>
-      <Animated.View style={{ opacity: v.interpolate({ inputRange: [0, 0.15, 0.35], outputRange: [0, 0, 1] }), transform: [{ scale: v.interpolate({ inputRange: [0, 0.15, 0.4, 0.55, 1], outputRange: [3, 3, 0.9, 1.06, 1] }) }, { rotate: v.interpolate({ inputRange: [0, 0.4, 1], outputRange: ['-30deg', '6deg', '0deg'] }) }] }}>
-        <View style={{ borderRadius: 75, shadowColor: col, shadowOpacity: 0.8, shadowRadius: 30, shadowOffset: { width: 0, height: 0 } }}>
-          <Medal icon={b.icon} tier={b.tier} earned size={150} />
+    <View accessibilityViewIsModal style={[StyleSheet.absoluteFill, { backgroundColor: C.arena }]}>
+      {/* Super flash */}
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: v.interpolate({ inputRange: [0, 0.25, 0.5], outputRange: [0, 0, 1] }) }]}>
+        <Svg width={W} height={H}>
+          <G transform={`translate(${W / 2} ${cy}) rotate(-18)`}>
+            {WEDGES.map((p, i) => <Polygon key={i} points={p} fill={i % 2 ? C.chalk : accent} opacity={i % 2 ? 0.07 : 0.2} />)}
+          </G>
+          <Rect x={0} y={cy - 60} width={56} height={4} fill={accent} />
+          <Rect x={0} y={cy - 44} width={32} height={4} fill={accent} />
+          <Rect x={0} y={cy + 44} width={44} height={4} fill={C.chalk} />
+          <Rect x={W - 56} y={cy - 36} width={56} height={4} fill={accent} />
+          <Rect x={W - 32} y={cy - 20} width={32} height={4} fill={accent} />
+          <Rect x={W - 44} y={cy + 60} width={44} height={4} fill={C.chalk} />
+        </Svg>
+      </Animated.View>
+
+      {/* Announcement bands: rival behind, your colour in front */}
+      <Animated.View style={{ position: 'absolute', left: 0, top: bandTop, width: W, height: drop + BAND + 8, transform: [{ translateX: v.interpolate({ inputRange: [0, 0.3], outputRange: [-W, 0], extrapolate: 'clamp' }) }] }}>
+        <Svg width={W} height={drop + BAND + 8}>
+          <Polygon points={`0,${drop + 8} ${W},8 ${W},${BAND + 8} 0,${drop + BAND + 8}`} fill={C.rival} />
+          <Polygon points={`0,${drop} ${W},0 ${W},${BAND} 0,${drop + BAND}`} fill={accent} />
+        </Svg>
+        <View accessibilityRole="header" style={{ position: 'absolute', left: 0, right: 0, top: 0, height: drop + BAND, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }}>
+          <Txt face="display" lean={false} size={24} ls={0.06} color={onColor(accent)} fit style={{ transform: [{ rotate: `-${BAND_TILT}deg` }, { skewX: '-10deg' }] }}>NEW SPECIAL MOVE UNLOCKED</Txt>
         </View>
       </Animated.View>
-      <Animated.View style={{ marginTop: 34, opacity: v.interpolate({ inputRange: [0, 0.45, 0.6], outputRange: [0, 0, 1] }), transform: [{ scale: v.interpolate({ inputRange: [0, 0.45, 0.6, 0.7], outputRange: [2.4, 2.4, 0.92, 1] }) }] }}>
-        <Stamp text="Badge unlocked" color={col} size={13} tilt={-5} />
-      </Animated.View>
-      <Animated.View style={{ alignItems: 'center', gap: 8, marginTop: 22, paddingHorizontal: 32, opacity: v.interpolate({ inputRange: [0, 0.6, 0.85], outputRange: [0, 0, 1] }), transform: [{ translateY: v.interpolate({ inputRange: [0, 0.6, 0.85], outputRange: [16, 16, 0] }) }] }}>
-        <Txt size={32} w={600} ls={-0.02} align="center">{b.title}</Txt>
-        <Txt size={15} color={C.sub} align="center">{b.desc}</Txt>
-        <Txt face="mono" size={10} ls={0.18} color={col} style={{ marginTop: 4 }}>{`${b.tier.toUpperCase()} BADGE`}</Txt>
-      </Animated.View>
-      <Animated.View style={{ position: 'absolute', bottom: 56, left: 24, right: 24, gap: 12, opacity: v.interpolate({ inputRange: [0, 0.8, 1], outputRange: [0, 0, 1] }) }}>
-        <Tap onPress={onNext} style={{ height: 54, borderRadius: 14, backgroundColor: col, alignItems: 'center', justifyContent: 'center' }}>
-          <Txt size={17} w={600} color={C.ink}>{more ? `Next · ${more} more` : 'Let’s go'}</Txt>
-        </Tap>
+
+      {/* The card slams in */}
+      <View style={{ position: 'absolute', left: 0, right: 0, top: stackTop, alignItems: 'center', paddingHorizontal: 24 }}>
+        <Animated.View style={{ opacity: v.interpolate({ inputRange: [0, 0.15, 0.35], outputRange: [0, 0, 1] }), transform: [{ scale: v.interpolate({ inputRange: [0, 0.15, 0.4, 0.55, 1], outputRange: [3, 3, 0.9, 1.06, 1] }) }, { rotate: v.interpolate({ inputRange: [0, 0.4, 1], outputRange: ['-24deg', '5deg', '0deg'] }) }] }}>
+          <MoveCardArt tier={b.tier} earned icon={b.icon} width={cardW} />
+        </Animated.View>
+
+        <Animated.View style={{ alignSelf: 'stretch', alignItems: 'center', marginTop: 14, gap: 8, opacity: v.interpolate({ inputRange: [0, 0.5, 0.75], outputRange: [0, 0, 1] }), transform: [{ translateY: v.interpolate({ inputRange: [0, 0.5, 0.75], outputRange: [16, 16, 0] }) }] }}>
+          <Txt face="display" size={52} lh={1.12} ls={0.015} align="center" fit>{b.title.toUpperCase()}</Txt>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <RoundStamp label={b.tier} size="sm" />
+            <Txt face="label" w={600} size={13} ls={0.12} color={col}>SPECIAL MOVE</Txt>
+          </View>
+          <Txt size={15} w={500} lh={1.4} color={C.chalk} align="center">{b.desc}</Txt>
+        </Animated.View>
+
+        <Animated.View style={{ alignSelf: 'stretch', marginTop: 18, opacity: v.interpolate({ inputRange: [0, 0.7, 0.9], outputRange: [0, 0, 1] }) }}>
+          <CoachShout portrait={44} after={more ? 'It landed. And there is more where that came from.' : 'It landed. Now make it a combo.'} />
+        </Animated.View>
+      </View>
+
+      <Animated.View style={{ position: 'absolute', bottom: insets.bottom + 16, left: 24, right: 24, gap: 6, opacity: v.interpolate({ inputRange: [0, 0.8, 1], outputRange: [0, 0, 1] }) }}>
+        <CutButton label={more ? 'Next move' : 'Back to the fight'} meta={more ? `${more} more` : undefined} onPress={onNext} />
         {more ? (
-          <Tap onPress={onSkip} style={{ height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: alpha(col, 0.4) }}>
-            <Txt size={14} color={C.body}>Skip the rest</Txt>
+          <Tap onPress={onSkip} style={{ height: HIT, alignItems: 'center', justifyContent: 'center' }}>
+            <Txt face="label" w={600} size={13} ls={0.12} color={C.smoke}>SKIP THE REST</Txt>
           </Tap>
         ) : null}
       </Animated.View>

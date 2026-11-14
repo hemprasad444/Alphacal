@@ -39,8 +39,8 @@ describe('onboarding', () => {
 
   it('greets with the chosen partner on the partner chapter', () => {
     expect(reiLine('partner', d())).toMatch(/corner/);
-    expect(reiLine('partner', d({ character: 'naruto' }))).toMatch(/^Naruto\./);
-    expect(pactRows(d({ character: 'gojo' })).find(([k]) => k === 'VOICE')?.[1]).toMatch(/Gojo$/);
+    expect(reiLine('partner', d({ character: 'naruto' }))).toMatch(/^Kai\./);
+    expect(pactRows(d({ character: 'gojo' })).find(([k]) => k === 'VOICE')?.[1]).toMatch(/Ace$/);
   });
 
   it('runs the fuel numbers from Mifflin–St Jeor, activity and the goal', () => {
@@ -131,11 +131,11 @@ describe('characters', () => {
 
   it('greets by name, cleaned up for speaking', () => {
     const allMight = characterOf('allmight');
-    expect(greeting(allMight, 'Hem')).toBe('Hey, Hem! Fear not, for I am here! From today, you and I go beyond. Plus Ultra!');
+    expect(greeting(allMight, 'Hem')).toBe('Hey, Hem! Stand tall, because I am with you! From today, you and I go further than yesterday. Every day!');
     expect(greeting(allMight, '  hem ')).toMatch(/^Hey, Hem!/);
     expect(greeting(allMight, '')).toMatch(/^Hey, friend!/);
     expect(greeting(allMight, null)).toMatch(/^Hey, friend!/);
-    expect(greeting(characterOf('toji'), 'Hem')).toMatch(/^So you’re Hem\. Toji/);
+    expect(greeting(characterOf('toji'), 'Hem')).toMatch(/^So you’re Hem\. I’m Vance/);
     expect(spokenName('  ravi   kumar 🔥 ')).toBe('Ravi kumar');
     expect(spokenName("d'souza-ann")).toBe("D'souza-ann");
     expect(spokenName('ಹೇಮ್')).toBe('ಹೇಮ್');

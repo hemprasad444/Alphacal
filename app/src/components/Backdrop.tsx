@@ -1,75 +1,42 @@
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import Svg, { Defs, Ellipse, Image as SvgImage, LinearGradient, Mask, Pattern, RadialGradient, Rect, Stop, Path } from 'react-native-svg';
+import Svg, { Image as SvgImage, Polygon } from 'react-native-svg';
+import { cutDx, F } from '../lib/theme';
 import { useStore } from '../state/store';
 
-const EMBLEM_PX = { S: 190, M: 270, L: 350 } as const;
-const EMBLEM_OPACITY = { Subtle: 0.22, Medium: 0.38, Bold: 0.6 } as const;
+const EMBLEM_PX = { S: 260, M: 360, L: 460 } as const;
+// The emblem is scenery now: faint enough that text on top of it keeps its contrast.
+const EMBLEM_OPACITY = { Subtle: 0.06, Medium: 0.1, Bold: 0.18 } as const;
 
 /**
- * Screen background: theme color, accent glows, optional HUD grid, scanlines and
- * the theme's emblem watermark. `glow` picks where the accent light comes from.
+ * The arena: flat ground lit by two beams, your corner's colour from the left and the far
+ * corner's red from the right, both cut at the one angle. The world's emblem sits behind them,
+ * faint and cropped off the right edge. `glow` picks which end the lights come from.
+ * "Arena lights" in Appearance (settings.fx) turns the beams off; the emblem has its own controls.
  */
 export function Backdrop({ glow = 'top' }: { glow?: 'top' | 'bottom' }) {
-  const theme = useStore(s => s.theme), accent = useStore(s => s.accent), emblem = useStore(s => s.emblem), settings = useStore(s => s.settings);
+  const accent = useStore(s => s.accent), emblem = useStore(s => s.emblem), settings = useStore(s => s.settings);
   const { width: W, height: H } = useWindowDimensions();
   const e = EMBLEM_PX[settings.emblemSize];
-  const ey = settings.emblemPos === 'Top' ? 120 : settings.emblemPos === 'Bottom' ? H - 150 - e : (H - e) / 2 - 15;
-  const ex = (W - e) / 2;
+  const ey = settings.emblemPos === 'Top' ? 70 : settings.emblemPos === 'Bottom' ? H - 130 - e : (H - e) / 2;
+  // Pushed right so the screen edge crops it: it reads as arena art, not a centred logo.
+  const ex = W - e * 0.68;
+  const beamH = Math.min(H * 0.62, 520), dx = cutDx(beamH);
+  // A beam is a band that leans at the cut angle; `x` is where its top edge starts.
+  const beam = (x: number, w: number) => `${x},0 ${x + w},0 ${x + w - dx},${beamH} ${x - dx},${beamH}`;
+  const flip = glow === 'bottom' ? `translate(0 ${H}) scale(1 -1)` : undefined;
 
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg }]}>
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: F.arena }]}>
       <Svg width={W} height={H}>
-        <Defs>
-          <RadialGradient id="bgTop" cx="50%" cy="0%" rx="55%" ry="27%" gradientUnits="objectBoundingBox">
-            <Stop offset="0" stopColor={accent} stopOpacity={glow === 'top' ? 0.13 : 0} />
-            <Stop offset="1" stopColor={accent} stopOpacity={0} />
-          </RadialGradient>
-          <RadialGradient id="bgBottom" cx="50%" cy="100%" rx="45%" ry="19%">
-            <Stop offset="0" stopColor={accent} stopOpacity={glow === 'bottom' ? 0.14 : 0} />
-            <Stop offset="1" stopColor={accent} stopOpacity={0} />
-          </RadialGradient>
-          <RadialGradient id="bgCorner" cx="105%" cy="108%" rx="40%" ry="20%">
-            <Stop offset="0" stopColor={theme.acc2} stopOpacity={0.16} />
-            <Stop offset="1" stopColor={theme.acc2} stopOpacity={0} />
-          </RadialGradient>
-          <Pattern id="grid" width={34} height={34} patternUnits="userSpaceOnUse">
-            <Path d="M0 0.5H34M0.5 0V34" stroke="#FFFFFF" strokeOpacity={0.025} strokeWidth={1} />
-          </Pattern>
-          <LinearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.5} />
-            <Stop offset="0.45" stopColor="#FFFFFF" stopOpacity={0} />
-          </LinearGradient>
-          <Mask id="gridMask">
-            <Rect width={W} height={H} fill="url(#gridFade)" />
-          </Mask>
-          <Pattern id="scan" width={3} height={3} patternUnits="userSpaceOnUse">
-            <Rect width={3} height={1} fill="#FFFFFF" fillOpacity={0.012} />
-          </Pattern>
-          <RadialGradient id="emblemFade" cx="50%" cy="50%" r="50%">
-            <Stop offset="0.7" stopColor="#FFFFFF" stopOpacity={1} />
-            <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
-          </RadialGradient>
-          <Mask id="emblemMask">
-            <Ellipse cx={ex + e / 2} cy={ey + e / 2} rx={e * 0.74} ry={e * 0.74} fill="url(#emblemFade)" />
-          </Mask>
-        </Defs>
-        {emblem ? (
-          <SvgImage
-            href={emblem.source}
-            x={ex}
-            y={ey}
-            width={e}
-            height={e}
-            opacity={EMBLEM_OPACITY[settings.bgStrength]}
-            preserveAspectRatio="xMidYMid meet"
-            mask="url(#emblemMask)"
-          />
+        {emblem ? <SvgImage href={emblem.source} x={ex} y={ey} width={e} height={e} opacity={EMBLEM_OPACITY[settings.bgStrength]} preserveAspectRatio="xMidYMid meet" /> : null}
+        {settings.fx ? (
+          <>
+            <Polygon points={beam(W * 0.2, W * 0.3)} fill={accent} opacity={0.055} transform={flip} />
+            <Polygon points={beam(W * 0.08, W * 0.07)} fill={accent} opacity={0.07} transform={flip} />
+            <Polygon points={beam(W * 1.08, W * 0.16)} fill={F.rival} opacity={0.05} transform={flip} />
+            <Polygon points={beam(W * 1.3, W * 0.05)} fill={F.rival} opacity={0.07} transform={flip} />
+          </>
         ) : null}
-        <Rect width={W} height={H} fill="url(#bgCorner)" />
-        <Rect width={W} height={H} fill="url(#bgTop)" />
-        <Rect width={W} height={H} fill="url(#bgBottom)" />
-        {settings.fx ? <Rect width={W} height={H} fill="url(#grid)" mask="url(#gridMask)" /> : null}
-        {settings.fx ? <Rect width={W} height={H} fill="url(#scan)" /> : null}
       </Svg>
     </View>
   );
