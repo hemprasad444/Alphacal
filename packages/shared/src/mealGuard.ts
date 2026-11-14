@@ -30,10 +30,64 @@ export const MAX_MEALS = 60;
 
 /**
  * A day's meals in the order they were eaten: by time, keeping log order within the same minute.
- * An edited meal is stored at the end of the day's list, so this puts it back in its place.
+ * An edit queued offline is stored at the end of the day's list, so this puts it back in its place.
  */
 export function byTime(meals: Meal[]): Meal[] {
   return meals.map((m, i) => [m, i] as const).sort(([a, i], [b, j]) => (a.time < b.time ? -1 : a.time > b.time ? 1 : i - j)).map(([m]) => m);
+}
+
+/** The same stored value: key order and undefined fields don't matter (Firestore drops those). */
+export function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) return a.length === (b as unknown[]).length && a.every((x, i) => sameValue(x, (b as unknown[])[i]));
+  const keys = (o: object) => Object.keys(o).filter(k => (o as Record<string, unknown>)[k] !== undefined).sort();
+  const ka = keys(a), kb = keys(b);
+  return ka.length === kb.length && ka.every((k, i) => k === kb[i] && sameValue((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+}
+
+const withoutId = ({ id: _, ...m }: Meal) => m;
+
+/**
+ * Where `target` is in a day's meals: by id; for an older meal without one, the first identical
+ * meal (one without an id first, then one that has since been given an id). -1 when it's gone.
+ */
+export function findMeal(meals: Meal[], target: Meal): number {
+  if (target.id) return meals.findIndex(m => m.id === target.id);
+  const bare = meals.findIndex(m => !m.id && sameValue(m, target));
+  return bare >= 0 ? bare : meals.findIndex(m => sameValue(withoutId(m), target));
+}
+
+/** One meal per id, where an edit raced another and left two copies: the later copy, in the earlier one's place. */
+function onePerId(meals: Meal[]): Meal[] {
+  const last = new Map<string, Meal>();
+  for (const m of meals) if (m.id) last.set(m.id, m);
+  const seen = new Set<string>();
+  return meals.flatMap(m => {
+    if (!m.id) return [m];
+    if (seen.has(m.id)) return [];
+    seen.add(m.id);
+    return [last.get(m.id)!];
+  });
+}
+
+/** A day's meals as stored → as shown and counted: one per id, in the order they were eaten. */
+export function dayMeals(meals: Meal[]): Meal[] {
+  return byTime(onePerId(meals));
+}
+
+/**
+ * The stored meals with just `target` replaced by `next` (removed when `next` is null): one
+ * occurrence only, even when an older identical meal sits beside it. Every meal comes out with an
+ * id. Null when `target` isn't there any more (deleted or changed on another device).
+ */
+export function changeMeals(meals: Meal[], target: Meal, next: Meal | null, newId: () => string): Meal[] | null {
+  const cur = onePerId(meals);
+  const i = findMeal(cur, target);
+  if (i < 0) return null;
+  const out = next ? cur.map((m, k) => (k === i ? { ...next, id: next.id ?? cur[i].id ?? newId() } : m)) : cur.filter((_, k) => k !== i);
+  return out.map(m => (m.id ? m : { ...m, id: newId() }));
 }
 
 const minutesOf = (hhmm: string) => {

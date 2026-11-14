@@ -70,7 +70,7 @@ function tools(store: RefObject<Store>, heard: RefObject<string>): Record<LiveTo
       const i = mealIndex(meals, String(p.name ?? ''));
       if (i < 0) return `No meal like that today. Today's meals: ${meals.map(m => m.name).join(', ') || 'none'}.`;
       const gone = meals[i];
-      store.current.removeMeal(i);
+      void store.current.removeMeal(gone);
       const left = meals.filter((_, k) => k !== i);
       setMeals(left);
       return `Removed ${gone.name}. ${todayLine(store.current.profile, left)}`;

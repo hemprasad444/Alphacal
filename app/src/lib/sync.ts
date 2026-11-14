@@ -1,8 +1,22 @@
 // Firestore reads and writes for one signed-in user. Writes are fire-and-forget: the
 // store has already updated the screen, and Firestore queues writes while offline.
-import { arrayRemove, arrayUnion, collection, deleteDoc, doc, documentId, increment, limit, onSnapshot, orderBy, query, setDoc, where, writeBatch, type Unsubscribe } from 'firebase/firestore';
-import type { DayDoc, Food, Meal, Measurement, MemoryItem, Message, ProgressPhoto, WeeklyReport, Profile, SessionLog, Settings, WeekProgram, WeighIn, Intake } from '@rei/shared';
+import { arrayRemove, arrayUnion, collection, deleteDoc, doc, documentId, increment, limit, onSnapshot, orderBy, query, runTransaction, setDoc, where, writeBatch, type Unsubscribe } from 'firebase/firestore';
+import { changeMeals, type DayDoc, type Food, type Meal, type Measurement, type MemoryItem, type Message, type ProgressPhoto, type WeeklyReport, type Profile, type SessionLog, type Settings, type WeekProgram, type WeighIn, type Intake } from '@rei/shared';
 import { fb } from './firebase';
+
+/** How a meal edit or delete went (see write.changeMeal). */
+export type MealChange = 'saved' | 'gone' | 'queued' | 'failed';
+
+/** A transaction that hasn't finished by then is taken as offline. */
+const TRANSACTION_MS = 10000;
+
+function within<T>(ms: number, p: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timed out')), ms);
+  });
+  return Promise.race([p, late]).finally(() => clearTimeout(timer));
+}
 
 export interface UserDoc {
   profile: Profile;
@@ -86,18 +100,36 @@ export const write = {
   user: (uid: string, data: Partial<UserDoc>) => setDoc(userRef(uid), clean(data), { merge: true }).catch(warn('user write')),
   /** Whole-day fields. Not for meals or minutes, which the server also writes: use the writes below. */
   day: (uid: string, date: string, data: Partial<DayDoc>) => setDoc(doc(sub(uid, 'days'), date), clean(data), { merge: true }).catch(warn('day write')),
-  // Meals and minutes are changed in place, never rewritten whole, the same way the server writes them:
+  // Meals and minutes are never rewritten from this phone's copy, the same way the server writes them:
   // a meal REI logged that hasn't reached this phone yet survives the phone's next change.
   addMeal: (uid: string, date: string, meal: Meal) => setDoc(doc(sub(uid, 'days'), date), { meals: arrayUnion(meal) }, { merge: true }).catch(warn('meal write')),
-  /** `meal` exactly as stored (from the listener or this phone's own write). */
-  removeMeal: (uid: string, date: string, meal: Meal) => setDoc(doc(sub(uid, 'days'), date), { meals: arrayRemove(meal) }, { merge: true }).catch(warn('meal remove')),
-  /** One change, applied together: the old meal goes and the edited one is added (at the end; see byTime). */
-  replaceMeal: (uid: string, date: string, old: Meal, next: Meal) => {
+  /**
+   * Edit one meal (`next`) or delete it (`next` null). A transaction reads the stored day, finds the
+   * meal (by id, or the first identical one for older meals without an id) and changes only that one.
+   * - 'gone': it was deleted or changed elsewhere; nothing was written.
+   * - 'queued': offline, and the meal has an id no other meal shares, so a remove-and-add of exactly
+   *   it is queued for when the phone is back online (a copy left by a race is dropped on read; see dayMeals).
+   * - 'failed': offline, and the meal has no unique id to change it by safely; nothing was written.
+   */
+  changeMeal: async (uid: string, date: string, target: Meal, next: Meal | null, uniqueId: boolean): Promise<MealChange> => {
     const ref = doc(sub(uid, 'days'), date);
-    const batch = writeBatch(fb().db);
-    batch.set(ref, { meals: arrayRemove(old) }, { merge: true });
-    batch.set(ref, { meals: arrayUnion(next) }, { merge: true });
-    return batch.commit().catch(warn('meal edit'));
+    try {
+      return await within(TRANSACTION_MS, runTransaction(fb().db, async tx => {
+        const snap = await tx.get(ref);
+        const meals = changeMeals((snap.data()?.meals ?? []) as Meal[], target, next, newId);
+        if (!meals) return 'gone' as const;
+        tx.set(ref, { meals }, { merge: true });
+        return 'saved' as const;
+      }));
+    } catch (e) {
+      warn('meal change')(e);
+      if (!target.id || !uniqueId) return 'failed';
+      const batch = writeBatch(fb().db);
+      batch.set(ref, { meals: arrayRemove(target) }, { merge: true });
+      if (next) batch.set(ref, { meals: arrayUnion({ ...next, id: target.id }) }, { merge: true });
+      batch.commit().catch(warn('queued meal change'));
+      return 'queued';
+    }
   },
   /** Training logged on this phone: added to whatever the day already holds. */
   addMinutes: (uid: string, date: string, minutes: number) => setDoc(doc(sub(uid, 'days'), date), { sessionDone: true, loggedMin: increment(minutes) }, { merge: true }).catch(warn('minutes write')),

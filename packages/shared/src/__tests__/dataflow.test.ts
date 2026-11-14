@@ -1,7 +1,7 @@
 // What gets stored: profile values from the Vow screen and REI, meal order, and corrected meal totals.
 import { DEFAULT_PROFILE } from '../data';
 import { withTotals } from '../food';
-import { byTime } from '../mealGuard';
+import { byTime, changeMeals, dayMeals, findMeal, sameValue } from '../mealGuard';
 import { applyUpdate, profileValue, vowChange } from '../rei';
 import { isIsoDate } from '../time';
 import type { Meal } from '../types';
@@ -89,5 +89,53 @@ describe('withTotals', () => {
   });
   it('keeps the meal’s id and rounds', () => {
     expect(withTotals({ ...photo, id: 'abc' }, { kcal: 399.6, p: 15.2, c: 50, f: 12 })).toMatchObject({ id: 'abc', kcal: 400, p: 15 });
+  });
+});
+
+describe('meal identity', () => {
+  let n = 0;
+  const id = () => `new${++n}`;
+  // Two identical meals from an older build (no ids): the same food twice in one minute.
+  const egg = meal('08:00', 'Boiled egg', { kcal: 70 });
+
+  it('sameValue ignores key order and undefined fields', () => {
+    expect(sameValue({ a: 1, b: { c: [1, 2] } }, { b: { c: [1, 2] }, a: 1, d: undefined })).toBe(true);
+    expect(sameValue({ a: 1 }, { a: 2 })).toBe(false);
+    expect(sameValue([1, 2], [2, 1])).toBe(false);
+  });
+
+  it('deletes one of two identical older meals, not both', () => {
+    const out = changeMeals([egg, { ...egg }, meal('13:00', 'Lunch')], { ...egg }, null, id);
+    expect(out?.map(m => m.name)).toEqual(['Boiled egg', 'Lunch']);
+    expect(out?.every(m => m.id)).toBe(true);
+  });
+
+  it('edits one of two identical older meals, in place, and gives it an id', () => {
+    const out = changeMeals([egg, { ...egg }], egg, { ...egg, kcal: 80 }, id)!;
+    expect(out.map(m => m.kcal)).toEqual([80, 70]);
+    expect(new Set(out.map(m => m.id)).size).toBe(2);
+  });
+
+  it('finds a meal by id even when its contents changed elsewhere', () => {
+    const a = meal('13:00', 'Rice', { id: 'a' }), b = meal('13:00', 'Dal', { id: 'b' });
+    const out = changeMeals([b, { ...a, kcal: 999 }], a, { ...a, kcal: 300 }, id)!;
+    expect(out.map(m => [m.id, m.kcal])).toEqual([['b', 400], ['a', 300]]);
+  });
+
+  it('changes nothing when the meal is gone', () => {
+    expect(changeMeals([meal('13:00', 'Dal', { id: 'b' })], meal('13:00', 'Rice', { id: 'a' }), null, id)).toBeNull();
+    // An older meal edited elsewhere no longer matches: no second copy.
+    expect(changeMeals([{ ...egg, kcal: 90 }], egg, { ...egg, kcal: 80 }, id)).toBeNull();
+  });
+
+  it('finds an older meal that has since been given an id', () => {
+    expect(findMeal([{ ...egg, id: 'x' }], egg)).toBe(0);
+    expect(findMeal([{ ...egg, id: 'x' }, { ...egg }], egg)).toBe(1);
+  });
+
+  it('keeps one copy per id: the later one (an edit that raced another)', () => {
+    const a = meal('13:00', 'Rice', { id: 'a' }), b = meal('09:00', 'Tea', { id: 'b' });
+    expect(dayMeals([a, b, { ...a, kcal: 300 }]).map(m => [m.id, m.kcal])).toEqual([['b', 400], ['a', 300]]);
+    expect(changeMeals([a, { ...a, kcal: 300 }], a, null, id)).toEqual([]);
   });
 });

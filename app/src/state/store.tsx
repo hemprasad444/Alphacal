@@ -4,13 +4,13 @@ import { sliceStore } from '../lib/sliceStore';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 import {
-  MAX_MEALS, byTime, profileValue, type Activity, activityFor, type Bests, bestsOf, type Sex, activityFromDay, type Intake, intakeDisciplines, intakeMemory, intakeProfile, nameOf, type Workout, workoutLog, workoutNote, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  MAX_MEALS, dayMeals, findMeal, profileValue, type Activity, activityFor, type Bests, bestsOf, type Sex, activityFromDay, type Intake, intakeDisciplines, intakeMemory, intakeProfile, nameOf, type Workout, workoutLog, workoutNote, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
 import { lookupBarcode } from '../lib/foods';
 import { deletePhotoFile, uploadPhoto } from '../lib/photos';
-import { newId, onDays, onFoods, onMeasurements, onMessages, onPhotos, onProgram, onReports, onSessions, onUser, onWeighIns, write } from '../lib/sync';
+import { type MealChange, newId, onDays, onFoods, onMeasurements, onMessages, onPhotos, onProgram, onReports, onSessions, onUser, onWeighIns, write } from '../lib/sync';
 import { deviceTimeZone, zoneToStore } from '../lib/timezone';
 import { httpsCallable } from 'firebase/functions';
 import { DEFAULT_EMBLEM, EMBLEMS, THEMES, type Emblem, type Theme } from '../lib/theme';
@@ -194,12 +194,14 @@ export interface Store extends Persisted {
   logMeal: (text: string) => Promise<void>;
   /** Signed in only: REI reads a meal photo (base64 JPEG) and logs it if sure. */
   logMealPhoto: (jpegBase64: string, note?: string) => Promise<void>;
-  removeMeal: (i: number) => void;
+  /** Delete one of today's meals (found by id, or for an older meal without one, the first identical one). */
+  removeMeal: (m: Meal) => Promise<MealChange>;
   /** Log foods picked from the list: instant, exact, and offline. */
   logItems: (items: MealItem[], src?: Meal['src'], name?: string) => void;
   /** The meal as logged, or null when today already holds MAX_MEALS. */
   repeatMeal: (m: Meal) => Meal | null;
-  updateMeal: (i: number, m: Meal) => void;
+  /** Replace `old`, one of today's meals, with `next` (which keeps old's id). */
+  updateMeal: (old: Meal, next: Meal) => Promise<MealChange>;
   saveFood: (f: Food) => void;
   removeFood: (id: string) => void;
   toggleFav: (f: Food) => void;
@@ -416,6 +418,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     patch({ meals });
   }, [patch]);
 
+  /** Today's meals as Firestore last reported them, to put back when an edit or delete doesn't go through. */
+  const heardMeals = useRef<Meal[]>([]);
+
+  /** Edit (`next`) or delete (null) one meal: on screen now, then in Firestore by a transaction that finds that exact meal. */
+  const changeMeal = useCallback(async (target: Meal, next: Meal | null): Promise<MealChange> => {
+    setFuelVerdict('');
+    const cur = ref.current.meals;
+    const at = cur.indexOf(target);
+    const i = at >= 0 ? at : findMeal(cur, target);
+    if (i < 0) return 'gone';
+    const old = cur[i];
+    const edited = next && { ...next, id: old.id ?? newId() };
+    setMeals(edited ? cur.map((m, k) => (k === i ? edited : m)) : cur.filter((_, k) => k !== i));
+    const u = uidRef.current;
+    if (!u) return 'saved';
+    const unique = !!old.id && cur.filter(m => m.id === old.id).length === 1;
+    const res = await write.changeMeal(u, ref.current.day, old, edited, unique);
+    if (res === 'gone' || res === 'failed') {
+      setMeals(heardMeals.current);
+      setFuelVerdict(res === 'gone'
+        ? 'That meal was changed on another device, so nothing was changed here. Check it and try again.'
+        : 'Couldn’t reach the server to change that meal. Try again when you’re online.');
+    }
+    return res;
+  }, [setMeals]);
+
   /** A new meal for today, with its own id. Stored by adding it to the day, so meals REI logged meanwhile stay. */
   const appendMeal = useCallback((meal: Meal): Meal => {
     const m: Meal = { ...meal, id: newId() };
@@ -473,13 +501,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const past = Object.entries(days).filter(([d]) => d < today).sort(([a], [b]) => (a < b ? -1 : 1));
         const weekSessions = Object.fromEntries(past.filter(([d]) => d >= monday).map(([d, v]) => [d, !!v.sessionDone]));
         const recentMeals = past.filter(([d]) => d >= twoWeeks).reverse().flatMap(([, v]) => [...(v.meals ?? [])].reverse());
+        heardMeals.current = dayMeals(t?.meals ?? []);
         patch({
           weekSessions,
           recentMeals,
           pastDays: past.map(([d, v]) => daySummary(d, v)),
           day: today,
-          // Edited meals are stored at the end of the list; show the day in the order it was eaten.
-          meals: byTime(t?.meals ?? []),
+          // One per id, in the order eaten (see dayMeals).
+          meals: heardMeals.current,
           sessionDone: !!t?.sessionDone,
           loggedMin: t?.loggedMin ?? 0,
           activity: activityFromDay(t?.steps, t?.sleepMin),
@@ -835,23 +864,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       voiceReply,
       appendMessages: pushMessages,
       logMeal,
-      removeMeal: i => {
-        setFuelVerdict('');
-        const gone = ref.current.meals[i];
-        if (!gone) return;
-        setMeals(ref.current.meals.filter((_, k) => k !== i));
-        if (uidRef.current) write.removeMeal(uidRef.current, ref.current.day, gone);
-      },
+      removeMeal: m => changeMeal(m, null),
       logItems,
       repeatMeal: m => addMeal({ ...m, time: hhmm() }),
-      updateMeal: (i, m) => {
-        setFuelVerdict('');
-        const old = ref.current.meals[i];
-        if (!old) return;
-        const next: Meal = { ...m, id: old.id ?? newId() };
-        setMeals(ref.current.meals.map((x, k) => (k === i ? next : x)));
-        if (uidRef.current) write.replaceMeal(uidRef.current, ref.current.day, old, next);
-      },
+      updateMeal: (old, next) => changeMeal(old, next),
       saveFood,
       removeFood,
       toggleFav: f => {
@@ -982,7 +998,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
     };
-  }, [p, ready, account, cloud, userLoaded, obActive, pendingOnboarding, applyOnboarding, thinking, fuelBusy, fuelVerdict, signIn, signUp, resendVerification, checkVerified, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, setMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
+  }, [p, ready, account, cloud, userLoaded, obActive, pendingOnboarding, applyOnboarding, thinking, fuelBusy, fuelVerdict, signIn, signUp, resendVerification, checkVerified, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, changeMeal, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
 
   // Subscribers read the new value during this render pass; those that didn't render (their
   // slice is unchanged, or they sit outside this subtree) are told after commit.
