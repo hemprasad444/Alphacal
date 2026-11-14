@@ -61,10 +61,38 @@ export const EMBLEMS: Partial<Record<ThemeId, Emblem[]>> = {
     { id: 'seed-naruto-1', source: require('../../assets/emblems/emblem-naruto-1.png') },
     { id: 'seed-naruto-2', source: require('../../assets/emblems/emblem-naruto-2.png') },
   ],
+  // Original art for each world (generated, then cut out of black): no character, crest or logo from any series.
+  zero: [
+    { id: 'seed-zero-1', source: require('../../assets/emblems/emblem-zero-1.png') },
+    { id: 'seed-zero-2', source: require('../../assets/emblems/emblem-zero-2.png') },
+  ],
+  voyager: [
+    { id: 'seed-voyager-1', source: require('../../assets/emblems/emblem-voyager-1.png') },
+    { id: 'seed-voyager-2', source: require('../../assets/emblems/emblem-voyager-2.png') },
+  ],
+  hero: [
+    { id: 'seed-hero-1', source: require('../../assets/emblems/emblem-hero-1.png') },
+    { id: 'seed-hero-2', source: require('../../assets/emblems/emblem-hero-2.png') },
+  ],
+  cursed: [
+    { id: 'seed-cursed-1', source: require('../../assets/emblems/emblem-cursed-1.png') },
+    { id: 'seed-cursed-2', source: require('../../assets/emblems/emblem-cursed-2.png') },
+  ],
+  slayer: [
+    { id: 'seed-slayer-1', source: require('../../assets/emblems/emblem-slayer-1.png') },
+    { id: 'seed-slayer-2', source: require('../../assets/emblems/emblem-slayer-2.png') },
+  ],
 };
 
 /** Emblem selected by default for a theme before the user picks one. */
-export const DEFAULT_EMBLEM: Partial<Record<ThemeId, string>> = { shinobi: 'seed-naruto-1' };
+export const DEFAULT_EMBLEM: Partial<Record<ThemeId, string>> = {
+  shinobi: 'seed-naruto-1',
+  zero: 'seed-zero-1',
+  voyager: 'seed-voyager-1',
+  hero: 'seed-hero-1',
+  cursed: 'seed-cursed-1',
+  slayer: 'seed-slayer-1',
+};
 
 export type Weight = 300 | 400 | 500 | 600;
 

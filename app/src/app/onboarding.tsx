@@ -17,7 +17,7 @@ import { Gauge, Stamp } from '../components/manga';
 import { ChapterCard, EnterFx, Flash, HoldSeal, markArrival } from '../components/onboarding/fx';
 import { Atmosphere, Chips, comic, Cta, Field, FieldLabel, Nums, pick, Picked, Rise, Scrub, Seg, solid, ToggleRow } from '../components/onboarding/kit';
 import { Tap, Txt } from '../components/ui';
-import { alpha, C, EMBLEMS, fontFamily, THEMES } from '../lib/theme';
+import { alpha, C, DEFAULT_EMBLEM, EMBLEMS, fontFamily, THEMES } from '../lib/theme';
 import { playGreeting, prefetchGreetings } from '../lib/greetings';
 import { useStore } from '../state/store';
 
@@ -139,7 +139,8 @@ export default function Onboarding() {
     router.replace('/');
   };
 
-  const emblem = d.theme === 'shinobi' ? EMBLEMS.shinobi?.[0]?.source : null;
+  // The chosen world's own art behind the chapters.
+  const emblem = EMBLEMS[d.theme]?.find(e => e.id === DEFAULT_EMBLEM[d.theme])?.source ?? null;
 
   return (
     <View style={{ flex: 1, backgroundColor: bg, overflow: 'hidden' }}>
