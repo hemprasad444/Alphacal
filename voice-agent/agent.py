@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import re
+import unicodedata
 from typing import Any
 
 from dotenv import load_dotenv
@@ -260,10 +261,44 @@ def user_swore(chat_ctx) -> bool:
     return any(getattr(i, "type", "") == "message" and i.role == "user" and _SWEARING.search(i.text_content or "") for i in chat_ctx.items)
 
 
+# Scripts whose language name isn't the script's: Devanagari is mostly Hindi on our calls.
+_SCRIPT_LANGUAGE = {"DEVANAGARI": "Hindi", "GURMUKHI": "Punjabi", "ORIYA": "Odia", "CJK": "Chinese", "HIRAGANA": "Japanese", "KATAKANA": "Japanese", "HANGUL": "Korean"}
+
+
+def spoken_language(text: str) -> str | None:
+    """The language of a line written mostly in a non-Latin script ("Telugu", "Hindi"), else None (English, Hinglish)."""
+    scripts: dict[str, int] = {}
+    latin = 0
+    for ch in text:
+        if not ch.isalpha():
+            continue
+        script = unicodedata.name(ch, "").split(" ")[0]
+        if script == "LATIN":
+            latin += 1
+        elif script:
+            scripts[script] = scripts.get(script, 0) + 1
+    if not scripts:
+        return None
+    script, n = max(scripts.items(), key=lambda kv: kv[1])
+    return _SCRIPT_LANGUAGE.get(script, script.title()) if n > latin else None
+
+
+def last_user_text(chat_ctx) -> str:
+    for item in reversed(chat_ctx.items):
+        if getattr(item, "type", "") == "message" and item.role == "user":
+            return item.text_content or ""
+    return ""
+
+
 class Rei(Agent):
     async def llm_node(self, chat_ctx, tools, model_settings):
         cleaner = TextCleaner()
         swore = user_swore(chat_ctx)
+        # The prompt's language rule alone left about half the Hindi lines answered in English.
+        language = spoken_language(last_user_text(chat_ctx))
+        if language:
+            chat_ctx = chat_ctx.copy()
+            chat_ctx.add_message(role="system", content=f"They just spoke {language}: reply in {language}, in its own script. Keep [tags] in English.")
         async for chunk in Agent.default.llm_node(self, chat_ctx, tools, model_settings):
             if isinstance(chunk, str):
                 chunk = swear_only_back(cleaner.push(chunk), swore)

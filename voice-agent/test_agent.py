@@ -3,7 +3,7 @@
 import random
 import re
 
-from agent import TextCleaner, clean_text
+from agent import TextCleaner, clean_text, spoken_language
 
 # Real replies from calls: spaced tags, grouped numbers and a "… ... …" breakdown.
 SAMPLES = [
@@ -99,6 +99,16 @@ def test_sentence_end_sends_preflight_once():
     assert wrapped.closed is False  # everything else reaches the real channel
 
 
+def test_spoken_language_from_script():
+    assert spoken_language("भाई, आज मैंने 2 रोटी खाई।") == "Hindi"
+    assert spoken_language("ఈ రోజు 2 ఇడ్లీలు తిన్నాను") == "Telugu"
+    assert spoken_language("சூப்பர்! இன்று நல்லா சாப்பிட்டாய்") == "Tamil"
+    # English and Hinglish in Latin letters, or a word of Hindi in an English line, need no nudge.
+    assert spoken_language("Okay bro, thanks") is None
+    assert spoken_language("bhai aaj 2 roti khayi") is None
+    assert spoken_language("Yo, आज") is None
+
+
 if __name__ == "__main__":
     test_rei_is_spoken_as_a_name()
     test_clean_text()
@@ -106,4 +116,5 @@ if __name__ == "__main__":
     test_units_are_spoken_as_words()
     test_swears_only_back()
     test_sentence_end_sends_preflight_once()
+    test_spoken_language_from_script()
     print("ok")
