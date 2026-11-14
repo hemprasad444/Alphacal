@@ -495,7 +495,7 @@ function AddExercise({ open, onClose, onAdd, onRemove, have, planned, planTitle,
             <TextInput
               value={q}
               onChangeText={setQ}
-              placeholder="Search 800+ exercises"
+              placeholder="Search 750+ exercises"
               placeholderTextColor={C.dim}
               keyboardAppearance="dark"
               style={{ flex: 1, fontFamily: fontFamily(s.settings.font, 400), fontSize: 16, color: C.text }}

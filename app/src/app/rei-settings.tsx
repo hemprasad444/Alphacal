@@ -109,7 +109,7 @@ export default function ReiSettings() {
                 <View style={{ gap: 2 }}>
                   <Txt size={18} w={600}>{c.name}</Txt>
                   <Txt face="mono" size={9.5} ls={0.12} color={on ? c.acc : C.muted}>{c.series.toUpperCase()}</Txt>
-                  <Txt size={12} color={C.sub} numberOfLines={2} style={{ marginTop: 4 }}>{c.line}</Txt>
+                  <Txt size={12} color={C.sub} numberOfLines={3} style={{ marginTop: 4 }}>{c.line}</Txt>
                 </View>
               </View>
             </Tap>

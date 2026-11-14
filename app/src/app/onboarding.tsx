@@ -412,7 +412,7 @@ function VowStep({ d, set, acc }: StepProps) {
 const SCRUB = {
   height: { label: 'HEIGHT', unit: 'cm', min: 140, max: 215, step: 1, dp: 0 },
   weight: { label: 'WEIGHT', unit: 'kg', min: 40, max: 160, step: 0.1, dp: 1 },
-  bf: { label: 'BODY FAT · ESTIMATE IS FINE', unit: '%', min: 5, max: 40, step: 0.5, dp: 1 },
+  bf: { label: 'BODY FAT · A GUESS', unit: '%', min: 5, max: 40, step: 0.5, dp: 1 },
   targetWeight: { label: 'TARGET WEIGHT', unit: 'kg', min: 40, max: 160, step: 0.1, dp: 1 },
   targetBf: { label: 'TARGET BODY FAT', unit: '%', min: 5, max: 40, step: 0.5, dp: 1 },
 } as const;

@@ -1,5 +1,5 @@
 // Progress: REI's weekly report, streaks, badges, body measurements and private photos.
-import { badges as calcBadges, daySummary, isoDate, isoWeek, MEASURES, type Measure, measureChanges, parseIsoDate, type ProgressPhoto, streaks as calcStreaks, type WeeklyReport } from '@rei/shared';
+import { daySummary, isoDate, isoWeek, MEASURES, type Measure, measureChanges, parseIsoDate, type ProgressPhoto, streaks as calcStreaks, type WeeklyReport } from '@rei/shared';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
@@ -12,6 +12,7 @@ import { Screen, SubHeader } from '../components/Screen';
 import { Card, Label, Segmented, Tap, Txt } from '../components/ui';
 import { photoUrl } from '../lib/photos';
 import { C, fontFamily } from '../lib/theme';
+import { useGame } from '../state/game';
 import { useStore } from '../state/store';
 
 const short = (iso: string) => (parseIsoDate(iso) ?? new Date()).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -25,12 +26,12 @@ export default function Progress() {
   const today = s.day;
   const days = useMemo(() => [...s.pastDays, daySummary(today, { meals: s.meals, sessionDone: s.sessionDone })], [s.pastDays, s.meals, s.sessionDone, today]);
   const st = useMemo(() => calcStreaks(days, s.profile, today), [days, s.profile, today]);
-  const bs = useMemo(() => calcBadges({ days, sessions: s.sessions, weighIns: s.weighIns, profile: s.profile }), [days, s.sessions, s.weighIns, s.profile]);
+  // The same badges as the Dojo and the Badges page, so the counts agree.
+  const g = useGame();
   const changes = useMemo(() => measureChanges(s.measurements), [s.measurements]);
   const [measuring, setMeasuring] = useState(false);
   const [open, setOpen] = useState<Measure | null>(null);
-  const earned = bs.filter(b => b.earned).sort((a, b) => (a.earned! < b.earned! ? 1 : -1));
-  const locked = bs.filter(b => !b.earned).sort((a, b) => b.progress - a.progress);
+  const { earned, locked } = g;
 
   return (
     <Screen tabs={false}>
@@ -40,7 +41,7 @@ export default function Progress() {
 
       <Label style={{ marginTop: 28 }}>STREAKS</Label>
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-        {([['FOOD LOGGED', st.logging, 'days'], ['PROTEIN HIT', st.protein, 'days'], ['ON TARGET', st.weeks, 'weeks']] as const).map(([k, v, unit]) => (
+        {([['FOOD LOGGED', st.logging, 'days'], ['PROTEIN HIT', st.protein, 'days'], ['ON TARGET', st.weeks, 'wks']] as const).map(([k, v, unit]) => (
           <Card key={k} style={{ flex: 1, padding: 14, gap: 6 }}>
             <Txt size={30} w={300} color={v.current ? s.accent : C.text}>{v.current}</Txt>
             <Label size={9} ls={0.12}>{k}</Label>
@@ -49,7 +50,7 @@ export default function Progress() {
         ))}
       </View>
 
-      <Label style={{ marginTop: 28 }}>{`BADGES · ${earned.length} / ${bs.length}`}</Label>
+      <Label style={{ marginTop: 28 }}>{`BADGES · ${earned.length} / ${earned.length + locked.length}`}</Label>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
         {[...earned, ...locked].map(b => (
           <View key={b.id} style={{ width: '31.5%', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: b.earned ? s.accent : C.line3, backgroundColor: b.earned ? 'rgba(255,255,255,0.05)' : 'transparent', gap: 6, opacity: b.earned ? 1 : 0.65 }}>
