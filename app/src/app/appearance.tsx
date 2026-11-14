@@ -71,9 +71,9 @@ export default function Appearance() {
                   <Icon name={t.icon} size={34} color="#fff" tint={0.35} strokeWidth={1.6} />
                 </View>
                 <View style={{ paddingTop: 10, paddingHorizontal: 12, paddingBottom: 12, gap: 3 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
-                    <Txt size={15} w={500} numberOfLines={1} style={{ flexShrink: 1 }}>{t.name}</Txt>
-                    {on ? <Label size={10} ls={0} color={t.acc}>● ON</Label> : null}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
+                    <Txt size={15} w={500} numberOfLines={2} style={{ flex: 1 }}>{t.name}</Txt>
+                    {on ? <Label size={10} ls={0} color={t.acc} style={{ marginTop: 4 }}>● ON</Label> : null}
                   </View>
                   <Txt size={12} color={C.label}>{t.vibe}</Txt>
                 </View>

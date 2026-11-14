@@ -35,7 +35,7 @@ export default function Exercises() {
       <TextInput
         value={q}
         onChangeText={setQ}
-        placeholder="Search 870+ exercises"
+        placeholder="Search 750+ exercises"
         placeholderTextColor={C.dim}
         keyboardAppearance="dark"
         style={{ marginTop: 20, height: 48, borderRadius: 24, paddingHorizontal: 18, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', fontFamily: fontFamily(s.settings.font, 400), fontSize: 16, color: C.text }}

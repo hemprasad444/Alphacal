@@ -67,6 +67,7 @@ export const ALIASES: Record<string, string> = {
   'mountain climbers': 'Mountain_Climbers', crunch: 'Crunches', crunches: 'Crunches', 'cable fly': 'Flat_Bench_Cable_Flyes', 'dumbbell fly': 'Dumbbell_Flyes', shrug: 'Barbell_Shrug',
   run: 'Running_Treadmill', running: 'Running_Treadmill', 'warm up jog': 'Jogging_Treadmill', jog: 'Jogging_Treadmill', intervals: 'Running_Treadmill', 'tempo run': 'Running_Treadmill',
   cycling: 'Bicycling', rowing: 'Rowing_Stationary', 'arnold press': 'Arnold_Dumbbell_Press',
+  'machine chest press': 'Machine_Bench_Press', 'chest press': 'Machine_Bench_Press',
 };
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\b(db)\b/g, 'dumbbell').replace(/\b(bb)\b/g, 'barbell').replace(/\s+/g, ' ').trim();
