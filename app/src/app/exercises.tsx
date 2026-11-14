@@ -2,11 +2,13 @@
 import { library, type LibExercise, searchExercises } from '@rei/shared';
 import { router } from 'expo-router';
 import { memo, useMemo, useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { View } from 'react-native';
+import { Chip, Field } from '../components/dojo';
+import { SectionHeader } from '../components/fight';
+import { Icon } from '../components/icons';
 import { ListScreen, SubHeader } from '../components/Screen';
-import { Label, Tap, Txt } from '../components/ui';
-import { C, fontFamily } from '../lib/theme';
-import { useStore } from '../state/store';
+import { Tap, Txt } from '../components/ui';
+import { F, HIT, SP } from '../lib/theme';
 
 const GROUPS: [string, string[]][] = [
   ['All', []],
@@ -20,7 +22,6 @@ const GROUPS: [string, string[]][] = [
 ];
 
 export default function Exercises() {
-  const s = useStore();
   const [q, setQ] = useState('');
   const [group, setGroup] = useState('All');
   const list = useMemo(() => {
@@ -31,23 +32,12 @@ export default function Exercises() {
 
   const header = (
     <View>
-      <SubHeader title="EXERCISE LIBRARY" onBack={() => router.back()} />
-      <TextInput
-        value={q}
-        onChangeText={setQ}
-        placeholder="Search 750+ exercises"
-        placeholderTextColor={C.dim}
-        keyboardAppearance="dark"
-        style={{ marginTop: 20, height: 48, borderRadius: 24, paddingHorizontal: 18, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', fontFamily: fontFamily(s.settings.font, 400), fontSize: 16, color: C.text }}
-      />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-        {GROUPS.map(([g]) => (
-          <Tap key={g} onPress={() => setGroup(g)} style={{ height: 32, paddingHorizontal: 12, borderRadius: 16, justifyContent: 'center', borderWidth: 1, borderColor: g === group ? s.accent : 'rgba(255,255,255,0.1)' }}>
-            <Txt size={13} color={g === group ? C.text : C.body}>{g}</Txt>
-          </Tap>
-        ))}
+      <SubHeader title="Exercise library" onBack={() => router.back()} />
+      <Field value={q} onChangeText={setQ} placeholder="Search 750+ exercises" accessibilityLabel="Search exercises" autoCorrect={false} style={{ marginTop: SP.lg }} />
+      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm, marginTop: SP.md }}>
+        {GROUPS.map(([g]) => <Chip key={g} label={g} on={g === group} onPress={() => setGroup(g)} />)}
       </View>
-      <Label size={10} color={C.faint} style={{ marginTop: 14, marginBottom: 6 }}>{`${list.length} EXERCISES · FREE-EXERCISE-DB`}</Label>
+      <SectionHeader title={`${list.length} exercises`} meta="free-exercise-db" style={{ marginTop: SP.xl, marginBottom: SP.md }} />
     </View>
   );
 
@@ -56,9 +46,12 @@ export default function Exercises() {
 
 const Row = memo(function Row({ e }: { e: LibExercise }) {
   return (
-    <Tap onPress={() => router.push({ pathname: '/lift', params: { name: e.name, id: e.id } })} style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line, gap: 3 }}>
-      <Txt size={15}>{e.name}</Txt>
-      <Txt face="mono" size={11} color={C.dim}>{`${e.primary.join(', ')} · ${e.equipment} · ${e.level}`}</Txt>
+    <Tap onPress={() => router.push({ pathname: '/lift', params: { name: e.name, id: e.id } })} accessibilityLabel={`${e.name}. ${e.primary.join(', ')}, ${e.equipment}, ${e.level}`} style={{ minHeight: HIT, marginBottom: SP.xs, paddingVertical: SP.sm, paddingHorizontal: SP.md, backgroundColor: F.canvas, flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Txt size={15} w={600} lh={1.3}>{e.name}</Txt>
+        <Txt face="label" w={400} size={12} ls={0.08} color={F.smoke} numberOfLines={1}>{`${e.primary.join(', ')} · ${e.equipment} · ${e.level}`.toUpperCase()}</Txt>
+      </View>
+      <Icon name="chevron" size={16} color={F.smoke} tint={0} strokeWidth={2} />
     </Tap>
   );
 });
