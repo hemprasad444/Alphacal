@@ -1,128 +1,70 @@
-// Building blocks for the onboarding ("The Pact Arc") and sign-in: the page atmosphere, halftones,
-// REI's speech bubble, the call to action and the answer controls. Colors come from the theme being chosen, passed
-// down as `acc` / `acc2`, so the screens repaint as the user picks a world.
+// Building blocks for the onboarding (the pre-fight training camp) and sign-in, in the Fight Night
+// system: the page behind them, the call to action and the answer controls. The world is still
+// being chosen here, so its colour is passed down as `acc` instead of read from the store.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, PanResponder, StyleSheet, TextInput, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
-import Svg, { Circle, Defs, Line, LinearGradient, Mask, Pattern, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { Animated, Easing, PanResponder, StyleSheet, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
+import Svg, { Line, Polygon, Rect } from 'react-native-svg';
+import { CutBox, CutShape } from '../cut';
+import { CutButton, SectionHeader } from '../fight';
 import { Icon, type IconKey } from '../icons';
 import { Tap, Txt } from '../ui';
-import { alpha, C, fontFamily, mix } from '../../lib/theme';
+import { C, F, fontFamily, hard, HIT, onColor, SP } from '../../lib/theme';
+import { useStore } from '../../state/store';
 
-/** Fades and lifts its children in after `delay` ms, like the design's obRise. */
+/** Fades and lifts its children in after `delay` ms. */
 export function Rise({ delay = 0, children, style, from = 14 }: { delay?: number; children: ReactNode; style?: StyleProp<ViewStyle>; from?: number }) {
   const [v] = useState(() => new Animated.Value(0));
   useEffect(() => {
-    Animated.timing(v, { toValue: 1, duration: 550, delay, easing: Easing.bezier(0.2, 0.8, 0.2, 1), useNativeDriver: true }).start();
+    Animated.timing(v, { toValue: 1, duration: 450, delay, easing: Easing.bezier(0.2, 0.8, 0.2, 1), useNativeDriver: true }).start();
   }, [v, delay]);
   return <Animated.View style={[style, { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) }] }]}>{children}</Animated.View>;
 }
 
-/** The page behind sign-in and the chapters: a glow from the top, one from the corner, halftone dots. */
-export function Atmosphere({ acc, acc2 }: { acc: string; acc2: string }) {
-  const { width: W } = useWindowDimensions();
+/**
+ * The page behind sign-in and the rounds: the arena with the two lights, flat. Your corner's
+ * colour leans in from the top, the far corner's red from the bottom right.
+ */
+export function Atmosphere({ acc }: { acc: string; acc2?: string }) {
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-        <Defs>
-          <RadialGradient id="obTop" cx="50%" cy="-12%" rx="110%" ry="55%">
-            <Stop offset="0" stopColor={acc} stopOpacity={0.14} />
-            <Stop offset="0.62" stopColor={acc} stopOpacity={0} />
-          </RadialGradient>
-          <RadialGradient id="obCorner" cx="105%" cy="108%" rx="80%" ry="40%">
-            <Stop offset="0" stopColor={acc2} stopOpacity={0.18} />
-            <Stop offset="0.7" stopColor={acc2} stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Rect width="100%" height="100%" fill="url(#obTop)" />
-        <Rect width="100%" height="100%" fill="url(#obCorner)" />
+      <Svg width="100%" height="100%" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+        <Polygon points="250,0 330,0 56,844 -24,844" fill={acc} opacity={0.05} />
+        <Polygon points="342,0 352,0 78,844 68,844" fill={acc} opacity={0.14} />
+        <Polygon points="560,0 640,0 366,844 286,844" fill={F.rival} opacity={0.06} />
       </Svg>
-      <View style={{ position: 'absolute', right: 0, top: 0 }}><Halftone width={Math.min(260, W * 0.65)} height={300} corner="tr" /></View>
-      <View style={{ position: 'absolute', left: 0, bottom: 0 }}><Halftone width={240} height={260} color={acc} opacity={0.3} corner="bl" /></View>
     </View>
   );
 }
 
-/** A halftone dot field fading towards one corner. */
-export function Halftone({ width, height, color = '#FFFFFF', opacity = 0.11, corner = 'tr', step = 6 }: { width: number; height: number; color?: string; opacity?: number; corner?: 'tr' | 'bl'; step?: number }) {
-  const id = `ht${corner}${step}`;
-  const [x1, y1, x2, y2] = corner === 'tr' ? ['1', '0', '0.45', '0.55'] : ['0', '1', '0.5', '0.5'];
-  return (
-    <Svg width={width} height={height} pointerEvents="none">
-      <Defs>
-        <Pattern id={`${id}p`} width={step} height={step} patternUnits="userSpaceOnUse">
-          <Circle cx={step / 2} cy={step / 2} r={1.1} fill={color} fillOpacity={opacity} />
-        </Pattern>
-        <LinearGradient id={`${id}g`} x1={x1} y1={y1} x2={x2} y2={y2}>
-          <Stop offset="0" stopColor="#FFFFFF" stopOpacity={1} />
-          <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
-        </LinearGradient>
-        <Mask id={`${id}m`}>
-          <Rect width={width} height={height} fill={`url(#${id}g)`} />
-        </Mask>
-      </Defs>
-      <Rect width={width} height={height} fill={`url(#${id}p)`} mask={`url(#${id}m)`} />
-    </Svg>
-  );
-}
-
-/**
- * A tint of `acc` over the dark page, as a solid colour. Use it behind `comic()`: iOS draws a shadow of
- * every child of a see-through view, which doubles the text.
- */
-export const solid = (acc: string, a: number, base = '#0A0B0E') => mix(acc, base, a);
-
-/** Solid offset "comic" shadow in the accent color (iOS draws it; elsewhere it's just a border). */
-export const comic = (acc: string, d = 4): ViewStyle => ({ shadowColor: acc, shadowOpacity: 1, shadowRadius: 0, shadowOffset: { width: d, height: d } });
-
-/** REI's white speech bubble. */
-export function Bubble({ children, acc, tail = 'left', style }: { children: ReactNode; acc: string; tail?: 'left' | 'top'; style?: StyleProp<ViewStyle> }) {
-  const r = tail === 'top' ? { borderTopLeftRadius: 4, borderTopRightRadius: 20, borderBottomRightRadius: 20, borderBottomLeftRadius: 20 } : { borderTopLeftRadius: 22, borderTopRightRadius: 22, borderBottomRightRadius: 22, borderBottomLeftRadius: 4 };
-  return <View style={[{ backgroundColor: C.text, paddingVertical: 13, paddingHorizontal: 16 }, r, comic(acc, tail === 'top' ? 4 : 5), style]}>{children}</View>;
-}
-
-/** The big call to action: a solid accent slab with a hard shadow, like the Dojo's buttons. */
+/** The screen's one primary action: the cut slab in the chosen world's colour. */
 export function Cta({ label, onPress, acc, disabled, icon }: { label: string; onPress: () => void; acc: string; disabled?: boolean; icon?: IconKey }) {
-  return (
-    <Tap
-      onPress={disabled ? undefined : onPress}
-      style={{
-        height: 56, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-        backgroundColor: disabled ? '#15171B' : acc,
-        borderWidth: 1.5, borderColor: disabled ? C.line3 : acc,
-        ...(disabled ? null : comic(alpha(mix(acc, '#000000', 0.55), 1), 4)),
-      }}
-    >
-      {icon ? <Icon name={icon} size={20} color={disabled ? C.dim : C.ink} tint={0.25} strokeWidth={2} /> : null}
-      <Txt size={17} w={600} color={disabled ? C.dim : C.ink}>{label}</Txt>
-      {icon ? null : <Icon name="chevron" size={18} color={disabled ? C.dim : C.ink} strokeWidth={2.2} />}
-    </Tap>
-  );
+  return <CutButton label={label} icon={icon} onPress={onPress} disabled={disabled} accent={acc} />;
 }
 
-/** Field caption with an optional accent note on the right. */
+/** The heading above an answer: cut tab, leaning label, a quiet note on the right. */
 export function FieldLabel({ label, right, acc }: { label: string; right?: string; acc: string }) {
   if (!label && !right) return null;
-  return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
-      <Txt face="mono" size={10.5} ls={0.15} color={C.dim}>{label}</Txt>
-      {right ? <Txt face="mono" size={10.5} ls={0.15} color={acc} align="right">{right}</Txt> : null}
-    </View>
-  );
+  return <SectionHeader title={label} meta={right} accent={acc} style={{ marginBottom: SP.sm }} />;
 }
 
-/** Selected / unselected look for cards and chips. */
-export function pick(on: boolean, acc: string) {
-  return on
-    ? { borderColor: acc, backgroundColor: solid(acc, 0.12, '#0D0F13'), ...comic(alpha(acc, 0.55), 3), kStroke: acc, fg: C.text }
-    : { borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0D0F13', shadowOpacity: 0, kStroke: 'rgba(255,255,255,0.14)', fg: C.body };
-}
+/** A choice tile: canvas with a rope border; chosen, it takes your colour and its hard shadow. */
+export const tile = (on: boolean, acc: string): ViewStyle => ({
+  borderWidth: 2,
+  borderColor: on ? acc : F.rope,
+  backgroundColor: on ? F.canvas2 : F.canvas,
+  ...(on ? hard(acc) : null),
+});
 
-/** The tick in the corner of a chosen card. */
+/** The tick on a chosen tile: a cut tab, filled when picked. */
 export function Picked({ on, acc }: { on: boolean; acc: string }) {
-  if (!on) return <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.14)' }} />;
   return (
-    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: acc, alignItems: 'center', justifyContent: 'center' }}>
-      <Icon name="check" size={14} color={C.ink} strokeWidth={2.6} />
+    <View style={{ width: 24, height: 18 }}>
+      <CutShape width={24} height={18} fill={on ? acc : F.arena} stroke={on ? undefined : F.rope} />
+      {on ? (
+        <View style={{ position: 'absolute', left: 0, top: 0, width: 24, height: 18, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="check" size={13} color={onColor(acc)} tint={0} strokeWidth={3} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -130,13 +72,17 @@ export function Picked({ on, acc }: { on: boolean; acc: string }) {
 /** A segmented row: one choice. */
 export function Seg<T extends string | number>({ value, opts, onPick, acc }: { value: T; opts: [T, string, string?][]; onPick: (v: T) => void; acc: string }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: '#0D0F13', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)' }}>
+    <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', borderWidth: 2, borderColor: F.rope, backgroundColor: F.arena }}>
       {opts.map(([v, label, sub]) => {
-        const on = v === value;
+        const on = v === value, ink = on ? onColor(acc) : F.smoke;
         return (
-          <Tap key={String(v)} onPress={() => onPick(v)} style={{ flex: 1, minHeight: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingVertical: 4, backgroundColor: on ? acc : 'transparent' }}>
-            <Txt size={13.5} w={600} color={on ? C.ink : C.sub} numberOfLines={1}>{label}</Txt>
-            {sub ? <Txt face="mono" size={9.5} color={on ? alpha(C.ink, 0.7) : alpha(C.sub, 0.7)}>{sub}</Txt> : null}
+          <Tap
+            key={String(v)} onPress={() => onPick(v)}
+            accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={sub ? `${label}, ${sub}` : label}
+            style={{ flex: 1, minHeight: HIT, alignItems: 'center', justifyContent: 'center', paddingVertical: SP.xs, paddingHorizontal: 2, backgroundColor: on ? acc : 'transparent' }}
+          >
+            <Txt face="label" w={600} size={15} ls={0.05} color={ink} numberOfLines={1}>{label.toUpperCase()}</Txt>
+            {sub ? <Txt face="label" size={12} ls={0.05} color={ink} numberOfLines={1}>{sub.toUpperCase()}</Txt> : null}
           </Tap>
         );
       })}
@@ -144,15 +90,17 @@ export function Seg<T extends string | number>({ value, opts, onPick, acc }: { v
   );
 }
 
-/** Wrapping chips: one choice, or several when `multi`. "None" clears the rest. */
+/** Wrapping cut chips: one choice or several, the caller decides. */
 export function Chips({ opts, isOn, onPick, acc }: { opts: string[]; isOn: (o: string) => boolean; onPick: (o: string) => void; acc: string }) {
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm }}>
       {opts.map(o => {
-        const s = pick(isOn(o), acc);
+        const on = isOn(o);
         return (
-          <Tap key={o} onPress={() => onPick(o)} style={{ height: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', borderWidth: 1.5, borderColor: s.borderColor, backgroundColor: s.backgroundColor, shadowColor: (s as ViewStyle).shadowColor, shadowOpacity: (s as ViewStyle).shadowOpacity, shadowRadius: 0, shadowOffset: (s as ViewStyle).shadowOffset }}>
-            <Txt size={13.5} w={500} color={s.fg}>{o}</Txt>
+          <Tap key={o} onPress={() => onPick(o)} accessibilityLabel={o} accessibilityState={{ selected: on }}>
+            <CutBox fill={on ? acc : F.canvas} stroke={on ? undefined : F.rope} style={{ minHeight: HIT, paddingHorizontal: 20, justifyContent: 'center' }}>
+              <Txt size={14.5} w={600} color={on ? onColor(acc) : C.body}>{o}</Txt>
+            </CutBox>
           </Tap>
         );
       })}
@@ -160,22 +108,47 @@ export function Chips({ opts, isOn, onPick, acc }: { opts: string[]; isOn: (o: s
   );
 }
 
-/** Two-up number tiles with − / + steppers. */
-export function Nums({ items }: { items: { label: string; unit?: string; value: string; minus: () => void; plus: () => void }[] }) {
+/** A square − / + button, 44pt. */
+function StepButton({ sign, label, onPress, wide }: { sign: '−' | '+'; label: string; onPress: () => void; wide?: boolean }) {
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      {items.map(o => (
-        <View key={o.label} style={{ width: '48.6%', flexGrow: 1, paddingTop: 11, paddingBottom: 9, paddingLeft: 13, paddingRight: 6, borderRadius: 12, backgroundColor: '#0D0F13', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)' }}>
-          <Txt face="mono" size={9.5} ls={0.15} color={C.dim}>{o.label}</Txt>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 3 }}>
-            <Txt face="mono" size={19} w={500}>{o.value}{o.unit ? <Txt face="mono" size={11} color={C.dim}>{` ${o.unit}`}</Txt> : null}</Txt>
-            <View style={{ flexDirection: 'row' }}>
-              <Tap onPress={o.minus} style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }}><Txt size={17} color={C.muted}>−</Txt></Tap>
-              <Tap onPress={o.plus} style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }}><Txt size={17} color={C.muted}>+</Txt></Tap>
-            </View>
+    <Tap onPress={onPress} accessibilityLabel={`${sign === '+' ? 'Increase' : 'Decrease'} ${label}`} style={{ width: wide ? undefined : HIT, flex: wide ? 1 : undefined, height: HIT, borderWidth: 2, borderColor: F.rope, backgroundColor: F.arena, alignItems: 'center', justifyContent: 'center' }}>
+      <Txt size={22} w={600} lh={1.15} color={F.chalk}>{sign}</Txt>
+    </Tap>
+  );
+}
+
+/**
+ * Number tiles with − / + steppers. One on its own is a row (− value +); several sit two-up, each
+ * with its number on top and the two buttons side by side underneath, so the number never squeezes.
+ */
+export function Nums({ items }: { items: { label: string; unit?: string; value: string; minus: () => void; plus: () => void }[] }) {
+  const solo = items.length === 1;
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm }}>
+      {items.map(o => {
+        const name = o.label.toLowerCase();
+        const value = <Txt face="display" lean={false} size={solo ? 30 : 28} lh={1.2} color={o.value === '—' ? F.smoke : F.chalk} numberOfLines={1}>{o.value}</Txt>;
+        return (
+          <View key={o.label} style={{ width: '48%', flexGrow: 1, padding: SP.md, gap: SP.sm, backgroundColor: F.canvas }}>
+            <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} numberOfLines={1}>{o.unit ? `${o.label} · ${o.unit.toUpperCase()}` : o.label}</Txt>
+            {solo ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
+                <StepButton sign="−" label={name} onPress={o.minus} />
+                <View style={{ flex: 1, alignItems: 'center' }}>{value}</View>
+                <StepButton sign="+" label={name} onPress={o.plus} />
+              </View>
+            ) : (
+              <>
+                {value}
+                <View style={{ flexDirection: 'row', gap: SP.sm }}>
+                  <StepButton sign="−" label={name} onPress={o.minus} wide />
+                  <StepButton sign="+" label={name} onPress={o.plus} wide />
+                </View>
+              </>
+            )}
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -201,74 +174,82 @@ export function Scrub({ label, unit, value, step, min, max, dp, onChange, acc }:
       onPanResponderMove: (_, g) => cur.current.onChange(clamp(start.current - (g.dx / 8) * step)),
     }),
   );
-  const W = 320, offset = ((value - min) / step) * 8;
+  const W = 320, H = 28, offset = ((value - min) / step) * 8;
   const ticks = [];
   for (let i = -24; i <= 24; i++) {
     const n = Math.round((value - min) / step) + i;
     const x = W / 2 + n * 8 - offset;
-    if (x < 0 || x > W) continue;
-    ticks.push(<Line key={i} x1={x} x2={x} y1={n % 10 === 0 ? 4 : 10} y2={24} stroke="#FFFFFF" strokeOpacity={n % 10 === 0 ? 0.6 : 0.22} strokeWidth={n % 10 === 0 ? 1.5 : 1} />);
+    if (x < 0 || x > W || n < 0 || n > Math.round((max - min) / step)) continue;
+    ticks.push(<Line key={i} x1={x} x2={x} y1={n % 10 === 0 ? 4 : 12} y2={H} stroke={n % 10 === 0 ? F.chalk : F.rope} strokeWidth={2} />);
   }
   return (
-    <View style={{ paddingTop: 12, paddingHorizontal: 14, paddingBottom: 10, borderRadius: 12, backgroundColor: '#0D0F13', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Txt face="mono" size={10.5} ls={0.15} color={C.label} style={{ flex: 1 }} numberOfLines={1}>{label}</Txt>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-          <Tap onPress={() => onChange(clamp(value - step))} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}><Txt size={18} color={C.muted}>−</Txt></Tap>
-          <Txt face="mono" size={25} w={500} align="center" style={{ minWidth: 96 }}>{value.toFixed(dp)}<Txt face="mono" size={12} color={C.dim}>{` ${unit}`}</Txt></Txt>
-          <Tap onPress={() => onChange(clamp(value + step))} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}><Txt size={18} color={C.muted}>+</Txt></Tap>
+    <View
+      accessible accessibilityRole="adjustable" accessibilityLabel={label} accessibilityValue={{ text: `${value.toFixed(dp)} ${unit}` }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={e => onChange(clamp(value + (e.nativeEvent.actionName === 'increment' ? step : -step)))}
+      style={{ padding: SP.md, gap: SP.sm, backgroundColor: F.canvas }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
+        <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} style={{ flex: 1 }} numberOfLines={2}>{label}</Txt>
+        <StepButton sign="−" label={label.toLowerCase()} onPress={() => onChange(clamp(value - step))} />
+        <View style={{ minWidth: 104, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 5 }}>
+          <Txt face="display" lean={false} size={34} lh={1.15}>{value.toFixed(dp)}</Txt>
+          <Txt face="label" w={600} size={14} ls={0.06} color={F.smoke}>{unit}</Txt>
         </View>
+        <StepButton sign="+" label={label.toLowerCase()} onPress={() => onChange(clamp(value + step))} />
       </View>
-      <View {...pan.panHandlers} style={{ height: 28, marginTop: 4, alignItems: 'center', overflow: 'hidden' }}>
-        <Svg width={W} height={28}>
-          <Defs>
-            <LinearGradient id="scrubFade" x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0} />
-              <Stop offset="0.22" stopColor="#FFFFFF" stopOpacity={1} />
-              <Stop offset="0.78" stopColor="#FFFFFF" stopOpacity={1} />
-              <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
-            </LinearGradient>
-            <Mask id="scrubMask"><Rect width={W} height={28} fill="url(#scrubFade)" /></Mask>
-          </Defs>
-          <Svg mask="url(#scrubMask)">{ticks}</Svg>
-          <Rect x={W / 2 - 1} y={0} width={2} height={28} rx={1} fill={acc} />
+      <View {...pan.panHandlers} style={{ height: H, alignItems: 'center', overflow: 'hidden' }}>
+        <Svg width={W} height={H}>
+          {ticks}
+          <Rect x={W / 2 - 2} y={0} width={4} height={H} fill={acc} />
         </Svg>
       </View>
     </View>
   );
 }
 
-/** A labelled switch row (the Link chapter). */
+const SWITCH_W = 52, SWITCH_H = 28;
+
+/** A labelled switch row. */
 export function ToggleRow({ icon, label, sub, on, onPress, acc }: { icon: IconKey; label: string; sub: string; on: boolean; onPress: () => void; acc: string }) {
   return (
-    <Tap onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingLeft: 16, paddingRight: 14, borderRadius: 12, backgroundColor: '#0D0F13', borderWidth: 1.5, borderColor: on ? alpha(acc, 0.45) : 'rgba(255,255,255,0.1)' }}>
-      <Icon name={icon} size={24} color={on ? acc : C.ghost} tint={on ? 0.3 : 0.1} />
-      <View style={{ flex: 1 }}>
-        <Txt size={15} w={600}>{label}</Txt>
-        <Txt size={12.5} color={C.sub} lh={1.35} style={{ marginTop: 2 }}>{sub}</Txt>
+    <Tap
+      onPress={onPress} accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={`${label}. ${sub}`}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: HIT, paddingVertical: SP.md, paddingHorizontal: SP.md, backgroundColor: F.canvas }}
+    >
+      <Icon name={icon} size={24} color={on ? acc : F.smoke} tint={0} strokeWidth={2} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Txt size={15.5} w={600}>{label}</Txt>
+        <Txt size={13} color={C.sub} lh={1.35}>{sub}</Txt>
       </View>
-      <View style={{ width: 51, height: 31, borderRadius: 16, backgroundColor: on ? acc : 'rgba(255,255,255,0.14)' }}>
-        <View style={{ position: 'absolute', top: 2, left: on ? 22 : 2, width: 27, height: 27, borderRadius: 14, backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 3, shadowOffset: { width: 0, height: 2 } }} />
+      <View style={{ width: SWITCH_W, height: SWITCH_H }}>
+        <CutShape width={SWITCH_W} height={SWITCH_H} fill={on ? acc : F.canvas} stroke={on ? acc : F.rope} />
+        <CutShape width={24} height={16} fill={on ? onColor(acc) : F.smoke} style={{ position: 'absolute', top: 6, left: on ? SWITCH_W - 24 - 7 : 7 }} />
       </View>
     </Tap>
   );
 }
 
-/** A single-line answer box. */
-export function Field({ value, onChange, placeholder, secure, keyboard, autoCapitalize = 'sentences', maxLength = 160 }: { value: string; onChange: (v: string) => void; placeholder: string; secure?: boolean; keyboard?: 'default' | 'email-address'; autoCapitalize?: 'none' | 'sentences' | 'words'; maxLength?: number }) {
+/** A single-line answer box. Its border takes your colour while you type. */
+export function Field({ value, onChange, placeholder, secure, keyboard, autoCapitalize = 'sentences', maxLength = 160, acc, accessibilityLabel }: { value: string; onChange: (v: string) => void; placeholder: string; secure?: boolean; keyboard?: 'default' | 'email-address'; autoCapitalize?: 'none' | 'sentences' | 'words'; maxLength?: number; acc?: string; accessibilityLabel?: string }) {
+  const textSize = useStore(s => s.settings.textSize);
+  const [focus, setFocus] = useState(false);
   return (
     <TextInput
       value={value}
       onChangeText={onChange}
+      onFocus={() => setFocus(true)}
+      onBlur={() => setFocus(false)}
       placeholder={placeholder}
       placeholderTextColor={C.dim}
+      accessibilityLabel={accessibilityLabel ?? placeholder}
       secureTextEntry={secure}
       keyboardType={keyboard}
       autoCapitalize={autoCapitalize}
       autoCorrect={false}
       maxLength={maxLength}
       keyboardAppearance="dark"
-      style={{ height: 50, paddingHorizontal: 16, borderRadius: 12, backgroundColor: '#0D0F13', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)', fontFamily: fontFamily('Geist', 400), fontSize: 15.5, color: C.text }}
+      style={{ minHeight: 52, paddingHorizontal: SP.lg, backgroundColor: F.canvas, borderWidth: 2, borderColor: focus ? acc ?? F.chalk : F.rope, fontFamily: fontFamily('body', 400), fontSize: 16 * textSize, color: F.chalk }}
     />
   );
 }

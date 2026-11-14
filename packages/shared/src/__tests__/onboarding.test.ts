@@ -10,12 +10,35 @@ const now = new Date(2026, 9, 3, 12, 0);
 const d = (over: Partial<Intake> = {}): Intake => ({ ...DEFAULT_INTAKE, name: 'Hem', ...over });
 
 describe('onboarding', () => {
-  it('has sixteen chapters between the cover and the bond; the account comes before, not inside', () => {
-    expect(CHAPTERS).toBe(16);
+  it('has fourteen rounds between the cover and the walkout; the account comes before, not inside', () => {
+    expect(CHAPTERS).toBe(14);
     expect(STEPS[0].id).toBe('boot');
     expect(STEPS.map(s => s.id).slice(-2)).toEqual(['pact', 'done']);
     expect(STEPS.map(s => s.id)).not.toContain('account');
     expect(new Set(STEPS.map(s => s.id)).size).toBe(STEPS.length);
+  });
+
+  it('asks for what REI needs first, and for nothing before what it depends on', () => {
+    const at = (id: string) => STEPS.findIndex(s => s.id === id);
+    // Name, goal, body, target, training and diet come before anything optional or cosmetic.
+    const essentials = ['name', 'ideal', 'vow', 'body', 'target', 'train', 'kitchen'];
+    expect(STEPS.slice(1, 1 + essentials.length).map(s => s.id)).toEqual(essentials);
+    // The target is worked back from the look and the body, and judged against the weeks.
+    for (const dep of ['ideal', 'vow', 'body']) expect(at(dep)).toBeLessThan(at('target'));
+    // Calories need the goal, the body, the training load and the job.
+    for (const dep of ['vow', 'body', 'train', 'life']) expect(at(dep)).toBeLessThan(at('fuel'));
+    // A best starts from what is typical for their sex and training age.
+    for (const dep of ['body', 'train']) expect(at(dep)).toBeLessThan(at('power'));
+    // The corner voices are prepared from the name; the pick sits mid-way, never as the opener or the closer.
+    expect(at('partner')).toBeGreaterThan(at('kitchen'));
+    expect(at('partner')).toBeLessThan(at('fuel'));
+    // Never more than three plain forms in a row without a pick or a payoff.
+    const breathers = new Set(['ideal', 'target', 'partner', 'fuel', 'pact']);
+    let run = 0;
+    for (const s of STEPS.filter(x => x.t)) {
+      run = breathers.has(s.id) ? 0 : run + 1;
+      expect(run).toBeLessThanOrEqual(3);
+    }
   });
 
   it('gives every chapter an icon, a title, a line from REI and (but the pact) a button', () => {
@@ -40,7 +63,7 @@ describe('onboarding', () => {
   it('greets with the chosen partner on the partner chapter', () => {
     expect(reiLine('partner', d())).toMatch(/corner/);
     expect(reiLine('partner', d({ character: 'naruto' }))).toMatch(/^Kai\./);
-    expect(pactRows(d({ character: 'gojo' })).find(([k]) => k === 'VOICE')?.[1]).toMatch(/Ace$/);
+    expect(pactRows(d({ character: 'gojo' })).find(([k]) => k === 'CORNER')?.[1]).toMatch(/^Ace/);
   });
 
   it('runs the fuel numbers from Mifflin–St Jeor, activity and the goal', () => {
