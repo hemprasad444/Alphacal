@@ -307,7 +307,7 @@ function NameStep({ d, set, acc }: StepProps) {
           value={d.name}
           onChangeText={v => set('name', v)}
           placeholder="Your name"
-          placeholderTextColor={C.ghost}
+          placeholderTextColor={C.faint}
           maxLength={20}
           autoFocus
           autoCapitalize="words"

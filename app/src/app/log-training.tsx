@@ -63,7 +63,7 @@ export default function LogTraining() {
         value={value}
         onChangeText={set}
         placeholder={placeholder}
-        placeholderTextColor={C.ghost}
+        placeholderTextColor={C.faint}
         keyboardType={keyboard}
         keyboardAppearance="dark"
         style={{ height: 64, borderRadius: 12, borderWidth: 1.5, borderColor: value ? alpha(accent, 0.6) : 'rgba(255,255,255,0.12)', paddingHorizontal: 16, fontFamily: fontFamily(s.settings.font, 300), fontSize: keyboard === 'default' ? 20 : 30, color: C.text, backgroundColor: '#0D0F13' }}
