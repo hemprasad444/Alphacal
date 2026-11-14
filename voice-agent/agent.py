@@ -51,6 +51,10 @@ ELEVEN_MODEL = os.environ.get("ELEVEN_MODEL", "eleven_v4_turbo")
 LOG_TURNS = os.environ.get("REI_LOG_TURNS") == "1"
 # Who listens on calls: "deepgram" (Flux) or "soniox".
 STT_ENGINE = os.environ.get("REI_STT", "deepgram")
+# "all": Soniox hears every language as spoken and REI answers in it. "en": everything is translated into English.
+LANGUAGES = os.environ.get("REI_LANGUAGES", "all")
+# The languages Soniox expects first (Indian users); any other language is still heard.
+LANGUAGE_HINTS = ["en", "hi", "te", "ta", "kn", "ml", "mr", "bn"]
 
 # Soniox hears better when it knows the topic and the words to expect, Indian food names above all.
 SONIOX_CONTEXT = ContextObject(
@@ -121,13 +125,15 @@ def make_stt() -> lkstt.STT:
     if STT_ENGINE == "soniox" and not os.environ.get("SONIOX_API_KEY"):
         log.warning("REI_STT=soniox but SONIOX_API_KEY isn't set: listening with Deepgram Flux")
     elif STT_ENGINE == "soniox":
-        # REI only gets English: Soniox writes Hindi or Telugu in their own script whatever the language hints, and
-        # sometimes misreads an Indian accent as Punjabi or Gujarati, so everything is translated into English
-        # (English as said). It also decides when the turn is over.
-        # It ends a turn 0.5 s after the last word when it's sure, and otherwise waits out the max delay: about a
-        # quarter of call lines waited 2.5 s at the default 2 s, 1.6 s at 1 s. A 1 s "umm" pause still didn't end the turn.
-        return EagerSoniox(params=STTOptions(language_hints=["en"], context=SONIOX_CONTEXT, max_endpoint_delay_ms=1000,
-                                             translation=TranslationConfig(type="one_way", target_language="en")))
+        # Soniox also decides when the turn is over. It ends a turn 0.5 s after the last word when it's sure, and
+        # otherwise waits out the max delay: about a quarter of call lines waited 2.5 s at the default 2 s, 1.6 s at 1 s.
+        # A 1 s "umm" pause still didn't end the turn.
+        if LANGUAGES == "en":
+            # English only: Soniox writes Hindi or Telugu in their own script whatever the hints, and sometimes misreads
+            # an Indian accent as Punjabi or Gujarati, so everything is translated into English (English as said).
+            return EagerSoniox(params=STTOptions(language_hints=["en"], context=SONIOX_CONTEXT, max_endpoint_delay_ms=1000,
+                                                 translation=TranslationConfig(type="one_way", target_language="en")))
+        return EagerSoniox(params=STTOptions(language_hints=LANGUAGE_HINTS, context=SONIOX_CONTEXT, max_endpoint_delay_ms=1000))
     # Flux is built for voice agents: it hears when a turn is really over, not just a pause.
     # English only (flux-general-multi adds Hindi and 8 more, but not Telugu or Tamil).
     # A higher end-of-turn bar so "Do you remember…" isn't answered before the rest of the sentence.
@@ -292,10 +298,11 @@ def rpc_tool(room: rtc.Room, user: str, schema: dict[str, Any]):
             )
             if LOG_TURNS:
                 log.info("REI action · %s %s → %s", name, json.dumps(raw_arguments)[:200], result[:200])
-            return result
+            # The phone answers in English; without this REI followed it into English after a meal said in Hindi.
+            return f"{result} (Reply in the language they're speaking.)"
         except Exception as e:  # The phone dropped or the tool threw: REI says it didn't save.
             log.warning("tool %s failed: %s", name, e)
-            return "That didn't save. Tell them to try again in a bit."
+            return "That didn't save. Tell them to try again in a bit, in the language they're speaking."
 
     return function_tool(call, raw_schema=schema)
 

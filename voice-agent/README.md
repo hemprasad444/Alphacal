@@ -4,7 +4,8 @@ REI's live voice engine:
 Deepgram Flux or Soniox listens and decides when you've finished talking (`REI_STT`), OpenRouter thinks (the same
 fast models as chat), ElevenLabs speaks in the character's voice (eleven_v4_turbo, `ELEVEN_API_KEY`). Fish Audio takes
 over when ElevenLabs fails or runs out of characters, or for every call when the functions' `VOICE_ENGINE` is `fish`.
-Soniox listens in English only and knows Indian food names.
+Soniox hears any language and knows Indian food names; REI answers in the language you speak (`REI_LANGUAGES=en`
+turns everything into English).
 
 How a call works:
 
