@@ -7,7 +7,9 @@ import { Txt } from './ui';
 import { F, SP } from '../lib/theme';
 
 export interface ConfirmSheetProps {
-  open: boolean;
+  /** Shown or not (`visible` is accepted as another name for it). */
+  open?: boolean;
+  visible?: boolean;
   title: string;
   message?: string;
   /** The answer that does the thing ("Remove", "Delete"). */
@@ -19,13 +21,16 @@ export interface ConfirmSheetProps {
   /** Called when the confirm button is pressed, before `onClose`. */
   onConfirm?: () => void;
   /** Called on confirm, on cancel, and when the backdrop or the back button dismisses the sheet. */
-  onClose: () => void;
+  onClose?: () => void;
+  /** Another name for `onClose`. */
+  onCancel?: () => void;
 }
 
-export function ConfirmSheet({ open, title, message, confirmLabel = 'OK', cancelLabel = 'Cancel', destructive, onConfirm, onClose }: ConfirmSheetProps) {
+export function ConfirmSheet({ open, visible, title, message, confirmLabel = 'OK', cancelLabel = 'Cancel', destructive, onConfirm, onClose: close, onCancel }: ConfirmSheetProps) {
   const insets = useSafeAreaInsets();
+  const onClose = () => (close ?? onCancel)?.();
   return (
-    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={!!(open ?? visible)} transparent animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: 'flex-end' }}>
         <Pressable accessibilityRole="button" accessibilityLabel={cancelLabel ?? 'Dismiss'} onPress={onClose} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(11,12,16,0.78)' }} />
         <View accessibilityViewIsModal style={{ backgroundColor: F.arena, borderTopWidth: 2, borderTopColor: F.chalk, paddingHorizontal: SP.lg, paddingTop: SP.xl, paddingBottom: Math.max(insets.bottom, SP.lg) + SP.sm, gap: SP.md }}>

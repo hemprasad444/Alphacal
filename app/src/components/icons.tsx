@@ -1,6 +1,6 @@
-// REI's icon set: small hand-drawn props from anime worlds instead of kanji labels.
-// Ramen for fuel, meat on the bone for protein, onigiri for carbs, a karate gi for training,
-// a torii for home. Line art on a 24-unit grid with a soft tint fill, so they read at 14–40 px.
+// REI's icon set: small original Fight Night props. A ring for home, a glove for training, a
+// kettlebell for strength, three slashes for REI. Line art on a 24-unit grid with a soft tint
+// fill, so they read at 14–40 px. Keys are stable (they're stored and shared); only the art changes.
 import type { IconKey } from '@rei/shared';
 import type { ReactNode } from 'react';
 import Svg, { Circle, Ellipse, G, Path } from 'react-native-svg';
@@ -17,12 +17,13 @@ interface Draw {
 const P = ({ d, fill }: { d: string; fill?: string }) => <Path d={d} fill={fill ?? 'none'} />;
 
 const ICONS: Record<IconKey, (k: Draw) => ReactNode> = {
-  // Home: a torii gate.
+  // Home: the ring, two corner posts and its ropes.
   today: ({ f }) => (
     <>
-      <P d="M2.5 5.2c3.6 1.3 15.4 1.3 19 0l-.6 2.3c-3.8.9-14 .9-17.8 0z" fill={f} />
-      <P d="M5 10.5h14" />
-      <P d="M6.8 7.6V21M17.2 7.6V21M12 7.9v2.6" />
+      <P d="M4.5 16.4h15v3.7h-15z" fill={f} />
+      <P d="M4.5 3.9v16.2M19.5 3.9v16.2" />
+      <P d="M4.5 8.1h15M4.5 12.3h15" />
+      <P d="M2.5 20.1h19" />
     </>
   ),
   // Fuel: a bowl of ramen with an egg, a naruto slice and chopsticks.
@@ -67,22 +68,20 @@ const ICONS: Record<IconKey, (k: Draw) => ReactNode> = {
       <P d="M12 18.6a2.2 2.2 0 0 1-2.2-2.2c0-1.5 1.2-2 1.6-3.4.9.7 2.8 1.8 2.8 3.4a2.2 2.2 0 0 1-2.2 2.2z" />
     </>
   ),
-  // Training: a karate gi with its belt knot.
+  // Training: a boxing glove with its cuff.
   train: ({ f }) => (
     <>
-      <P d="M7.2 3.6 12 9l4.8-5.4 3.4 2.3-1.7 14.5h-13L3.8 5.9z" fill={f} />
-      <P d="M7.2 3.6 12 12.2l4.8-8.6" />
-      <P d="M5.2 14.2h13.6" />
-      <P d="M12 14.2 9.9 18.4M12 14.2l2.1 4.2" />
+      <P d="M6.6 12.4V8.4a4.8 4.8 0 0 1 9.6 0v.5h.4a2.6 2.6 0 0 1 2.6 2.6v1.3c0 2.2-1.2 3.8-3 4.6H8.4c-1.2-1.2-1.8-2.9-1.8-5z" fill={f} />
+      <P d="M8.4 17.4h7.8v3.4H8.4z" />
+      <P d="M16.2 8.9v3.2c0 .9-.6 1.5-1.5 1.5h-2.2" />
     </>
   ),
-  // Strength: a katana.
+  // Strength: a kettlebell.
   strength: ({ f }) => (
     <>
-      <P d="M21.2 2.8c-.4 3-2.4 6.2-6 9.8l-4.3 4.3-1.9-1.9 4.3-4.3c3.6-3.6 6.9-6.9 7.9-7.9z" fill={f} />
-      <P d="M6.9 13.2l3.9 3.9" />
-      <P d="M8.6 16.7l-4.9 4.9" />
-      <P d="M5.6 18.2l.9.9" />
+      <P d="M7.6 9.8h8.8c1.9 1.5 3 3.5 3 5.5a5.4 5.4 0 0 1-5.4 5.4h-4a5.4 5.4 0 0 1-5.4-5.4c0-2 1.1-4 3-5.5z" fill={f} />
+      <P d="M8.4 9.8V7.2a3.6 3.6 0 0 1 7.2 0v2.6" />
+      <P d="M9.6 15.4h4.8" />
     </>
   ),
   // Steps: two footprints walking.
@@ -110,24 +109,21 @@ const ICONS: Record<IconKey, (k: Draw) => ReactNode> = {
       <Circle cx={15.6} cy={15.4} r={1.3} fill={c} stroke="none" fillOpacity={1} />
     </>
   ),
-  // REI: the three-tomoe core.
+  // REI: the corner mark, three slashes at the cut angle in a ring.
   rei: ({ f, c }) => (
     <>
       <Circle cx={12} cy={12} r={9.2} fill={f} />
-      <G fill={c} stroke="none" fillOpacity={1}>
-        <Path d="M12 6.4a2 2 0 1 1-.1 4c-1.6.1-2.2 1-2.6 2.2-.3-2.4.6-6.1 2.7-6.2z" />
-        <Path d="M16.9 14.8a2 2 0 1 1-3.5-1.9c.7-1.4.2-2.4-.7-3.3 2.3.9 5 3.6 4.2 5.2z" />
-        <Path d="M7.1 14.8a2 2 0 1 1 3.4-2c.8 1.4 1.9 1.4 3.2 1.2-1.9 1.5-5.5 2.4-6.6.8z" />
-      </G>
+      <Path d="M8.5 7.2h2.2l-2.2 9.6H6.3zM12 7.2h2.2L12 16.8H9.8zM15.5 7.2h2.2l-2.2 9.6h-2.2z" fill={c} stroke="none" fillOpacity={1} />
     </>
   ),
   // Live voice: sound waves.
   voice: () => <P d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4" />,
-  // Settings: a shuriken.
+  // Settings: two sliders with cut knobs.
   settings: ({ f }) => (
     <>
-      <P d="M12 2.6l2.1 7.3 7.3 2.1-7.3 2.1-2.1 7.3-2.1-7.3L2.6 12l7.3-2.1z" fill={f} />
-      <Circle cx={12} cy={12} r={1.7} fill="none" />
+      <P d="M3 7.5h8.8M16.4 7.5H21M3 16.5h4.8M12.4 16.5H21" />
+      <P d="M12.4 4.8H17l-1.2 5.4h-4.6z" fill={f} />
+      <P d="M8.4 13.8H13l-1.2 5.4H7.2z" fill={f} />
     </>
   ),
   // Rank: a crest with chevrons.
@@ -168,7 +164,7 @@ const ICONS: Record<IconKey, (k: Draw) => ReactNode> = {
       <P d="M9 4.5v6l1.8-1.3 1.8 1.3v-6" />
     </>
   ),
-  // Progress: Mount Fuji.
+  // Progress: a peak with its snow line.
   progress: ({ f }) => (
     <>
       <P d="M2.5 19.5 9.2 8.4c.5-.8 1.1-1.2 2.8-1.2s2.3.4 2.8 1.2l6.7 11.1z" fill={f} />
@@ -206,12 +202,11 @@ const ICONS: Record<IconKey, (k: Draw) => ReactNode> = {
       <P d="M5.3 10h13.4M5.3 14h13.4" />
     </>
   ),
-  // Profile: a ninja headband.
+  // Profile: a fighter, head and shoulders.
   profile: ({ f }) => (
     <>
-      <Circle cx={12} cy={9} r={4.6} fill={f} />
-      <P d="M7.2 8h9.6M16.8 8l3.5 1.5M16.8 8l2.6 3" />
-      <P d="M4.6 20.6c1-3.6 4-5.4 7.4-5.4s6.4 1.8 7.4 5.4" />
+      <Circle cx={12} cy={8.6} r={4.4} fill={f} />
+      <P d="M4.6 20.6c1-3.6 4-5.4 7.4-5.4s6.4 1.8 7.4 5.4" fill={f} />
     </>
   ),
   // Run: a figure mid-stride with speed lines.
@@ -317,19 +312,16 @@ const ICONS: Record<IconKey, (k: Draw) => ReactNode> = {
       <Circle cx={12.8} cy={12} r={0.9} fill="none" />
     </>
   ),
-  // Theme crests.
-  kunai: ({ f }) => (
-    <>
-      <P d="M12 2.5 15 11h-6z" fill={f} />
-      <P d="M9.6 11h4.8M12 11v6.5" />
-      <Circle cx={12} cy={19.6} r={2} fill="none" />
-    </>
-  ),
+  // Crests. The keys are old names kept for saved data; the art is original.
+  // `kunai`: a bolt, for the fast and the underdog.
+  kunai: ({ f }) => <P d="M13.6 2.6 5.2 13.4h5.4l-1.2 8 8.4-10.8h-5.4z" fill={f} />,
+  // `strawhat`: a compass, for the adventurer.
   strawhat: ({ f, c }) => (
     <>
-      <P d="M2.5 15.2c0-1.4 4.3-2.5 9.5-2.5s9.5 1.1 9.5 2.5-4.3 2.5-9.5 2.5-9.5-1.1-9.5-2.5z" fill={f} />
-      <P d="M7 13.2c0-4 2.2-6.7 5-6.7s5 2.7 5 6.7" fill={f} />
-      <Path d="M7.2 11.6c3.2.7 6.4.7 9.6 0l.2 1.6c-3.3.8-6.7.8-10 0z" fill={c} stroke="none" fillOpacity={1} />
+      <Circle cx={12} cy={12} r={9} fill={f} />
+      <P d="M15.8 8.2l-2.2 5.4-5.4 2.2 2.2-5.4z" />
+      <Path d="M15.8 8.2l-2.2 5.4-3.2-3.2z" fill={c} stroke="none" fillOpacity={1} />
+      <P d="M12 3v1.4M12 19.6V21M3 12h1.4M19.6 12H21" />
     </>
   ),
   fist: ({ f }) => (
@@ -344,7 +336,7 @@ const ICONS: Record<IconKey, (k: Draw) => ReactNode> = {
       <Circle cx={12} cy={12} r={1.3} fill={c} stroke="none" fillOpacity={1} />
     </>
   ),
-  // A katana, edge up.
+  // A blade, edge up.
   sword: ({ f }) => (
     <>
       <P d="M20.5 3.5c-3.2 1.2-8.6 6.4-11.6 10.4l1.2 1.2c4-3 9.2-8.4 10.4-11.6z" fill={f} />

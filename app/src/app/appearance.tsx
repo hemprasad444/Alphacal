@@ -1,33 +1,16 @@
+// Look: text size, your world (it sets your corner colour; the far corner never changes), an
+// accent override, the arena lights and the emblem behind your screens.
 import { router } from 'expo-router';
 import { Image, View } from 'react-native';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { Screen, SubHeader } from '../components/Screen';
+import { CutShape } from '../components/cut';
+import { RoundStamp, SectionHeader } from '../components/fight';
 import { Icon } from '../components/icons';
-import { Card, Label, Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
-import { ACCENT_EXTRAS, C, DEFAULT_EMBLEM, EMBLEMS, THEMES, type Theme } from '../lib/theme';
+import { Screen, SubHeader } from '../components/Screen';
+import { Card, Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
+import { ACCENT_EXTRAS, C, DEFAULT_EMBLEM, EMBLEMS, hard, HIT, onColor, SHADOW, SP, THEMES } from '../lib/theme';
 import { useStore } from '../state/store';
 
-const TEXT_SIZES: [number, string, number][] = [[0.82, 'SMALLEST', 11], [0.9, 'SMALL', 13], [1, 'DEFAULT', 15], [1.08, 'LARGE', 17]];
-
-/** Diagonal two-tone swatch, like the design's 135° split gradient. */
-function Swatch({ t, height, radius = 0 }: { t: Theme; height: number; radius?: number }) {
-  return (
-    <Svg width="100%" height={height} style={{ position: 'absolute', top: 0, left: 0, borderRadius: radius }}>
-      <Defs>
-        <LinearGradient id={`sw${t.id}`} x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0.48" stopColor={t.acc} />
-          <Stop offset="0.52" stopColor={t.acc2} />
-        </LinearGradient>
-        <LinearGradient id={`shade${t.id}`} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0.3" stopColor="#000" stopOpacity={0} />
-          <Stop offset="1" stopColor="#000" stopOpacity={0.55} />
-        </LinearGradient>
-      </Defs>
-      <Rect width="100%" height="100%" fill={`url(#sw${t.id})`} />
-      <Rect width="100%" height="100%" fill={`url(#shade${t.id})`} />
-    </Svg>
-  );
-}
+const TEXT_SIZES: [number, string, number][] = [[0.82, 'Smallest', 12], [0.9, 'Small', 14], [1, 'Default', 16], [1.08, 'Large', 18]];
 
 export default function Appearance() {
   const s = useStore();
@@ -40,102 +23,88 @@ export default function Appearance() {
     <Screen tabs={false}>
       <SubHeader title="LOOK" onBack={() => router.back()} />
 
-      <Label style={{ marginTop: 26 }}>TEXT SIZE</Label>
-      <Card style={{ marginTop: 10, padding: 14 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Txt size={12} color={C.muted}>A</Txt>
-          <View style={{ flex: 1, flexDirection: 'row', gap: 4, padding: 3, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: C.line3 }}>
-            {TEXT_SIZES.map(([v, , px]) => {
-              const on = settings.textSize === v;
-              return (
-                <Tap key={v} onPress={() => s.setOpt('textSize', v)} style={{ flex: 1, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? 'rgba(255,255,255,0.14)' : 'transparent' }}>
-                  <Txt size={px / settings.textSize} color={on ? C.text : C.label}>Aa</Txt>
-                </Tap>
-              );
-            })}
-          </View>
-          <Txt size={18} color={C.muted}>A</Txt>
-        </View>
-      </Card>
-
-      <Label style={{ marginTop: 30 }}>WORLD</Label>
-      <Card style={{ marginTop: 10, padding: 16 }}>
-        <Txt size={16}>Your corner</Txt>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-          {THEMES.map(t => {
-            const on = theme.id === t.id;
-            return (
-              <Tap key={t.id} onPress={() => s.pickTheme(t.id)} style={{ width: '48.5%', flexGrow: 1, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: on ? t.acc : C.line3, backgroundColor: on ? 'rgba(255,255,255,0.05)' : C.card2 }}>
-                <View style={{ height: 64, alignItems: 'center', justifyContent: 'center' }}>
-                  <Swatch t={t} height={64} />
-                  <Icon name={t.icon} size={34} color="#fff" tint={0.35} strokeWidth={1.6} />
+      <SectionHeader title="World" meta="Sets your corner colour" style={{ marginTop: SP.xl }} />
+      <View accessibilityRole="radiogroup" style={{ marginTop: SP.md, gap: SP.xs }}>
+        {THEMES.map(t => {
+          const on = theme.id === t.id;
+          return (
+            <Tap key={t.id} onPress={() => s.pickTheme(t.id)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={`${t.name} world. ${t.vibe}`}>
+              <View style={{ minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: 2, borderColor: on ? t.acc : C.canvas }}>
+                <View style={{ width: 52, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+                  <CutShape width={52} height={36} fill={t.acc} style={{ position: 'absolute', left: 0, top: 0 }} />
+                  <View><Icon name={t.icon} size={22} color={onColor(t.acc)} tint={0.2} strokeWidth={2} /></View>
                 </View>
-                <View style={{ paddingTop: 10, paddingHorizontal: 12, paddingBottom: 12, gap: 3 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
-                    <Txt size={15} w={500} numberOfLines={2} style={{ flex: 1 }}>{t.name}</Txt>
-                    {on ? <Label size={10} ls={0} color={t.acc} style={{ marginTop: 4 }}>● ON</Label> : null}
-                  </View>
-                  <Txt size={12} color={C.label}>{t.vibe}</Txt>
+                <View style={{ flex: 1, alignItems: 'flex-start' }}>
+                  <Txt face="display" size={22} lh={1.2} color={on ? t.acc : C.chalk}>{t.name.toUpperCase()}</Txt>
+                  <Txt face="label" w={600} size={12} ls={0.1} color={C.smoke}>{t.vibe.toUpperCase()}</Txt>
                 </View>
-              </Tap>
-            );
-          })}
-        </View>
+                {on ? <RoundStamp label="Your corner" tone="accent" size="sm" accent={t.acc} /> : null}
+              </View>
+            </Tap>
+          );
+        })}
+      </View>
 
-        <Txt size={16} style={{ marginTop: 22 }}>Accent override</Txt>
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
-          {accents.map(c => {
-            const on = accent.toLowerCase() === c.toLowerCase();
-            return (
-              <Tap key={c} onPress={() => s.setOpt('accent', c)} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: on ? c : 'transparent' }}>
-                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c, shadowColor: c, shadowOpacity: on ? 0.55 : 0, shadowRadius: 7, shadowOffset: { width: 0, height: 0 } }} />
-              </Tap>
-            );
-          })}
-        </View>
-
-      </Card>
-
-      <Card style={{ marginTop: 10, paddingHorizontal: 16 }}>
+      <SectionHeader title="Accent override" meta="Optional" style={{ marginTop: SP.huge }} />
+      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.md, marginTop: SP.md }}>
+        {accents.map((c, i) => {
+          const on = accent.toLowerCase() === c.toLowerCase();
+          return (
+            <Tap key={c} onPress={() => s.setOpt('accent', c)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={i === 0 ? `${theme.name} colour` : `Accent ${c}`} style={{ paddingRight: SHADOW, paddingBottom: SHADOW }}>
+              <View style={[{ width: HIT, height: HIT, backgroundColor: c, alignItems: 'center', justifyContent: 'center' }, on ? hard(C.chalk) : null]}>
+                {on ? <Icon name="check" size={22} color={onColor(c)} strokeWidth={2.6} /> : null}
+              </View>
+            </Tap>
+          );
+        })}
+      </View>
+      <Card style={{ marginTop: SP.md, paddingHorizontal: SP.lg }}>
         <Row title="Arena lights" sub="Your colour and the far corner's, across the background" right={<Toggle on={settings.fx} onPress={() => s.setOpt('fx', !settings.fx)} accessibilityLabel="Arena lights" />} last />
       </Card>
 
-      <Label style={{ marginTop: 30 }}>REI BACKGROUND</Label>
-      <Card style={{ marginTop: 10, padding: 16 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-          <Txt size={16}>{`${theme.name} collection`}</Txt>
-          <Txt size={12} color={C.dim}>Tap to use</Txt>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-          <Tap onPress={() => s.setEmblem(null)} style={{ flex: 1, gap: 6 }}>
-            <View style={{ aspectRatio: 1, borderRadius: 14, borderWidth: 1.5, borderColor: !selected ? accent : 'rgba(255,255,255,0.1)', backgroundColor: theme.bg, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="close" size={22} color={C.ghost} />
-            </View>
-            <Label size={10} ls={0.12} color={!selected ? accent : C.label} style={{ textAlign: 'center' }}>{!selected ? 'IN USE' : 'NONE'}</Label>
-          </Tap>
-          {emblems.length === 0 ? (
-            <View style={{ flex: 2, aspectRatio: 2, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', padding: 10 }}>
-              <Txt size={12} lh={1.4} color={C.dim} align="center">Emblems for this world are coming soon.</Txt>
-            </View>
-          ) : null}
-          {emblems.map((e, i) => {
-            const on = selected === e.id;
-            return (
-              <Tap key={e.id} onPress={() => s.setEmblem(e.id)} style={{ flex: 1, gap: 6 }}>
-                <View style={{ aspectRatio: 1, borderRadius: 14, borderWidth: 1.5, borderColor: on ? accent : C.line3, backgroundColor: '#111317', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', shadowColor: accent, shadowOpacity: on ? 0.35 : 0, shadowRadius: 9, shadowOffset: { width: 0, height: 0 } }}>
-                  <Image source={e.source} style={{ width: '78%', height: '78%' }} resizeMode="contain" />
-                </View>
-                <Label size={10} ls={0.12} color={on ? accent : C.label} style={{ textAlign: 'center' }}>{on ? 'IN USE' : `NO. ${String(i + 1).padStart(2, '0')}`}</Label>
-              </Tap>
-            );
-          })}
-          {emblems.length === 1 ? <View style={{ flex: 1 }} /> : null}
-        </View>
-        <View style={{ marginTop: 6 }}>
-          <Row title="Emblem strength" sub="Faint art behind your screens" right={<Segmented value={settings.bgStrength} options={[['Subtle', 'Subtle'], ['Medium', 'Medium'], ['Bold', 'Bold']]} onChange={v => s.setOpt('bgStrength', v)} />} />
-          <Row title="Emblem size" sub="Small, medium, large" right={<Segmented value={settings.emblemSize} options={[['S', 'S'], ['M', 'M'], ['L', 'L']]} onChange={v => s.setOpt('emblemSize', v)} />} />
-          <Row title="Position" sub="Where it sits" right={<Segmented value={settings.emblemPos} options={[['Top', 'Top'], ['Center', 'Center'], ['Bottom', 'Bottom']]} onChange={v => s.setOpt('emblemPos', v)} />} last />
-        </View>
+      <SectionHeader title="Text size" style={{ marginTop: SP.huge }} />
+      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', marginTop: SP.md, borderWidth: 2, borderColor: C.rope, backgroundColor: C.canvas }}>
+        {TEXT_SIZES.map(([v, name, px]) => {
+          const on = settings.textSize === v;
+          return (
+            <Tap key={v} onPress={() => s.setOpt('textSize', v)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={`${name} text`} style={{ flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? C.chalk : 'transparent' }}>
+              {/* Each sample is drawn at its own size, whatever the current setting is. */}
+              <Txt size={px / settings.textSize} w={600} color={on ? C.ink : C.smoke}>Aa</Txt>
+            </Tap>
+          );
+        })}
+      </View>
+
+      <SectionHeader title="Emblem" meta={`${theme.name} collection`} style={{ marginTop: SP.huge }} />
+      <View style={{ flexDirection: 'row', gap: SP.sm, marginTop: SP.md }}>
+        <Tap onPress={() => s.setEmblem(null)} accessibilityRole="radio" accessibilityState={{ selected: !selected, checked: !selected }} accessibilityLabel="No emblem" style={{ flex: 1, gap: SP.xs }}>
+          <View style={{ aspectRatio: 1, borderWidth: 2, borderColor: !selected ? accent : C.rope, backgroundColor: C.canvas, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="close" size={24} color={C.smoke} />
+          </View>
+          <Txt face="label" w={600} size={12} ls={0.12} color={!selected ? accent : C.smoke} align="center">{!selected ? 'IN USE' : 'NONE'}</Txt>
+        </Tap>
+        {emblems.length === 0 ? (
+          <View style={{ flex: 2, aspectRatio: 2, borderWidth: 2, borderColor: C.rope, alignItems: 'center', justifyContent: 'center', padding: SP.md }}>
+            <Txt size={13} w={500} lh={1.4} color={C.smoke} align="center">Emblems for this world are coming soon.</Txt>
+          </View>
+        ) : null}
+        {emblems.map((e, i) => {
+          const on = selected === e.id;
+          return (
+            <Tap key={e.id} onPress={() => s.setEmblem(e.id)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={`Emblem ${i + 1}`} style={{ flex: 1, gap: SP.xs }}>
+              <View style={{ aspectRatio: 1, borderWidth: 2, borderColor: on ? accent : C.rope, backgroundColor: C.canvas, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <Image source={e.source} style={{ width: '78%', height: '78%' }} resizeMode="contain" accessibilityIgnoresInvertColors />
+              </View>
+              <Txt face="label" w={600} size={12} ls={0.12} color={on ? accent : C.smoke} align="center">{on ? 'IN USE' : `NO. ${String(i + 1).padStart(2, '0')}`}</Txt>
+            </Tap>
+          );
+        })}
+        {emblems.length === 1 ? <View style={{ flex: 1 }} /> : null}
+      </View>
+      <Card style={{ marginTop: SP.md, paddingHorizontal: SP.lg }}>
+        <Row title="Strength" sub="Faint art behind your screens" right={<Segmented value={settings.bgStrength} options={[['Subtle', 'Subtle'], ['Medium', 'Medium'], ['Bold', 'Bold']]} onChange={v => s.setOpt('bgStrength', v)} />} />
+        <Row title="Size" sub="Small, medium, large" right={<Segmented value={settings.emblemSize} options={[['S', 'S'], ['M', 'M'], ['L', 'L']]} onChange={v => s.setOpt('emblemSize', v)} />} />
+        <Row title="Position" sub="Where it sits" right={<Segmented value={settings.emblemPos} options={[['Top', 'Top'], ['Center', 'Center'], ['Bottom', 'Bottom']]} onChange={v => s.setOpt('emblemPos', v)} />} last />
       </Card>
     </Screen>
   );

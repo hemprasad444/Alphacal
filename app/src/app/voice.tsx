@@ -5,11 +5,11 @@ import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
-import { Wave } from '../components/Core';
-import { Icon } from '../components/icons';
-import { Dots, IconButton, Label, Tap, Txt } from '../components/ui';
+import { CallHeader, CoachLine, CornerLine, inputType, LevelBars, SendArrow, SlabButton } from '../components/corner';
+import { CutButton } from '../components/fight';
+import { Dots, IconButton, Txt } from '../components/ui';
 import { hhmm, type Message, speakVoice, splitLead, stripTags } from '@rei/shared';
-import { alpha, C, fontFamily, mix } from '../lib/theme';
+import { C, HIT, SP } from '../lib/theme';
 import { newSpeaker, premiumVoice, type Speaker, stopwatch, transcribe, voiceOffReason, warmVoice } from '../lib/voice';
 import { useStore } from '../state/store';
 
@@ -155,72 +155,57 @@ export default function Voice() {
     ? canRecord ? 'LISTENING · TAP TO SEND' : 'DICTATE OR TYPE · SEND'
     : phase === 'thinking' ? 'THINKING' : phase === 'speaking' ? 'TAP TO INTERRUPT' : 'TAP TO TALK';
 
+  const onAir = phase === 'listening' || phase === 'speaking';
+  const toggleTyping = () => {
+    if (typing) {
+      input.current?.blur();
+      setTyping(false);
+    } else {
+      setTyping(true);
+      setTimeout(() => input.current?.focus(), 50);
+    }
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <Backdrop glow="bottom" />
-      <View style={{ paddingTop: insets.top + 4, paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: C.line }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Txt size={14} w={600}>Voice</Txt>
-          <Icon name="voice" size={14} color={C.label} />
-          <Label size={9} ls={0.14} color={accent}>{`· ${label}`}</Label>
-        </View>
-        <IconButton size={30} onPress={close}>✕</IconButton>
-      </View>
+      <CallHeader title="Voice" status={label} live={onAir} top={insets.top} onClose={close} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           ref={scroll}
           style={{ flex: 1 }}
-          contentContainerStyle={{ flexGrow: 1, padding: 22, paddingBottom: 16, gap: 24 }}
+          contentContainerStyle={{ flexGrow: 1, padding: SP.lg, gap: SP.xl }}
           onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
           keyboardShouldPersistTaps="handled"
         >
           {!turns.length && phase !== 'thinking' ? (
-            <View style={{ marginVertical: 'auto', gap: 10, alignItems: 'center', flex: 1, justifyContent: 'center' }}>
-              <Txt size={24} ls={-0.025} align="center">{"What's on your mind?"}</Txt>
-              <Txt size={15} lh={1.45} color={C.label} align="center">{"Tap the core and talk. I'll answer out loud."}</Txt>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-start', gap: SP.md }}>
+              <Txt face="labelItalic" w={600} size={13} ls={0.14} color={accent}>REI · IN YOUR CORNER</Txt>
+              <Txt face="display" size={40} lh={1.12}>{"WHAT'S ON YOUR MIND?"}</Txt>
+              <Txt size={16} w={500} lh={1.45} color={C.smoke}>{"Hit the button and talk. I'll answer out loud."}</Txt>
             </View>
           ) : null}
           {turns.map((t, i) => {
-            if (t.role === 'user') {
-              return (
-                <View key={i} style={{ alignSelf: 'flex-end', alignItems: 'flex-end', maxWidth: '82%', gap: 6 }}>
-                  <Label size={10} ls={0.14} color={C.faint}>{`YOU · ${t.time}`}</Label>
-                  <View style={{ paddingVertical: 11, paddingHorizontal: 15, borderRadius: 18, borderBottomRightRadius: 4, backgroundColor: mix(accent, '#0A0C0F', 0.14), borderWidth: 1, borderColor: alpha(accent, 0.28) }}>
-                    <Txt size={16} lh={1.45}>{t.text}</Txt>
-                  </View>
-                </View>
-              );
-            }
+            if (t.role === 'user') return <CornerLine key={i} text={t.text} time={t.time} />;
             const { lead, rest } = splitLead(t.text);
-            return (
-              <View key={i} style={{ maxWidth: '94%', gap: 8 }}>
-                <Label size={10} ls={0.14}>{`REI · ${t.time}`}</Label>
-                <Txt size={20} w={500} lh={1.3} ls={-0.02}>{lead}</Txt>
-                {rest ? <Txt size={16} lh={1.55} color="#AEB4BC">{rest}</Txt> : null}
-              </View>
-            );
+            return <CoachLine key={i} lead={lead} text={rest || undefined} time={t.time} maxWidth="94%" />;
           })}
           {notes.map((n, i) => (
-            <Label key={`n${i}`} size={10} ls={0.12} color={C.label}>{n.text}</Label>
+            <Txt key={`n${i}`} face="label" w={600} size={13} ls={0.1} lh={1.35} color={C.smoke}>{n.text}</Txt>
           ))}
-          {live ? (
-            <View style={{ maxWidth: '94%', gap: 8 }}>
-              <Label size={10} ls={0.14}>REI</Label>
-              <Txt size={20} w={500} lh={1.3} ls={-0.02}>{stripTags(live)}</Txt>
-            </View>
-          ) : null}
+          {live ? <CoachLine text={stripTags(live)} maxWidth="94%" /> : null}
           {phase === 'thinking' && !live ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Label size={10} ls={0.14}>REI</Label>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+              <Txt face="labelItalic" w={600} size={12} ls={0.14} color={accent}>REI</Txt>
               <Dots />
             </View>
           ) : null}
         </ScrollView>
 
-        <View style={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: Math.max(insets.bottom, 16), gap: 8 }}>
-          <View style={{ flexDirection: 'row', gap: 8, display: typing ? 'flex' : 'none' }}>
-            <View style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.18)', justifyContent: 'center', paddingHorizontal: 16 }}>
+        <View style={{ paddingHorizontal: SP.lg, paddingTop: SP.sm, paddingBottom: Math.max(insets.bottom, SP.lg), gap: SP.md, borderTopWidth: 2, borderTopColor: C.line, backgroundColor: C.arena }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, display: typing ? 'flex' : 'none' }}>
+            <View style={{ flex: 1, height: 52, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.rope, justifyContent: 'center', paddingHorizontal: SP.md }}>
               <TextInput
                 ref={input}
                 value={draft}
@@ -235,32 +220,24 @@ export default function Voice() {
                 placeholderTextColor={C.dim}
                 returnKeyType="send"
                 keyboardAppearance="dark"
-                style={{ fontFamily: fontFamily(settings.font, 400), fontSize: 16, color: C.text }}
+                accessibilityLabel="Message to REI"
+                style={inputType(settings.textSize)}
               />
             </View>
-            <Tap onPress={() => sendVoice(draft)} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}>
-              <Txt size={19} w={600} color={C.ink}>↑</Txt>
-            </Tap>
+            <SlabButton onPress={() => sendVoice(draft)} accessibilityLabel="Send">
+              {ink => <SendArrow color={ink} />}
+            </SlabButton>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <IconButton size={44} onPress={() => {
-              if (typing) {
-                input.current?.blur();
-                setTyping(false);
-              } else {
-                setTyping(true);
-                setTimeout(() => input.current?.focus(), 50);
-              }
-            }}>
-              <Txt size={13} w={500} color={C.body}>Aa</Txt>
+          <View style={{ alignItems: 'center' }}>
+            <LevelBars active={onAir} height={28} />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+            <IconButton size={HIT} onPress={toggleTyping} accessibilityLabel={typing ? 'Hide the keyboard' : 'Type instead'}>
+              <Txt face="label" w={600} size={16} color={typing ? accent : C.chalk}>Aa</Txt>
             </IconButton>
-            <View style={{ alignItems: 'center', gap: 4 }}>
-              <Tap onPress={() => void listen()} haptic style={{ width: 76, height: 76, alignItems: 'center', justifyContent: 'center' }}>
-                <Wave size={phase === 'listening' ? 68 : 58} active={phase === 'speaking' || phase === 'listening'} />
-              </Tap>
-              <Label size={9} color={phase === 'listening' ? accent : C.label}>{hint}</Label>
-            </View>
-            <IconButton size={44} onPress={close}>✓</IconButton>
+            {/* The one action: talk, send, or cut REI off. */}
+            <CutButton label={hint} icon="voice" disabled={phase === 'thinking'} onPress={() => void listen()} style={{ flex: 1 }} />
+            <IconButton size={HIT} onPress={close} accessibilityLabel="Done, back to the chat">✓</IconButton>
           </View>
         </View>
       </KeyboardAvoidingView>
