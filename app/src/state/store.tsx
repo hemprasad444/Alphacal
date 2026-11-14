@@ -4,13 +4,14 @@ import { sliceStore } from '../lib/sliceStore';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 import {
-  MAX_MEALS, type Activity, activityFor, type Bests, bestsOf, type Sex, activityFromDay, type Intake, intakeDisciplines, intakeMemory, intakeProfile, nameOf, type Workout, workoutLog, workoutNote, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
+  MAX_MEALS, byTime, profileValue, type Activity, activityFor, type Bests, bestsOf, type Sex, activityFromDay, type Intake, intakeDisciplines, intakeMemory, intakeProfile, nameOf, type Workout, workoutLog, workoutNote, addMemory, distanceKcal, type Movement, movementKcal, applyUpdate, catalog, forgetMemory, type MemoryItem, readMemory, clock, type DaySummary, daySummary, fallbackReport, type Measurement, mondayOf, newPrs, pace, type ProgressPhoto, type SessionLog, type WeeklyReport, weekStats, DEFAULT_DISCIPLINES, DEFAULT_PROFILE, DEFAULT_SETTINGS, type Food, fuelLine, hhmm, type History, isoDate, isoWeek, matchMealText, type Meal, type MealItem, mealFromItems, mealNote, type Message, nutrition as calcNutrition, offlineReply, parseReply, type Profile, type ProfileKey, reiContext, seedFor, sessionSummary, stripTags, type SetLog, type Settings, todaysPlan, toMeal, week as calcWeek, weekdayIndex, type WeekProgram, type WeighIn,
 } from '@rei/shared';
 import { type ChatDone, type ChatRequest, streamChat } from '../lib/api';
 import { fb, firebaseEnabled } from '../lib/firebase';
 import { lookupBarcode } from '../lib/foods';
 import { deletePhotoFile, uploadPhoto } from '../lib/photos';
 import { newId, onDays, onFoods, onMeasurements, onMessages, onPhotos, onProgram, onReports, onSessions, onUser, onWeighIns, write } from '../lib/sync';
+import { deviceTimeZone, zoneToStore } from '../lib/timezone';
 import { httpsCallable } from 'firebase/functions';
 import { DEFAULT_EMBLEM, EMBLEMS, THEMES, type Emblem, type Theme } from '../lib/theme';
 import { type Account, useAccount } from './account';
@@ -183,7 +184,8 @@ export interface Store extends Persisted {
   setOpt: <K extends keyof Settings>(k: K, v: Settings[K]) => void;
   pickTheme: (id: Theme['id']) => void;
   setEmblem: (id: string | null) => void;
-  setProfileField: (k: ProfileKey, v: string) => void;
+  /** Saves the value only when it's a valid one for the field (see profileValue); returns whether it did. */
+  setProfileField: (k: ProfileKey, v: string) => boolean;
   toggleDisc: (k: string) => void;
   send: (text: string) => Promise<void>;
   /** A reply for the voice screen, which keeps its own turns until it closes. */
@@ -195,7 +197,8 @@ export interface Store extends Persisted {
   removeMeal: (i: number) => void;
   /** Log foods picked from the list: instant, exact, and offline. */
   logItems: (items: MealItem[], src?: Meal['src'], name?: string) => void;
-  repeatMeal: (m: Meal) => void;
+  /** The meal as logged, or null when today already holds MAX_MEALS. */
+  repeatMeal: (m: Meal) => Meal | null;
   updateMeal: (i: number, m: Meal) => void;
   saveFood: (f: Food) => void;
   removeFood: (id: string) => void;
@@ -323,6 +326,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const dirtyProfile = useRef(false);
   const profileTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seq = useRef(0);
+  /** The zone last seen on the user's record, and whether this sign-in has compared it with the device's yet. */
+  const storedZone = useRef<unknown>(undefined);
+  const zoneChecked = useRef(false);
   useEffect(() => {
     ref.current = p;
     uidRef.current = uid;
@@ -404,30 +410,50 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (u) ms.forEach(m => write.message(u, m));
   }, [patch]);
 
-  const saveMeals = useCallback((meals: Meal[]) => {
+  const setMeals = useCallback((meals: Meal[]) => {
     // Now, not after the redraw: a second meal logged straight after (two on one call) builds on this one.
     ref.current = { ...ref.current, meals };
     patch({ meals });
-    const u = uidRef.current;
-    if (u) write.day(u, ref.current.day, { meals });
   }, [patch]);
+
+  /** A new meal for today, with its own id. Stored by adding it to the day, so meals REI logged meanwhile stay. */
+  const appendMeal = useCallback((meal: Meal): Meal => {
+    const m: Meal = { ...meal, id: newId() };
+    setMeals([...ref.current.meals, m]);
+    const u = uidRef.current;
+    if (u) write.addMeal(u, ref.current.day, m);
+    return m;
+  }, [setMeals]);
 
   // Cloud listeners.
   useEffect(() => {
     if (!uid || loadedKey !== cloudKey(uid)) return;
+    // The server files chat and photo meals under the day in the record's zone; the phone uses its own.
+    // Checked once per sign-in and on each return to the app (after a flight, say), not on every
+    // snapshot, so two phones in different zones don't keep rewriting it.
+    const syncZone = (stored: unknown) => {
+      zoneChecked.current = true;
+      const zone = zoneToStore(stored, deviceTimeZone());
+      storedZone.current = zone ?? stored;
+      if (zone) write.user(uid, { timezone: zone });
+    };
     const unsubs = [
       onUser(uid, doc => {
         setUserLoaded(true);
         if (!doc) {
           const s = ref.current;
           const startedOn = isoDate();
-          const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          const timezone = deviceTimeZone() ?? undefined;
+          storedZone.current = timezone;
+          zoneChecked.current = true;
           // First sign-in. Fresh from onboarding, its answers are written separately (below);
           // otherwise start the account from what's on this device.
           write.user(uid, pendingOb.current ? { startedOn, chatClearedAt: 0, timezone } : { profile: s.profile, settings: s.settings, disc: s.disc, startedOn, chatClearedAt: 0, timezone, onboarded: s.onboarded });
           patch({ startedOn });
           return;
         }
+        if (zoneChecked.current) storedZone.current = doc.timezone;
+        else syncZone(doc.timezone);
         // Unchanged values keep their old object, so nothing redraws or re-saves for them.
         patch(cur => ({
           ...(doc.profile && !dirtyProfile.current ? { profile: same(cur.profile, { ...DEFAULT_PROFILE, ...doc.profile }) } : {}),
@@ -452,7 +478,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           recentMeals,
           pastDays: past.map(([d, v]) => daySummary(d, v)),
           day: today,
-          meals: t?.meals ?? [],
+          // Edited meals are stored at the end of the list; show the day in the order it was eaten.
+          meals: byTime(t?.meals ?? []),
           sessionDone: !!t?.sessionDone,
           loggedMin: t?.loggedMin ?? 0,
           activity: activityFromDay(t?.steps, t?.sleepMin),
@@ -467,7 +494,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       onMeasurements(uid, measurements => patch({ measurements })),
       onPhotos(uid, photos => patch({ photos })),
     ];
+    const zoneSub = AppState.addEventListener('change', st => {
+      if (st === 'active' && zoneChecked.current) syncZone(storedZone.current);
+    });
     return () => {
+      zoneSub.remove();
+      zoneChecked.current = false;
+      storedZone.current = undefined;
       unsubs.forEach(u => u());
       setUserLoaded(false);
     };
@@ -495,7 +528,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     pushMessages([msg('rei', `${nameOf(d)}. Pact sealed, I have your vow. Now we find out if you meant it. What’s first today?`)]);
     const u = uidRef.current;
     if (u) {
-      const saved = write.user(u, { profile, settings, disc, memory, onboarded: true, intake: d, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+      const saved = write.user(u, { profile, settings, disc, memory, onboarded: true, intake: d, timezone: deviceTimeZone() ?? undefined });
       write.weighIn(u, cur.day, d.weight);
       // Their own week from what they just told REI, instead of the starter template until Sunday.
       void saved
@@ -586,22 +619,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (u) write.deleteFood(u, id);
   }, [patch]);
 
-  const addMeal = useCallback((meal: Meal) => {
+  const addMeal = useCallback((meal: Meal): Meal | null => {
     const cur = ref.current;
     if (cur.meals.length >= MAX_MEALS) {
       setFuelVerdict(`That’s ${MAX_MEALS} meals today, the most a day holds. Edit one of today’s meals to add to it instead.`);
-      return;
+      return null;
     }
-    const meals = [...cur.meals, meal];
-    saveMeals(meals);
-    setFuelVerdict(fuelLine(cur.profile, calcNutrition(meals, activityOf(cur))));
+    const saved = appendMeal(meal);
+    setFuelVerdict(fuelLine(cur.profile, calcNutrition(ref.current.meals, activityOf(cur))));
     // Your foods you use most float up in search.
     const now = Date.now();
     for (const i of meal.items ?? []) {
       const mine = cur.foods.find(f => f.id === i.food);
       if (mine) saveFood({ ...mine, usedAt: now });
     }
-  }, [saveMeals, activityOf, saveFood]);
+    return saved;
+  }, [appendMeal, activityOf, saveFood]);
 
   const logItems = useCallback((items: MealItem[], src: Meal['src'] = 'food', name?: string) => {
     if (items.length) addMeal(mealFromItems(items, hhmm(), src, name));
@@ -635,11 +668,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const rei = msg('rei', r.text, { alert: !strong && /miss|excuse|negotiat|skip|again|stop/i.test(r.text) });
       pushMessages([rei, ...notes]);
       if (upd) saveProfile(upd.profile, upd.profile.weight !== cur.profile.weight);
-      if (meal) saveMeals([...cur.meals, meal]);
+      if (meal) appendMeal(meal);
     } finally {
       setThinking(false);
     }
-  }, [thinking, cloud, msg, pushMessages, remote, offline, offlineMeal, activityOf, saveProfile, saveMeals, setStreaming]);
+  }, [thinking, cloud, msg, pushMessages, remote, offline, offlineMeal, activityOf, saveProfile, appendMeal, setStreaming]);
 
   const voiceReply = useCallback(async (turns: Message[], onDelta?: (text: string) => void) => {
     const lastTurn = turns[turns.length - 1];
@@ -656,9 +689,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const lastUser = turns[turns.length - 1]?.text ?? '';
     const meal = r.meal ? toMeal(r.meal, lastUser, hhmm()) : /^just ate/i.test(lastUser) ? offlineMeal(lastUser.replace(/^just ate:?\s*/i, '')) : null;
     if (upd) saveProfile(upd.profile, upd.profile.weight !== cur.profile.weight);
-    if (meal) saveMeals([...cur.meals, meal]);
+    if (meal) appendMeal(meal);
     return { text: r.text, note: upd?.note ?? (meal ? mealNote(meal) : null) };
-  }, [msg, pushMessages, remote, offline, offlineMeal, saveProfile, saveMeals]);
+  }, [msg, pushMessages, remote, offline, offlineMeal, saveProfile, appendMeal]);
 
   const logMeal = useCallback(async (text: string) => {
     text = text.trim();
@@ -686,12 +719,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const meals = [...cur.meals, meal];
       const reply = fuelLine(cur.profile, calcNutrition(meals, activityOf(cur)));
       setFuelVerdict(reply);
-      saveMeals(meals);
+      appendMeal(meal);
       pushMessages([...(uidRef.current ? [] : [userMsg]), msg('rei', reply), msg('sys', mealNote(meal))]);
     } finally {
       setFuelBusy(false);
     }
-  }, [fuelBusy, msg, remote, activityOf, saveMeals, pushMessages, logItems, offlineMeal]);
+  }, [fuelBusy, msg, remote, activityOf, appendMeal, pushMessages, logItems, offlineMeal]);
 
   const finishSession = useCallback((done: number, total: number, seconds: number, sets?: SetLog[], title?: string) => {
     const s = ref.current;
@@ -709,7 +742,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     pushMessages([msg('rei', sum.text + prText, { alert: sum.alert })]);
     const u = uidRef.current;
     if (u) {
-      write.day(u, s.day, { sessionDone: true, loggedMin: s.loggedMin + min });
+      write.addMinutes(u, s.day, min);
       write.session(u, log);
     }
   }, [patch, msg, pushMessages, activityOf, history]);
@@ -725,7 +758,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     pushMessages([msg('rei', `Logged: ${title.toLowerCase()}, ${+km.toFixed(2)} km in ${clock(seconds)}${kind === 'cycle' ? '' : `, ${pace(km, seconds)}`}${kcal ? `, about ${kcal} kcal` : ''}. That counts. Now refuel with protein.`)]);
     const u = uidRef.current;
     if (u) {
-      write.day(u, s.day, { sessionDone: true, loggedMin: s.loggedMin + min });
+      write.addMinutes(u, s.day, min);
       write.session(u, log);
     }
   }, [patch, msg, pushMessages]);
@@ -787,7 +820,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setOpt,
       pickTheme: id => saveSettings({ ...p.settings, theme: id, accent: null }),
       setEmblem: id => saveSettings({ ...p.settings, bgByTheme: { ...p.settings.bgByTheme, [p.settings.theme]: id } }),
-      setProfileField: (k, v) => saveProfile({ ...ref.current.profile, [k]: v }, k === 'weight'),
+      setProfileField: (k, v) => {
+        const value = profileValue(k, v);
+        if (value === null) return false;
+        if (value !== ref.current.profile[k]) saveProfile({ ...ref.current.profile, [k]: value }, k === 'weight');
+        return true;
+      },
       toggleDisc: k => {
         const disc = { ...p.disc, [k]: !p.disc[k] };
         patch({ disc });
@@ -799,13 +837,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       logMeal,
       removeMeal: i => {
         setFuelVerdict('');
-        saveMeals(ref.current.meals.filter((_, k) => k !== i));
+        const gone = ref.current.meals[i];
+        if (!gone) return;
+        setMeals(ref.current.meals.filter((_, k) => k !== i));
+        if (uidRef.current) write.removeMeal(uidRef.current, ref.current.day, gone);
       },
       logItems,
       repeatMeal: m => addMeal({ ...m, time: hhmm() }),
       updateMeal: (i, m) => {
         setFuelVerdict('');
-        saveMeals(ref.current.meals.map((x, k) => (k === i ? m : x)));
+        const old = ref.current.meals[i];
+        if (!old) return;
+        const next: Meal = { ...m, id: old.id ?? newId() };
+        setMeals(ref.current.meals.map((x, k) => (k === i ? next : x)));
+        if (uidRef.current) write.replaceMeal(uidRef.current, ref.current.day, old, next);
       },
       saveFood,
       removeFood,
@@ -827,7 +872,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         pushMessages([msg('sys', workoutNote(log))]);
         const u = uidRef.current;
         if (u) {
-          write.day(u, s.day, { sessionDone: true, loggedMin });
+          write.addMinutes(u, s.day, w.minutes);
           write.session(u, log);
         }
       },
@@ -839,7 +884,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         pushMessages([msg('rei', `Logged: ${m.name.toLowerCase()}, ${Math.round(minutes)} min${kcal ? `, about ${kcal} kcal` : ''}. Moving counts. Don't eat it back.`)]);
         const u = uidRef.current;
         if (u) {
-          write.day(u, s.day, { sessionDone: true, loggedMin: s.loggedMin + Math.round(minutes) });
+          write.addMinutes(u, s.day, Math.round(minutes));
           write.session(u, log);
         }
       },
@@ -937,7 +982,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
     };
-  }, [p, ready, account, cloud, userLoaded, obActive, pendingOnboarding, applyOnboarding, thinking, fuelBusy, fuelVerdict, signIn, signUp, resendVerification, checkVerified, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, saveMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
+  }, [p, ready, account, cloud, userLoaded, obActive, pendingOnboarding, applyOnboarding, thinking, fuelBusy, fuelVerdict, signIn, signUp, resendVerification, checkVerified, resetPassword, signOut, setDemo, setOpt, patch, saveProfile, send, voiceReply, pushMessages, logMeal, setMeals, finishSession, msg, logItems, addMeal, saveFood, removeFood, logCardio]);
 
   // Subscribers read the new value during this render pass; those that didn't render (their
   // slice is unchanged, or they sit outside this subtree) are told after commit.

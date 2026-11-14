@@ -304,6 +304,17 @@ export function mealFromItems(items: MealItem[], time: string, src: Meal['src'],
   return { time, name: n.charAt(0).toUpperCase() + n.slice(1), kcal: sum('kcal'), p: sum('p'), c: sum('c'), f: sum('f'), items, src, ...(nutr ? { n: nutr } : {}) };
 }
 
+/**
+ * A meal whose totals were corrected by hand (a photo estimate, say). Fibre, sodium and the rest
+ * scale with the calories, so they describe the corrected portion rather than the old one.
+ */
+export function withTotals(meal: Meal, t: { kcal: number; p: number; c: number; f: number }): Meal {
+  const kcal = Math.round(t.kcal);
+  const { n: _, ...rest } = meal;
+  const n = kcal === meal.kcal ? meal.n : meal.kcal > 0 && kcal > 0 ? scaleNutrients(meal.n, kcal / meal.kcal) : undefined;
+  return { ...rest, kcal, p: Math.round(t.p), c: Math.round(t.c), f: Math.round(t.f), ...(n ? { n } : {}) };
+}
+
 // ---- Free text ----------------------------------------------------------------
 
 const WORD_QTY: Record<string, number> = { a: 1, an: 1, one: 1, half: 0.5, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, couple: 2 };

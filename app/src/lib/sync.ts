@@ -1,7 +1,7 @@
 // Firestore reads and writes for one signed-in user. Writes are fire-and-forget: the
 // store has already updated the screen, and Firestore queues writes while offline.
-import { collection, deleteDoc, doc, documentId, limit, onSnapshot, orderBy, query, setDoc, where, type Unsubscribe } from 'firebase/firestore';
-import type { DayDoc, Food, Measurement, MemoryItem, Message, ProgressPhoto, WeeklyReport, Profile, SessionLog, Settings, WeekProgram, WeighIn, Intake } from '@rei/shared';
+import { arrayRemove, arrayUnion, collection, deleteDoc, doc, documentId, increment, limit, onSnapshot, orderBy, query, setDoc, where, writeBatch, type Unsubscribe } from 'firebase/firestore';
+import type { DayDoc, Food, Meal, Measurement, MemoryItem, Message, ProgressPhoto, WeeklyReport, Profile, SessionLog, Settings, WeekProgram, WeighIn, Intake } from '@rei/shared';
 import { fb } from './firebase';
 
 export interface UserDoc {
@@ -84,7 +84,23 @@ export function onFoods(uid: string, cb: (foods: Food[]) => void): Unsubscribe {
 
 export const write = {
   user: (uid: string, data: Partial<UserDoc>) => setDoc(userRef(uid), clean(data), { merge: true }).catch(warn('user write')),
+  /** Whole-day fields. Not for meals or minutes, which the server also writes: use the writes below. */
   day: (uid: string, date: string, data: Partial<DayDoc>) => setDoc(doc(sub(uid, 'days'), date), clean(data), { merge: true }).catch(warn('day write')),
+  // Meals and minutes are changed in place, never rewritten whole, the same way the server writes them:
+  // a meal REI logged that hasn't reached this phone yet survives the phone's next change.
+  addMeal: (uid: string, date: string, meal: Meal) => setDoc(doc(sub(uid, 'days'), date), { meals: arrayUnion(meal) }, { merge: true }).catch(warn('meal write')),
+  /** `meal` exactly as stored (from the listener or this phone's own write). */
+  removeMeal: (uid: string, date: string, meal: Meal) => setDoc(doc(sub(uid, 'days'), date), { meals: arrayRemove(meal) }, { merge: true }).catch(warn('meal remove')),
+  /** One change, applied together: the old meal goes and the edited one is added (at the end; see byTime). */
+  replaceMeal: (uid: string, date: string, old: Meal, next: Meal) => {
+    const ref = doc(sub(uid, 'days'), date);
+    const batch = writeBatch(fb().db);
+    batch.set(ref, { meals: arrayRemove(old) }, { merge: true });
+    batch.set(ref, { meals: arrayUnion(next) }, { merge: true });
+    return batch.commit().catch(warn('meal edit'));
+  },
+  /** Training logged on this phone: added to whatever the day already holds. */
+  addMinutes: (uid: string, date: string, minutes: number) => setDoc(doc(sub(uid, 'days'), date), { sessionDone: true, loggedMin: increment(minutes) }, { merge: true }).catch(warn('minutes write')),
   message: (uid: string, m: Message) => {
     const { id, ...rest } = m;
     return setDoc(doc(sub(uid, 'messages'), id ?? newId()), clean({ ...rest, createdAt: m.createdAt ?? Date.now() })).catch(warn('message write'));

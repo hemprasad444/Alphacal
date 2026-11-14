@@ -1,5 +1,5 @@
 import type { LlmTool } from '../llm';
-import { type AiItem, cleanNutrients, isClock, MEMORY_KINDS, type Nutrients, WORKOUT_KINDS, type MemoryKind, PROFILE_KEYS, type MealEstimate, type ProfileKey } from '@rei/shared';
+import { type AiItem, cleanNutrients, MEMORY_KINDS, type Nutrients, WORKOUT_KINDS, type MemoryKind, PROFILE_KEYS, type MealEstimate, type ProfileKey, vowChange } from '@rei/shared';
 
 type Tool = LlmTool;
 
@@ -204,21 +204,16 @@ export function mealEstimates(input: unknown): Nutrients | undefined {
   return cleanNutrients(estimates((input ?? {}) as Record<string, unknown>));
 }
 
-const NUMERIC: ProfileKey[] = ['weight', 'targetWeight', 'bf', 'targetBf', 'kcal', 'protein', 'carbs', 'fat', 'steps', 'sleep', 'sessions'];
-
+/** update_vow input → the checked changes (same checks as everywhere else, see vowChange), or null. */
 export function parseVow(input: unknown): Partial<Record<ProfileKey, string>> | null {
   const changes = (input as { changes?: unknown } | null)?.changes;
   if (!Array.isArray(changes)) return null;
   const out: Partial<Record<ProfileKey, string>> = {};
   for (const ch of changes) {
-    const field = (ch as { field?: unknown })?.field, value = (ch as { value?: unknown })?.value;
-    if (typeof field !== 'string' || typeof value !== 'string' || !(PROFILE_KEYS as string[]).includes(field)) continue;
-    const k = field as ProfileKey, v = value.trim();
-    if (NUMERIC.includes(k) && !(parseFloat(v) > 0)) continue;
-    if (k === 'deadline' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) continue;
-    if ((k === 'sessionTime' || k === 'bedtime') && !isClock(v)) continue;
-    if (k === 'goal' && (!v || v.length > 400)) continue;
-    out[k] = v;
+    const value = (ch as { value?: unknown })?.value;
+    if (typeof value !== 'string') continue;
+    const change = vowChange((ch as { field?: unknown })?.field, value);
+    if (change) out[change[0]] = change[1];
   }
   return Object.keys(out).length ? out : null;
 }

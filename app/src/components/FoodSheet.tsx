@@ -1,5 +1,5 @@
 // Bottom sheets for food: pick a portion of a food, or fix a logged meal.
-import { amountLabel, foodFromMeal, type Food, itemFor, type Meal, type MealItem, mealFromItems, unitFor } from '@rei/shared';
+import { amountLabel, foodFromMeal, type Food, itemFor, type Meal, type MealItem, mealFromItems, unitFor, withTotals } from '@rei/shared';
 import { useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -186,10 +186,10 @@ export function MealSheet({ index, onClose }: { index: number | null; onClose: (
 function MealSheetBody({ meal, index, onDone }: { meal: Meal; index: number; onDone: () => void }) {
   const s = useStore();
   const [items, setItems] = useState<MealItem[]>(() => meal.items ?? []);
-  // A meal without items (a photo, or older entries) is edited as one total.
+  // A meal without items (a photo, or older entries) is edited as one total; its fibre, sodium and so on follow the calories.
   const [total, setTotal] = useState({ kcal: meal.kcal, p: meal.p, c: meal.c, f: meal.f });
   const [saved, setSaved] = useState(false);
-  const next: Meal = items.length ? { ...mealFromItems(items, meal.time, meal.src, meal.name), name: meal.name } : { ...meal, ...total, kcal: Math.round(total.kcal), p: Math.round(total.p), c: Math.round(total.c), f: Math.round(total.f) };
+  const next: Meal = items.length ? { ...mealFromItems(items, meal.time, meal.src, meal.name), name: meal.name } : withTotals(meal, total);
   const foodOf = (i: MealItem) => (i.food ? s.allFoods.find(f => f.id === i.food) : undefined);
 
   return (

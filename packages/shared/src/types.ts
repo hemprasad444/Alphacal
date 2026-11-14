@@ -16,6 +16,8 @@ export interface Message {
 }
 
 export interface Meal {
+  /** Unique per logged meal, so two identical meals stay two and one can be removed or edited alone. Older meals have none. */
+  id?: string;
   time: string;
   name: string;
   kcal: number;

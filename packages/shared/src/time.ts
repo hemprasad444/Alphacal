@@ -23,6 +23,12 @@ export function parseIsoDate(s: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+/** A real calendar date written as yyyy-mm-dd: not 2026-13-01 or 2026-02-30. */
+export function isIsoDate(s: string): boolean {
+  const d = parseIsoDate(s);
+  return !!d && isoDate(d) === s;
+}
+
 export function daysBetween(from: Date, to: Date): number {
   const a = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   const b = new Date(to.getFullYear(), to.getMonth(), to.getDate());

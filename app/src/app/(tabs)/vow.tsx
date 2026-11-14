@@ -3,7 +3,7 @@
 import { benchmarks, DEFAULT_BESTS, isoDate, parseIsoDate, type ProfileKey, SESSION_ICON, SESSIONS, trajectory, week, WEEK_PLAN, weekdayIndex } from '@rei/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, TextInput, View } from 'react-native';
+import { Alert, TextInput, type TextInputProps, View } from 'react-native';
 import { Icon, type IconKey } from '../../components/icons';
 import { Gauge, Heading, Panel, Stamp } from '../../components/manga';
 import { PageTitle } from '../../components/PageTitle';
@@ -42,9 +42,8 @@ export default function Vow() {
   };
 
   const field = (k: ProfileKey, size: number, color: string, align: 'left' | 'right' = 'left', keyboard: 'decimal-pad' | 'numbers-and-punctuation' = 'decimal-pad') => (
-    <TextInput
-      value={profile[k]}
-      onChangeText={v => s.setProfileField(k, v)}
+    <ProfileInput
+      k={k}
       keyboardType={keyboard}
       keyboardAppearance="dark"
       selectTextOnFocus
@@ -64,9 +63,8 @@ export default function Vow() {
             <Txt size={13} color={accent}>Rewrite with REI</Txt>
           </Tap>
         </View>
-        <TextInput
-          value={profile.goal}
-          onChangeText={v => s.setProfileField('goal', v)}
+        <ProfileInput
+          k="goal"
           multiline
           scrollEnabled={false}
           keyboardAppearance="dark"
@@ -141,9 +139,8 @@ export default function Vow() {
               <Icon name={icon} size={16} color={accent} />
               <Txt size={14} w={600}>{label}</Txt>
             </View>
-            <TextInput
-              value={profile[k]}
-              onChangeText={v => s.setProfileField(k, v)}
+            <ProfileInput
+              k={k}
               placeholder="HH:MM"
               placeholderTextColor={C.dim}
               keyboardType="numbers-and-punctuation"
@@ -192,6 +189,27 @@ export default function Vow() {
         ))}
       </View>
     </Screen>
+  );
+}
+
+/**
+ * A Vow field as it's typed: the text stays as typed, but only a valid value is saved (no empty
+ * calories or "18:" times). Left half-typed, it goes back to the last saved value.
+ */
+function ProfileInput({ k, ...props }: { k: ProfileKey } & Omit<TextInputProps, 'value' | 'onChangeText' | 'onBlur'>) {
+  const saved = useStore(s => s.profile[k]);
+  const setField = useStore(s => s.setProfileField);
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <TextInput
+      {...props}
+      value={draft ?? saved}
+      onChangeText={v => {
+        setDraft(v);
+        setField(k, v);
+      }}
+      onBlur={() => setDraft(null)}
+    />
   );
 }
 

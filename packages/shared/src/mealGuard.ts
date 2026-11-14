@@ -28,6 +28,14 @@ const sameMeal = (a: Meal, b: Meal) => {
 /** The most meals one day holds (the database rules allow the same). */
 export const MAX_MEALS = 60;
 
+/**
+ * A day's meals in the order they were eaten: by time, keeping log order within the same minute.
+ * An edited meal is stored at the end of the day's list, so this puts it back in its place.
+ */
+export function byTime(meals: Meal[]): Meal[] {
+  return meals.map((m, i) => [m, i] as const).sort(([a, i], [b, j]) => (a.time < b.time ? -1 : a.time > b.time ? 1 : i - j)).map(([m]) => m);
+}
+
 const minutesOf = (hhmm: string) => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
   return m ? +m[1] * 60 + +m[2] : null;

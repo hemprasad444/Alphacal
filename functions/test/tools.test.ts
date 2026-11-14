@@ -26,6 +26,14 @@ describe('parseVow', () => {
       { field: 'isAdmin', value: 'true' },
     ] })).toEqual({ protein: '180', deadline: '2027-04-01' });
   });
+  it('refuses impossible dates and half-typed times, and trims', () => {
+    expect(parseVow({ changes: [
+      { field: 'deadline', value: '2026-13-01' },
+      { field: 'deadline', value: '2027-02-30' },
+      { field: 'bedtime', value: '23:' },
+      { field: 'kcal', value: ' 2100 ' },
+    ] })).toEqual({ kcal: '2100' });
+  });
   it('returns null when nothing usable', () => {
     expect(parseVow({ changes: [] })).toBeNull();
     expect(parseVow({})).toBeNull();
