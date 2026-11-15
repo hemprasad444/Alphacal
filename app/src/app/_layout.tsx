@@ -1,13 +1,8 @@
-// Fight Night's three faces. Import each weight from its own path so unused weights stay out of the bundle.
-import { Anton_400Regular } from '@expo-google-fonts/anton/400Regular';
-import { Barlow_400Regular } from '@expo-google-fonts/barlow/400Regular';
-import { Barlow_500Medium } from '@expo-google-fonts/barlow/500Medium';
-import { Barlow_600SemiBold } from '@expo-google-fonts/barlow/600SemiBold';
-import { Barlow_700Bold } from '@expo-google-fonts/barlow/700Bold';
-import { BarlowCondensed_600SemiBold } from '@expo-google-fonts/barlow-condensed/600SemiBold';
-import { BarlowCondensed_600SemiBold_Italic } from '@expo-google-fonts/barlow-condensed/600SemiBold_Italic';
-import { BarlowCondensed_700Bold } from '@expo-google-fonts/barlow-condensed/700Bold';
-import { BarlowCondensed_700Bold_Italic } from '@expo-google-fonts/barlow-condensed/700Bold_Italic';
+// Manga Panel's two faces. Import each weight from its own path so unused weights stay out of the bundle.
+import { DelaGothicOne_400Regular } from '@expo-google-fonts/dela-gothic-one/400Regular';
+import { ZenMaruGothic_500Medium } from '@expo-google-fonts/zen-maru-gothic/500Medium';
+import { ZenMaruGothic_700Bold } from '@expo-google-fonts/zen-maru-gothic/700Bold';
+import { ZenMaruGothic_900Black } from '@expo-google-fonts/zen-maru-gothic/900Black';
 import { configureExerciseImages } from '@rei/shared';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -22,12 +17,8 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // Exercise thumbnails from your Firebase Hosting when set (see app/.env.example).
 configureExerciseImages(process.env.EXPO_PUBLIC_IMAGES_BASE_URL);
 
-/** Display (Anton), labels (Barlow Condensed) and body (Barlow): the whole type system, loaded before the splash lifts. */
-const FONTS = {
-  Anton_400Regular,
-  Barlow_400Regular, Barlow_500Medium, Barlow_600SemiBold, Barlow_700Bold,
-  BarlowCondensed_600SemiBold, BarlowCondensed_600SemiBold_Italic, BarlowCondensed_700Bold, BarlowCondensed_700Bold_Italic,
-};
+/** Display (Dela Gothic One) and body and labels (Zen Maru Gothic): the whole type system, loaded before the splash lifts. */
+const FONTS = { DelaGothicOne_400Regular, ZenMaruGothic_500Medium, ZenMaruGothic_700Bold, ZenMaruGothic_900Black };
 
 function Root() {
   const ready = useStore(s => s.ready), theme = useStore(s => s.theme), account = useStore(s => s.account), program = useStore(s => s.program);

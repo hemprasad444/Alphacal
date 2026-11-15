@@ -47,7 +47,7 @@ export default function Lift() {
       {withMax.length || bodyweight ? (
         <>
           <SectionHeader title={bodyweight ? 'Best set · reps' : 'Est. one-rep max'} style={{ marginTop: SP.xxl }} />
-          <View style={{ marginTop: SP.md, padding: SP.lg, backgroundColor: F.canvas }}>
+          <View style={{ marginTop: SP.md, padding: SP.lg, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk }}>
             <LineChart
               values={bodyweight ? points.map(p => p.reps) : withMax.map(p => p.e1rm!)}
               labels={(bodyweight ? points : withMax).map(p => short(p.date))}

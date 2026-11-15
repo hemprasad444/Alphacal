@@ -1,6 +1,6 @@
-import { ACCENT_EXTRAS, C, colorDistance, contrast, cutDx, DEFAULT_EMBLEM, emblemFor, emblemIdFor, EMBLEMS, F, fontFamily, medalColors, onColor, THEMES, warnColor } from '../theme';
+import { ACCENT_EXTRAS, C, colorDistance, contrast, cutDx, DEFAULT_EMBLEM, displaySize, emblemFor, emblemIdFor, EMBLEMS, F, fontFamily, medalColors, onColor, THEMES, warnColor } from '../theme';
 
-describe('Fight Night tokens', () => {
+describe('Manga Panel tokens', () => {
   it('keeps every text colour readable (4.5:1) on the arena and on canvas', () => {
     for (const key of ['text', 'textSoft', 'body', 'value', 'sub', 'muted', 'label', 'dim', 'faint', 'alert', 'warn'] as const) {
       expect(contrast(C[key], F.arena)).toBeGreaterThanOrEqual(4.5);
@@ -22,18 +22,25 @@ describe('Fight Night tokens', () => {
     for (const t of THEMES) expect(`${t.name} ${t.vibe} ${t.motto}`).toMatch(/^[\x20-\x7E·]+$/);
   });
 
-  it('maps every face, old and new, onto the three loaded families', () => {
-    expect(fontFamily('display')).toBe('Anton_400Regular');
-    expect(fontFamily('label', 600)).toBe('BarlowCondensed_700Bold');
-    expect(fontFamily('labelItalic', 400)).toBe('BarlowCondensed_600SemiBold_Italic');
-    expect(fontFamily('mono', 400)).toBe('BarlowCondensed_600SemiBold');
-    expect(fontFamily('Geist', 400)).toBe('Barlow_500Medium');
-    expect(fontFamily('Zen Kaku', 600)).toBe('Barlow_700Bold');
-    expect(fontFamily('jp', 300)).toBe('Barlow_400Regular');
+  it('maps every face, old and new, onto the two loaded families', () => {
+    expect(fontFamily('display')).toBe('DelaGothicOne_400Regular');
+    expect(fontFamily('label', 600)).toBe('ZenMaruGothic_700Bold');
+    expect(fontFamily('labelItalic', 400)).toBe('ZenMaruGothic_900Black');
+    expect(fontFamily('mono', 400)).toBe('ZenMaruGothic_700Bold');
+    expect(fontFamily('Geist', 400)).toBe('ZenMaruGothic_500Medium');
+    expect(fontFamily('Zen Kaku', 600)).toBe('ZenMaruGothic_700Bold');
+    expect(fontFamily('jp', 300)).toBe('ZenMaruGothic_500Medium');
+    expect(fontFamily('body', 700)).toBe('ZenMaruGothic_900Black');
   });
 
-  it('cuts at 18 degrees', () => {
-    expect(cutDx(100)).toBeCloseTo(32.49, 1);
+  it('leans tags at 10 degrees and never sets display type under 13pt', () => {
+    expect(cutDx(100)).toBeCloseTo(17.63, 1);
+    expect(displaySize(64)).toBeCloseTo(37.1, 1);
+    expect(displaySize(14)).toBe(13);
+  });
+
+  it('uses the Manga Panel palette', () => {
+    expect([F.arena, F.canvas, F.chalk, F.smoke, F.rival, F.bronze, F.silver, F.gold]).toEqual(['#0E0E10', '#17171B', '#F4F1EA', '#B8B2A7', '#FF4D6D', '#C77B3F', '#C9D1D9', '#F2C230']);
   });
 
   it('gives every world two emblems and never names one after a series', () => {

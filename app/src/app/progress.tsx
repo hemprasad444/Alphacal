@@ -49,7 +49,7 @@ export default function Progress() {
       <ReportCard />
 
       <SectionHeader title="Combos" meta="Streaks" style={{ marginTop: SP.xxl }} />
-      <View style={{ flexDirection: 'row', backgroundColor: F.canvas, marginTop: SP.md }}>
+      <View style={{ flexDirection: 'row', backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, marginTop: SP.md }}>
         {([['Food', 'logged', st.logging, 'days'], ['Protein', 'hit', st.protein, 'days'], ['Weeks', 'on target', st.weeks, 'wks']] as const).map(([top, bottom, v, unit], i) => (
           <View key={top} style={{ flex: 1, paddingVertical: SP.md, paddingHorizontal: SP.sm, gap: SP.xs, borderLeftWidth: i ? 2 : 0, borderLeftColor: F.arena }}>
             <Combo count={v.current} top={top} bottom={bottom} size="sm" />
@@ -71,7 +71,7 @@ export default function Progress() {
           const delta = c.change ? `${c.change > 0 ? '+' : ''}${c.change}` : '—';
           const expanded = open === c.measure;
           return (
-            <Tap key={c.measure} haptic={false} onPress={() => setOpen(o => (o === c.measure ? null : c.measure))} accessibilityState={{ expanded }} accessibilityLabel={`${cap(c.measure)} ${c.latest} centimetres${c.change ? `, change ${delta}` : ''}`} style={{ backgroundColor: F.canvas, paddingHorizontal: SP.md, paddingVertical: SP.sm, gap: SP.md }}>
+            <Tap key={c.measure} haptic={false} onPress={() => setOpen(o => (o === c.measure ? null : c.measure))} accessibilityState={{ expanded }} accessibilityLabel={`${cap(c.measure)} ${c.latest} centimetres${c.change ? `, change ${delta}` : ''}`} style={{ backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, paddingHorizontal: SP.md, paddingVertical: SP.sm, gap: SP.md }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: HIT - SP.sm * 2 }}>
                 <Txt size={15} w={600} style={{ flex: 1 }}>{cap(c.measure)}</Txt>
                 <Txt face="label" w={600} size={14} ls={0.07} color={good == null ? F.smoke : good ? s.accent : C.alertSoft} align="right" style={{ minWidth: 48 }}>{delta}</Txt>
@@ -116,7 +116,7 @@ function ReportCard() {
   return (
     <View style={{ marginTop: SP.lg, gap: SP.md }}>
       <SectionHeader title={report ? `Weekly report · ${report.week.split('-')[1]}` : 'Weekly report'} meta={report ? (report.ai ? 'By REI' : 'From your numbers') : undefined} />
-      <View style={{ backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: report ? s.accent : F.rope, padding: SP.lg, gap: SP.md }}>
+      <View style={{ backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${report ? s.accent : F.rope}`, padding: SP.lg, gap: SP.md }}>
         {report ? (
           <>
             <View style={{ alignItems: 'flex-start' }}>
@@ -198,7 +198,7 @@ function PhotoImage({ p, height, label }: { p: ProgressPhoto; height: number; la
     };
   }, [p.path]);
   // Cached on disk by Storage path, so the signed URL changing doesn't refetch the image.
-  return <Image source={uri ? { uri, cacheKey: p.path } : undefined} accessibilityLabel={label} cachePolicy="memory-disk" transition={120} contentFit="cover" style={{ width: '100%', height, borderRadius: RADIUS.sm, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas }} />;
+  return <Image source={uri ? { uri, cacheKey: p.path } : undefined} accessibilityLabel={label} cachePolicy="memory-disk" transition={120} contentFit="cover" style={{ width: '100%', height, borderRadius: RADIUS.sm, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas }} />;
 }
 
 function Photos() {
@@ -249,7 +249,7 @@ function Photos() {
                 <Txt face="label" w={600} size={12} ls={0.1} color={i ? s.accent : F.smoke}>{`${i ? 'NOW' : 'FIRST'} · ${short(p.date).toUpperCase()}${p.kg ? ` · ${p.kg} KG` : ''}`}</Txt>
               </View>
             ) : (
-              <View key="none" style={{ flex: 1, height: 220, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center', padding: SP.lg }}>
+              <View key="none" style={{ flex: 1, height: 220, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center', padding: SP.lg }}>
                 <Txt size={14} w={500} lh={1.4} color={F.smoke} align="center">Take the next one in a few weeks, same spot, same light.</Txt>
               </View>
             ),

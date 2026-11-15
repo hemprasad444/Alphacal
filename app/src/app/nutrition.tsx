@@ -89,7 +89,7 @@ export default function Nutrition() {
           const v = d.totals[m.k], pct = m.target ? v / m.target : 0, lead = leader(m.k, m.unit);
           const over = m.k !== 'p' && m.k !== 'fib' && pct > 1 ? pct - 1 : 0;
           return (
-            <View key={m.k} style={{ backgroundColor: F.canvas, padding: SP.md, gap: SP.sm }}>
+            <View key={m.k} style={{ backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, padding: SP.md, gap: SP.sm }}>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: SP.sm }}>
                 <Txt face="label" w={600} size={13} ls={0.12} color={F.smoke} style={{ flex: 1 }}>{m.name.toUpperCase()}</Txt>
                 <Txt face="display" size={24} lh={1.15}>{`${+v.toFixed(m.k === 'fib' ? 1 : 0)}`}</Txt>
@@ -110,7 +110,7 @@ export default function Nutrition() {
         return (
           <View key={g.id}>
             <SectionHeader title={g.title} meta={tracked.length ? `${tracked.length} of ${all.length} tracked · ${g.note}` : g.note} style={{ marginTop: SP.xxl }} />
-            <View style={{ marginTop: SP.md, backgroundColor: F.canvas, paddingHorizontal: SP.md, paddingVertical: SP.xs }}>
+            <View style={{ marginTop: SP.md, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, paddingHorizontal: SP.md, paddingVertical: SP.xs }}>
               {tracked.map(n => row(n.key, g.id === 'limit'))}
               {/* Everything today's food has no figure for, in one line instead of a row of dashes each. */}
               {unknown.length ? (
@@ -134,7 +134,7 @@ export default function Nutrition() {
             .filter(([, v]) => typeof v === 'number')
             .map(([k, v, u]) => `${k} ${k === 'NA' ? Math.round(v as number) : +(v as number).toFixed(1)}${u}`);
           return (
-            <View key={`${m.time}-${i}`} accessible accessibilityLabel={`${m.time}, ${m.name}, ${fmt(m.kcal)} kcal. ${parts.join(', ')}${wins.length ? `. ${wins.map(w => w[1]).join(', ')}` : ''}`} style={{ backgroundColor: F.canvas, padding: SP.md, gap: SP.sm }}>
+            <View key={`${m.time}-${i}`} accessible accessibilityLabel={`${m.time}, ${m.name}, ${fmt(m.kcal)} kcal. ${parts.join(', ')}${wins.length ? `. ${wins.map(w => w[1]).join(', ')}` : ''}`} style={{ backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, padding: SP.md, gap: SP.sm }}>
               {wins.length ? <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: accent }} /> : null}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
                 <Txt face="label" w={600} size={14} ls={0.07} color={F.smoke} style={{ minWidth: 40 }}>{m.time}</Txt>

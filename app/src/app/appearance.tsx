@@ -24,12 +24,12 @@ export default function Appearance() {
       <SubHeader title="LOOK" onBack={() => router.back()} />
 
       <SectionHeader title="World" meta="Sets your corner colour" style={{ marginTop: SP.xl }} />
-      <View accessibilityRole="radiogroup" style={{ marginTop: SP.md, gap: SP.xs }}>
+      <View accessibilityRole="radiogroup" style={{ marginTop: SP.md, gap: SP.sm, paddingRight: 4 }}>
         {THEMES.map(t => {
           const on = theme.id === t.id;
           return (
             <Tap key={t.id} onPress={() => s.pickTheme(t.id)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={`${t.name} world. ${t.vibe}`}>
-              <View style={{ minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: 2, borderColor: on ? t.acc : C.canvas }}>
+              <View style={{ minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: on ? 3 : 2, borderColor: on ? C.chalk : C.smoke, boxShadow: on ? `4px 4px 0px ${t.acc}` : undefined }}>
                 <View style={{ width: 52, height: 36, alignItems: 'center', justifyContent: 'center' }}>
                   <CutShape width={52} height={36} fill={t.acc} style={{ position: 'absolute', left: 0, top: 0 }} />
                   <View><Icon name={t.icon} size={22} color={onColor(t.acc)} tint={0.2} strokeWidth={2} /></View>
@@ -63,7 +63,7 @@ export default function Appearance() {
       </Card>
 
       <SectionHeader title="Text size" style={{ marginTop: SP.huge }} />
-      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', marginTop: SP.md, borderWidth: 2, borderColor: C.rope, backgroundColor: C.canvas }}>
+      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', marginTop: SP.md, borderWidth: 2, borderColor: C.smoke, backgroundColor: C.canvas }}>
         {TEXT_SIZES.map(([v, name, px]) => {
           const on = settings.textSize === v;
           return (
@@ -78,13 +78,13 @@ export default function Appearance() {
       <SectionHeader title="Emblem" meta={`${theme.name} collection`} style={{ marginTop: SP.huge }} />
       <View style={{ flexDirection: 'row', gap: SP.sm, marginTop: SP.md }}>
         <Tap onPress={() => s.setEmblem(null)} accessibilityRole="radio" accessibilityState={{ selected: !selected, checked: !selected }} accessibilityLabel="No emblem" style={{ flex: 1, gap: SP.xs }}>
-          <View style={{ aspectRatio: 1, borderWidth: 2, borderColor: !selected ? accent : C.rope, backgroundColor: C.canvas, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ aspectRatio: 1, borderWidth: 2, borderColor: !selected ? accent : C.smoke, backgroundColor: C.canvas, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="close" size={24} color={C.smoke} />
           </View>
           <Txt face="label" w={600} size={12} ls={0.12} color={!selected ? accent : C.smoke} align="center">{!selected ? 'IN USE' : 'NONE'}</Txt>
         </Tap>
         {emblems.length === 0 ? (
-          <View style={{ flex: 2, aspectRatio: 2, borderWidth: 2, borderColor: C.rope, alignItems: 'center', justifyContent: 'center', padding: SP.md }}>
+          <View style={{ flex: 2, aspectRatio: 2, borderWidth: 2, borderColor: C.smoke, alignItems: 'center', justifyContent: 'center', padding: SP.md }}>
             <Txt size={13} w={500} lh={1.4} color={C.smoke} align="center">Emblems for this world are coming soon.</Txt>
           </View>
         ) : null}
@@ -92,7 +92,7 @@ export default function Appearance() {
           const on = selected === e.id;
           return (
             <Tap key={e.id} onPress={() => s.setEmblem(e.id)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={`Emblem ${i + 1}`} style={{ flex: 1, gap: SP.xs }}>
-              <View style={{ aspectRatio: 1, borderWidth: 2, borderColor: on ? accent : C.rope, backgroundColor: C.canvas, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              <View style={{ aspectRatio: 1, borderWidth: 2, borderColor: on ? accent : C.smoke, backgroundColor: C.canvas, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                 <Image source={e.source} style={{ width: '78%', height: '78%' }} resizeMode="contain" accessibilityIgnoresInvertColors />
               </View>
               <Txt face="label" w={600} size={12} ls={0.12} color={on ? accent : C.smoke} align="center">{on ? 'IN USE' : `NO. ${String(i + 1).padStart(2, '0')}`}</Txt>

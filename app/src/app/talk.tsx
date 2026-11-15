@@ -123,13 +123,13 @@ export default function Talk() {
         <View style={{ paddingTop: SP.sm, paddingBottom: Math.max(insets.bottom, SP.md), borderTopWidth: 2, borderTopColor: C.line, backgroundColor: C.arena }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: SP.sm, paddingHorizontal: SP.lg, paddingBottom: SP.sm }}>
             {QUICK.map(t => (
-              <Tap key={t} onPress={() => quick(t)} accessibilityLabel={t} style={{ minHeight: HIT, paddingHorizontal: SP.md, borderWidth: 2, borderColor: C.rope, justifyContent: 'center', backgroundColor: C.canvas }}>
+              <Tap key={t} onPress={() => quick(t)} accessibilityLabel={t} style={{ minHeight: HIT, paddingHorizontal: SP.md, borderWidth: 2, borderColor: C.smoke, justifyContent: 'center', backgroundColor: C.canvas }}>
                 <Txt face="label" w={600} size={14} ls={0.08} color={C.chalk}>{t.toUpperCase()}</Txt>
               </Tap>
             ))}
           </ScrollView>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.lg }}>
-            <View style={{ flex: 1, height: 52, backgroundColor: C.canvas, borderWidth: 2, borderColor: typed ? accent : C.rope, justifyContent: 'center', paddingHorizontal: SP.md }}>
+            <View style={{ flex: 1, height: 52, backgroundColor: C.canvas, borderWidth: 2, borderColor: typed ? accent : C.smoke, justifyContent: 'center', paddingHorizontal: SP.md }}>
               <TextInput
                 ref={input}
                 value={draft}

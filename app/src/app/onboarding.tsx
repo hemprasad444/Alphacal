@@ -1,6 +1,6 @@
 // First run, after the account exists: the pre-fight training camp. The fight poster, fourteen
 // short rounds, the contract (hold to sign), the walk out to the ring and the cut into the app.
-// Fight Night look: flat colour, the one cut angle, hard shadows, the chosen world's colour.
+// Manga Panel look: ink panels in a paper stroke, hard shadows, the chosen world's colour.
 // Numbers, wording and the order of the rounds come from @rei/shared (onboarding.ts); this file is the stage.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
@@ -239,7 +239,7 @@ function Round({ step, acc, insetTop, insetBottom, line, shown, onBack, cta, chi
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={{ flex: 1, paddingTop: insetTop + SP.sm, paddingHorizontal: SIDE, paddingBottom: insetBottom + SP.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, height: HIT }}>
-          <Tap onPress={onBack} accessibilityLabel="Back" style={{ width: HIT, height: HIT, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center' }}>
+          <Tap onPress={onBack} accessibilityLabel="Back" style={{ width: HIT, height: HIT, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="back" size={20} color={F.chalk} tint={0} strokeWidth={2.2} />
           </Tap>
           <MeterBar pct={n / CHAPTERS} segments={CHAPTERS} height={12} accent={acc} accessibilityLabel={`Round ${n} of ${CHAPTERS}`} style={{ flex: 1, alignSelf: 'center' }} />
@@ -459,7 +459,7 @@ function TargetStep({ d, patch, acc }: { d: Intake; patch: (o: Partial<Intake>) 
     <>
       <Rise delay={250} style={{ flexDirection: 'row', gap: 2 }}>
         {stats.map(([l, v, c]) => (
-          <View key={l} accessible accessibilityLabel={`${l.replace(' · KG', '')} ${v} kilograms`} style={{ flex: 1, backgroundColor: F.canvas, paddingVertical: SP.md, paddingHorizontal: SP.md }}>
+          <View key={l} accessible accessibilityLabel={`${l.replace(' · KG', '')} ${v} kilograms`} style={{ flex: 1, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, paddingVertical: SP.md, paddingHorizontal: SP.md }}>
             <Txt face="display" lean={false} size={28} lh={1.2} color={c} fit>{v}</Txt>
             <Txt face="label" w={600} size={12} ls={0.1} color={F.smoke} numberOfLines={1}>{l}</Txt>
           </View>
@@ -469,7 +469,7 @@ function TargetStep({ d, patch, acc }: { d: Intake; patch: (o: Partial<Intake>) 
       <Block i={2} acc={acc}><ScrubOf k="targetBf" d={d} onChange={v => patch({ targetBf: v, targetTouched: true })} acc={acc} /></Block>
       <Rise delay={550}>
         <FieldLabel label="The road" right={`${d.weeks} weeks`} acc={acc} />
-        <View accessible accessibilityLabel={`From ${d.weight} kilograms at ${d.bf} percent now to ${d.targetWeight} kilograms at ${d.targetBf} percent by ${shortDate(deadlineOf(d, new Date()))}`} style={{ backgroundColor: F.canvas, padding: SP.md, gap: SP.sm }}>
+        <View accessible accessibilityLabel={`From ${d.weight} kilograms at ${d.bf} percent now to ${d.targetWeight} kilograms at ${d.targetBf} percent by ${shortDate(deadlineOf(d, new Date()))}`} style={{ backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, padding: SP.md, gap: SP.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <CutShape width={18} height={14} fill={acc} />
             <View style={{ flex: 1, height: 4, backgroundColor: acc }} />
@@ -551,7 +551,7 @@ function FuelStep({ d, set, acc }: StepProps) {
           </View>
           <View style={{ flexDirection: 'row', gap: SP.sm, paddingBottom: SP.sm }}>
             {([['−', -50, 'Lower by 50 calories'], ['+', 50, 'Raise by 50 calories']] as const).map(([l, dv, say]) => (
-              <Tap key={l} onPress={() => nudge(dv)} accessibilityLabel={say} style={{ width: HIT, height: HIT, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center' }}>
+              <Tap key={l} onPress={() => nudge(dv)} accessibilityLabel={say} style={{ width: HIT, height: HIT, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center' }}>
                 <Txt size={22} w={600} lh={1.15}>{l}</Txt>
               </Tap>
             ))}
@@ -561,7 +561,7 @@ function FuelStep({ d, set, acc }: StepProps) {
       </Rise>
       <View style={{ gap: SP.sm }}>
         {macros.map(([label, grams, color, note, perG], i) => (
-          <Rise key={label} delay={400 + i * 100} style={{ padding: SP.md, gap: SP.sm, backgroundColor: F.canvas }}>
+          <Rise key={label} delay={400 + i * 100} style={{ padding: SP.md, gap: SP.sm, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk }}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: SP.md }}>
               <Txt face="labelItalic" w={600} size={15} ls={0.12}>{label.toUpperCase()}</Txt>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 5 }}>
@@ -626,7 +626,7 @@ function ToneStep({ d, set, acc }: StepProps) {
       </View>
       <Rise delay={500}>
         <FieldLabel label="How that sounds" right="2 sessions missed" acc={acc} />
-        <View style={{ backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: acc, paddingVertical: SP.md, paddingHorizontal: SP.lg }}>
+        <View style={{ backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${acc}`, paddingVertical: SP.md, paddingHorizontal: SP.lg }}>
           <Txt size={15.5} w={500} lh={1.45} color={C.textSoft}>{toneSample(d.tone, d)}</Txt>
         </View>
       </Rise>
@@ -725,7 +725,7 @@ function CornerStep({ d, set, patch, acc }: { d: Intake; set: SetFn; patch: (o: 
       </Block>
       <Rise delay={650}>
         <FieldLabel label={`${cur.name} says`} acc={acc} />
-        <View style={{ backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: acc, paddingVertical: SP.md, paddingHorizontal: SP.lg }}>
+        <View style={{ backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${acc}`, paddingVertical: SP.md, paddingHorizontal: SP.lg }}>
           <Txt size={15} w={500} lh={1.45} color={C.textSoft}>{`“${greeting(cur, d.name).replace(/\s*\[[^\]]*\]/g, '')}”`}</Txt>
         </View>
         <Txt size={13} color={note ? warnColor(acc) : C.sub} lh={1.4} style={{ marginTop: SP.sm }}>{note || 'Tap a card to hear them; tap again to stop. You can change your corner any time in Settings.'}</Txt>
@@ -819,7 +819,7 @@ function Walkout({ d, acc, insetTop, insetBottom, onEnter }: { d: Intake; acc: s
         </Rise>
         <Rise delay={950} style={{ flexDirection: 'row', gap: 2 }}>
           {tape.map(([k, v]) => (
-            <View key={k} accessible accessibilityLabel={`${v} ${k.toLowerCase()}`} style={{ flex: 1, backgroundColor: F.canvas, paddingVertical: SP.md, paddingHorizontal: SP.md }}>
+            <View key={k} accessible accessibilityLabel={`${v} ${k.toLowerCase()}`} style={{ flex: 1, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, paddingVertical: SP.md, paddingHorizontal: SP.md }}>
               <Txt face="display" lean={false} size={30} lh={1.2} color={acc} fit>{v}</Txt>
               <Txt face="label" w={600} size={12} ls={0.1} color={F.smoke} numberOfLines={1}>{k}</Txt>
             </View>

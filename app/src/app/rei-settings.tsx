@@ -73,12 +73,12 @@ export default function ReiSettings() {
       <SubHeader title="REI" onBack={() => router.back()} />
 
       <SectionHeader title="Personality" meta="How hard REI pushes" style={{ marginTop: SP.xl }} />
-      <View accessibilityRole="radiogroup" style={{ gap: SP.xs, marginTop: SP.md }}>
+      <View accessibilityRole="radiogroup" style={{ gap: SP.sm, marginTop: SP.md, paddingRight: 4 }}>
         {TONES.map(t => {
           const on = settings.tone === t.id;
           return (
             <Tap key={t.id} onPress={() => s.setOpt('tone', t.id)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={`${t.title}. ${t.sub}`}>
-              <View style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: 2, borderColor: on ? accent : C.canvas }}>
+              <View style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: on ? 3 : 2, borderColor: on ? C.chalk : C.smoke, boxShadow: on ? `4px 4px 0px ${accent}` : undefined }}>
                 <Txt face="display" lean={false} size={20} lh={1.2} color={on ? accent : C.smoke} style={{ minWidth: 48 }}>{t.level.toUpperCase()}</Txt>
                 <View style={{ flex: 1, alignItems: 'flex-start' }}>
                   <Txt face="display" size={22} lh={1.2}>{t.title.toUpperCase()}</Txt>
@@ -93,13 +93,13 @@ export default function ReiSettings() {
 
       <SectionHeader title="Voice" meta={playing ? 'Playing…' : 'Corner team'} style={{ marginTop: SP.huge }} />
       <Txt size={13} w={500} lh={1.4} color={C.smoke} style={{ marginTop: SP.sm }}>Who REI sounds like, on calls and spoken replies. Separate from your world.</Txt>
-      <View accessibilityRole="radiogroup" style={{ gap: SP.xs, marginTop: SP.md }}>
+      <View accessibilityRole="radiogroup" style={{ gap: SP.sm, marginTop: SP.md, paddingRight: 4 }}>
         {CHARACTERS.map(c => {
           const on = (settings.character || 'rei') === c.id;
           const voiced = hasVoice(c);
           return (
             <Tap key={c.id} onPress={() => void pick(c.id)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={`${c.name}, ${c.series}. ${c.line}${voiced ? '' : ' Voice coming soon.'}${playing === c.id ? ' Playing.' : ''}`}>
-              <View style={{ minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: 2, borderColor: on ? accent : C.canvas }}>
+              <View style={{ minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: on ? 3 : 2, borderColor: on ? C.chalk : C.smoke, boxShadow: on ? `4px 4px 0px ${accent}` : undefined }}>
                 <View style={{ width: 52, height: 40, alignItems: 'center', justifyContent: 'center' }}>
                   <CutShape width={52} height={40} fill={c.acc} style={{ position: 'absolute', left: 0, top: 0 }} />
                   <View><Icon name={c.icon} size={24} color={onColor(c.acc)} tint={0.2} strokeWidth={2} /></View>

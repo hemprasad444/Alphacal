@@ -15,7 +15,6 @@ import { useGame } from '../../state/game';
 import { useStore } from '../../state/store';
 
 /** Screen's side padding: the versus poster runs edge to edge through it. */
-const GUTTER = 20;
 
 export default function Today() {
   const s = useStore();
@@ -104,6 +103,7 @@ export default function Today() {
   return (
     <Screen>
       <PageTitle
+        icon="today"
         title={`Round ${round}`}
         sub={`${dayStamp(now)} · WEEK ${programWeek(s.startedOn, now)}${s.cloud ? '' : ' · DEMO'}`}
         right={
@@ -112,9 +112,9 @@ export default function Today() {
           </Tap>
         }
       />
-      <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} style={{ marginTop: SP.xs }}>{`${hello}${profile.name ? `, ${profile.name}` : ''}`.toUpperCase()}</Txt>
+      <Txt face="label" size={13} color={F.chalk} style={{ marginTop: 2 }}>{`${hello}${profile.name ? `, ${profile.name}` : ''}`}</Txt>
 
-      <Tap onPress={toDojo} accessibilityLabel={`${profile.name || 'You'} versus Excuses. ${rankLine}. ${taken}. ${plate.big}, ${plate.small}. Open Dojo`} style={{ marginHorizontal: -GUTTER, marginTop: SP.md }}>
+      <Tap onPress={toDojo} accessibilityLabel={`${profile.name || 'You'} versus Excuses. ${rankLine}. ${taken}. ${plate.big}, ${plate.small}. Open Dojo`} style={{ marginTop: SP.md, paddingRight: 4, paddingBottom: 4 }}>
         <VersusHeader name={profile.name || 'You'} sub={rankLine} rivalSub={taken} plate={plate} />
       </Tap>
 
@@ -131,7 +131,7 @@ export default function Today() {
         {rest.map(r => <Goal key={r.label} row={r} color={tone(r.tone)} />)}
       </View>
       <Tap onPress={toDojo} accessibilityLabel={`Training: ${training.value}, ${training.status.toLowerCase()}. Open Dojo`} style={{ marginTop: SP.lg }}>
-        <View style={{ minHeight: 48, backgroundColor: F.canvas, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm }}>
+        <View style={{ minHeight: 48, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm }}>
           {CLEARED.includes(training.status) ? <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: accent }} /> : null}
           <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>TRAINING</Txt>
           <Txt size={15} w={500} numberOfLines={1} style={{ flex: 1 }}>{training.value}</Txt>
@@ -152,7 +152,7 @@ export default function Today() {
         <Txt face="display" size={36} lh={1.15} fit>{dir.title.toUpperCase()}</Txt>
         <Txt size={14} w={500} lh={1.4} color={F.smoke} style={{ marginTop: 2 }}>{dir.sub}</Txt>
       </View>
-      <View style={{ marginTop: SP.md, backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: F.rope, paddingVertical: SP.md, paddingHorizontal: SP.md, gap: SP.xs }}>
+      <View style={{ marginTop: SP.md, backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${F.rope}`, paddingVertical: SP.md, paddingHorizontal: SP.md, gap: SP.xs }}>
         <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>WHY IT MATTERS</Txt>
         <Txt size={14} lh={1.45} color={C.body}>{dir.why}</Txt>
       </View>
@@ -161,7 +161,7 @@ export default function Today() {
 
       <SectionHeader title="This week" meta="Dojo" onMeta={toDojo} style={{ marginTop: SP.xxl }} />
       <Tap onPress={toDojo} accessibilityLabel={`${integrity} percent kept. ${wk.due ? `${wk.done} of ${wk.due} sessions done` : 'No sessions due yet'}. Open Dojo`} style={{ marginTop: SP.md }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.lg, backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: wk.missed ? F.rope : accent, padding: SP.lg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.lg, backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${wk.missed ? F.rope : accent}`, padding: SP.lg }}>
           <View style={{ alignItems: 'flex-start' }}>
             <Txt face="display" size={44} lh={1.1} color={wk.missed ? F.chalk : accent}>{`${integrity}%`}</Txt>
             <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>KEPT</Txt>
@@ -175,7 +175,7 @@ export default function Today() {
 
       <SectionHeader title="Your goal" meta={traj.eta} style={{ marginTop: SP.xxl }} />
       <Tap onPress={() => router.navigate('/vow')} accessibilityLabel={`${traj.weight.toFixed(1)} kilograms now, goal ${traj.target.toFixed(1)}. ${traj.eta}. ${traj.note} Open Vow`} style={{ marginTop: SP.md }}>
-        <View style={{ backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: traj.etaAlert ? F.rope : accent, padding: SP.lg }}>
+        <View style={{ backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${traj.etaAlert ? F.rope : accent}`, padding: SP.lg }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: SP.md }}>
             <Txt face="display" size={40} lh={1.1}>{traj.weight.toFixed(1)}</Txt>
             <Txt face="label" w={600} size={14} ls={0.06} color={F.smoke} numberOfLines={1} style={{ flexShrink: 1 }}>{`KG NOW · GOAL ${traj.target.toFixed(1)} KG`}</Txt>
@@ -217,7 +217,7 @@ function TrajectoryChart({ history, target, color }: { history: number[]; target
   const lx = x(history.length - 1), ly = y(history[history.length - 1]);
   return (
     <Svg viewBox="0 0 320 70" width="100%" height={64} style={{ marginTop: SP.sm, overflow: 'visible' }}>
-      <Line x1={0} x2={320} y1={y(target)} y2={y(target)} stroke={F.rope} strokeWidth={2} strokeDasharray="6 5" />
+      <Line x1={0} x2={320} y1={y(target)} y2={y(target)} stroke={F.smoke} strokeWidth={2} strokeDasharray="6 5" />
       <Path d={path} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="miter" />
       <Path d={`M${lx} ${ly} L320 ${y(target)}`} fill="none" stroke={F.smoke} strokeWidth={1.5} strokeDasharray="4 5" />
       <Rect x={lx - 4} y={ly - 4} width={8} height={8} fill={F.chalk} />

@@ -126,7 +126,7 @@ export default function Dojo() {
       <SectionHeader title="Log training" meta="Outside the plan" style={{ marginTop: SP.xxl }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.xs, marginTop: SP.md }}>
         {LOG.map(x => (
-          <Tap key={x.label} onPress={x.go} accessibilityLabel={`Log ${x.label}, ${x.sub}`} style={{ width: '32%', flexGrow: 1, minHeight: 52, backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: x.hot ? accent : F.rope, paddingHorizontal: SP.md, paddingVertical: SP.sm, justifyContent: 'center' }}>
+          <Tap key={x.label} onPress={x.go} accessibilityLabel={`Log ${x.label}, ${x.sub}`} style={{ width: '32%', flexGrow: 1, minHeight: 52, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, boxShadow: `3px 3px 0px ${x.hot ? accent : F.rope}`, paddingHorizontal: SP.md, paddingVertical: SP.sm, justifyContent: 'center' }}>
             <Txt size={15} w={600} color={x.hot ? accent : F.chalk} numberOfLines={1}>{x.label}</Txt>
             <Txt face="label" w={400} size={12} ls={0.1} color={F.smoke} numberOfLines={1}>{x.sub.toUpperCase()}</Txt>
           </Tap>
@@ -161,7 +161,7 @@ export default function Dojo() {
             onPress={() => router.push('/history')}
           />
         )) : <Txt size={14} w={500} lh={1.4} color={F.smoke}>Nothing logged yet. Your first session is worth 60 XP.</Txt>}
-        <Tap onPress={() => router.push('/progress')} style={{ minHeight: HIT, marginTop: SP.sm, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas }}>
+        <Tap onPress={() => router.push('/progress')} style={{ minHeight: HIT, marginTop: SP.sm, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas }}>
           <Txt size={15} w={600} style={{ flex: 1 }}>Progress report, measurements, photos</Txt>
           <Icon name="chevron" size={18} color={accent} tint={0} strokeWidth={2} />
         </Tap>

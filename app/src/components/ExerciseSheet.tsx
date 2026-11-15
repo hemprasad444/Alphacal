@@ -22,18 +22,18 @@ const tipsFor = (id: string): string[] => {
 };
 
 /**
- * A form photo in the Fight Night frame: cropped to a square-cornered plate, washed toward your
- * corner colour and dimmed to sit on the arena, with a stamp saying which end of the move it is.
+ * A form photo as a manga panel: cropped to a square-cornered frame, tinted toward your colour
+ * and dimmed to sit on the ink, with a stamp saying which end of the move it is.
  * (The library's photos are bright gym stock shots; raw, they fight the rest of the screen.)
  */
 function FormPhoto({ uri, label, tag }: { uri: string; label: string; tag: string }) {
   const accent = useStore(s => s.accent);
   return (
-    <View style={{ flex: 1, aspectRatio: 1.25, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas, overflow: 'hidden' }}>
+    <View style={{ flex: 1, aspectRatio: 1.25, borderWidth: 3, borderColor: F.chalk, backgroundColor: F.canvas, overflow: 'hidden' }}>
       <Image source={{ uri }} accessibilityLabel={label} cachePolicy="memory-disk" transition={120} contentFit="cover" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }} />
-      {/* The wash: your colour over the photo's light and dark ("color" keeps the photo's shading), then a flat dim. */}
-      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: alpha(accent, 0.6), mixBlendMode: 'color' }} />
-      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: alpha(F.arena, 0.28) }} />
+      {/* The wash: a flat veil of your colour, then a flat dim. Plain overlays, so it draws the same on iOS (no blend modes). */}
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: alpha(accent, 0.22) }} />
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: alpha(F.arena, 0.34) }} />
       <RoundStamp label={tag} size="sm" tone="chalk" style={{ position: 'absolute', left: 6, bottom: 6 }} />
     </View>
   );
@@ -123,7 +123,7 @@ function Body({ name, onClose, onSwap }: { name: string; onClose: () => void; on
                     onSwap(o);
                     onClose();
                   }}
-                  style={{ minHeight: HIT, paddingVertical: SP.sm, paddingHorizontal: SP.md, backgroundColor: F.canvas, gap: 2 }}
+                  style={{ minHeight: HIT, paddingVertical: SP.sm, paddingHorizontal: SP.md, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, gap: 2 }}
                 >
                   <Txt size={15} w={600} lh={1.3}>{o.name}</Txt>
                   <Txt face="label" w={400} size={12} ls={0.08} color={F.smoke}>{`${cap(o.equipment)} · ${o.primary.join(', ')}${b?.e1rm ? ` · BEST ${b.kg} × ${b.reps}` : ''}`.toUpperCase()}</Txt>

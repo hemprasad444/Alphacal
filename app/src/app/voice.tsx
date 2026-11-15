@@ -205,7 +205,7 @@ export default function Voice() {
 
         <View style={{ paddingHorizontal: SP.lg, paddingTop: SP.sm, paddingBottom: Math.max(insets.bottom, SP.lg), gap: SP.md, borderTopWidth: 2, borderTopColor: C.line, backgroundColor: C.arena }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, display: typing ? 'flex' : 'none' }}>
-            <View style={{ flex: 1, height: 52, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.rope, justifyContent: 'center', paddingHorizontal: SP.md }}>
+            <View style={{ flex: 1, height: 52, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.smoke, justifyContent: 'center', paddingHorizontal: SP.md }}>
               <TextInput
                 ref={input}
                 value={draft}

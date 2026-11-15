@@ -136,7 +136,7 @@ function Form({ acc }: { acc: string }) {
 
   return (
     <View style={{ gap: SP.md }}>
-      <View accessibilityRole="tablist" style={{ flexDirection: 'row', borderWidth: 2, borderColor: C.rope, backgroundColor: C.arena }}>
+      <View accessibilityRole="tablist" style={{ flexDirection: 'row', borderWidth: 2, borderColor: C.smoke, backgroundColor: C.arena }}>
         {([['in', 'Log in'], ['up', 'Create account']] as const).map(([m, label]) => {
           const on = m === mode;
           return (
@@ -146,7 +146,7 @@ function Form({ acc }: { acc: string }) {
           );
         })}
       </View>
-      <View style={{ backgroundColor: C.canvas, borderLeftWidth: 4, borderLeftColor: acc, padding: SP.lg, gap: SP.md }}>
+      <View style={{ backgroundColor: C.canvas, borderWidth: 3, borderColor: C.chalk, boxShadow: `4px 4px 0px ${acc}`, padding: SP.lg, gap: SP.md }}>
         <Txt face="labelItalic" w={600} size={13} ls={0.14} color={C.smoke}>{mode === 'in' ? 'WELCOME BACK' : 'NEW HERE · WE’LL EMAIL A LINK'}</Txt>
         <Input icon="mail" value={email} onChange={setEmail} placeholder="Email" acc={acc} kind="email" onSubmit={() => undefined} />
         <Input
@@ -222,7 +222,7 @@ function Verify({ acc }: { acc: string }) {
 
   return (
     <View style={{ gap: SP.md }}>
-      <View style={{ backgroundColor: C.canvas, borderLeftWidth: 4, borderLeftColor: acc, padding: SP.lg, gap: SP.md }}>
+      <View style={{ backgroundColor: C.canvas, borderWidth: 3, borderColor: C.chalk, boxShadow: `4px 4px 0px ${acc}`, padding: SP.lg, gap: SP.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
           <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: C.arena, borderWidth: 2, borderColor: acc }}>
             <Icon name="mail" size={26} color={acc} tint={0.3} />
@@ -257,7 +257,7 @@ function Denied({ acc }: { acc: string }) {
   const s = useStore();
   return (
     <View style={{ gap: SP.md }}>
-      <View style={{ backgroundColor: C.canvas, borderLeftWidth: 4, borderLeftColor: C.rival, padding: SP.lg, gap: SP.md }}>
+      <View style={{ backgroundColor: C.canvas, borderWidth: 3, borderColor: C.chalk, boxShadow: `4px 4px 0px ${C.rival}`, padding: SP.lg, gap: SP.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
           <Icon name="lock" size={26} color={C.alertSoft} tint={0.3} />
           <View style={{ flex: 1, alignItems: 'flex-start' }}>
@@ -275,7 +275,7 @@ function Input({ icon, value, onChange, placeholder, acc, kind, secure, onSubmit
   const [focus, setFocus] = useState(false);
   const email = kind === 'email';
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, height: 52, paddingLeft: SP.md, paddingRight: right ? 2 : SP.md, borderWidth: 2, borderColor: focus ? acc : C.rope, backgroundColor: C.arena }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, height: 52, paddingLeft: SP.md, paddingRight: right ? 2 : SP.md, borderWidth: 2, borderColor: focus ? acc : C.smoke, backgroundColor: C.arena }}>
       <Icon name={icon} size={20} color={focus || value ? acc : C.smoke} tint={0.2} />
       <TextInput
         value={value}

@@ -279,7 +279,7 @@ export default function Session() {
           const n = r.done.filter(Boolean).length;
           const won = n === r.done.length;
           return (
-            <View key={`${i}-${ex.name}`} style={{ backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: won ? accent : n ? F.chalk : F.rope, paddingVertical: SP.md, paddingLeft: SP.md, paddingRight: SP.sm, gap: SP.md }}>
+            <View key={`${i}-${ex.name}`} style={{ backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${won ? accent : n ? F.chalk : F.rope}`, paddingVertical: SP.md, paddingLeft: SP.md, paddingRight: SP.sm, gap: SP.md }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
                 <Tap haptic={false} onPress={() => setInfo(i)} accessibilityLabel={`Round ${i + 1}, ${ex.name}. ${n} of ${r.done.length} sets done`} accessibilityHint="Form tips and swaps" style={{ flex: 1, minHeight: HIT, justifyContent: 'center', gap: 2 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
@@ -302,7 +302,7 @@ export default function Session() {
                   <Txt face="label" w={600} size={12} ls={0.08} color={F.smoke} style={{ width: SET_TAG }}>SET</Txt>
                   <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} align="center" style={{ flex: 1.2 }}>WEIGHT · KG</Txt>
                   <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} align="center" style={{ flex: 1 }}>REPS</Txt>
-                  <Txt face="label" w={600} size={12} ls={0.08} color={F.smoke} align="center" style={{ width: SET_TICK }}>LANDED</Txt>
+                  <Txt face="label" size={12} color={F.smoke} align="center" numberOfLines={1} style={{ width: SET_TICK }}>DONE</Txt>
                 </View>
                 {r.reps.map((reps, j) => (
                   <SetRow
@@ -334,7 +334,7 @@ export default function Session() {
 
       {/* The round break */}
       {rest && live ? (
-        <View accessibilityLiveRegion="polite" style={{ marginHorizontal: SP.lg, marginBottom: SP.sm, padding: SP.md, backgroundColor: F.canvas, borderWidth: 2, borderColor: restLeft ? F.rope : accent, gap: SP.sm }}>
+        <View accessibilityLiveRegion="polite" style={{ marginHorizontal: SP.lg, marginBottom: SP.sm, padding: SP.md, backgroundColor: F.canvas, borderWidth: 2, borderColor: restLeft ? F.smoke : accent, gap: SP.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SP.md }}>
             <View style={{ alignItems: 'flex-start', flexShrink: 1 }}>
               <Txt face="labelItalic" w={600} size={12} ls={0.14} color={restLeft ? F.smoke : accent}>{restLeft ? 'ROUND BREAK' : 'BELL'}</Txt>
@@ -441,7 +441,7 @@ const STEP_W = 40, STEP_SLOP = HIT - STEP_W;
 function SetRow({ n, kg, reps, done, pr, acc, gold, onKg, onReps, onToggle }: { n: number; kg: number | null; reps: number; done: boolean; pr: boolean; acc: string; gold: string; onKg: (v: number | null) => void; onReps: (v: number) => void; onToggle: () => void }) {
   const lit = pr ? gold : acc;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: SET_GAP, padding: 4, borderWidth: 2, borderColor: done ? lit : F.rope, backgroundColor: done ? F.canvas2 : F.arena }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: SET_GAP, padding: 4, borderWidth: 2, borderColor: done ? lit : F.smoke, backgroundColor: done ? F.canvas2 : F.arena }}>
       <View accessible accessibilityLabel={pr ? `Set ${n}, personal record` : `Set ${n}`} style={{ width: SET_TAG, height: 24, alignItems: 'center', justifyContent: 'center' }}>
         <CutShape width={SET_TAG} height={24} fill={done ? lit : F.canvas2} style={{ position: 'absolute', left: 0, top: 0 }} />
         <Txt face="label" w={600} size={pr ? 11 : 14} color={done ? onColor(lit) : F.smoke}>{pr ? 'PR' : String(n)}</Txt>
@@ -539,7 +539,7 @@ function TodayPlan({ plan, next, byRei, onUse, onBuild }: { plan: SessionPlan | 
           </View>
           {next ? (
             <>
-              <View style={{ backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: F.rope, padding: SP.md, gap: 2 }}>
+              <View style={{ backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${F.rope}`, padding: SP.md, gap: 2 }}>
                 <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{`NEXT UP · ${next.day.toUpperCase()}`}</Txt>
                 <Txt size={17} w={600}>{next.plan.title}</Txt>
                 <Txt size={13} w={500} color={F.smoke} numberOfLines={1}>{next.plan.exercises.map(e => e.name).join(' · ')}</Txt>
@@ -610,13 +610,13 @@ function AddExercise({ open, onClose, onAdd, onRemove, have, planned, planTitle,
               const lib = findExercise(name);
               return (
                 <Tap key={`${name}-${i}`} onPress={() => (added ? onRemove(name) : onAdd(name))} accessibilityRole="checkbox" accessibilityState={{ checked: added }} accessibilityLabel={`${name}${added ? ', added' : ''}`}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: 52, paddingVertical: SP.sm, paddingLeft: SP.md, paddingRight: SP.sm, backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: added ? accent : F.canvas }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: 52, paddingVertical: SP.sm, paddingLeft: SP.md, paddingRight: SP.sm, backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${added ? accent : F.canvas}`}}>
                     <View style={{ flex: 1 }}>
                       <Txt size={15} w={600} lh={1.3}>{name}</Txt>
                       {lib ? <Txt face="label" w={400} size={12} ls={0.08} color={F.smoke} numberOfLines={1}>{[lib.primary.join(', '), lib.equipment].filter(Boolean).join(' · ').toUpperCase()}</Txt> : null}
                     </View>
                     {added ? <Txt face="label" w={600} size={12} ls={0.12} color={accent}>ADDED</Txt> : null}
-                    <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: added ? accent : F.arena, borderWidth: 2, borderColor: added ? accent : F.rope }}>
+                    <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: added ? accent : F.arena, borderWidth: 2, borderColor: added ? accent : F.smoke }}>
                       <Icon name={added ? 'check' : 'plus'} size={18} color={added ? onColor(accent) : F.chalk} tint={0} strokeWidth={2.2} />
                     </View>
                   </View>

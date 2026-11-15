@@ -1,4 +1,4 @@
-// Development only: every Fight Night part on one page, in any of the six worlds. Open it from
+// Development only: every Manga Panel part on one page, in any of the six worlds. Open it from
 // Settings (dev builds) or at /gallery. Release builds send you home.
 import type { GameBadge } from '@rei/shared';
 import { Redirect, router } from 'expo-router';
@@ -37,23 +37,23 @@ export default function Gallery() {
 
   return (
     <Screen tabs={false}>
-      <SubHeader title="Fight Night" onBack={() => router.back()} />
+      <SubHeader title="Manga Panel" onBack={() => router.back()} />
 
-      <Label style={{ marginTop: 16 }}>WORLD SETS THE CORNER COLOUR. RIVAL NEVER CHANGES.</Label>
+      <Label style={{ marginTop: 16 }}>THE WORLD SETS THE ACCENT. INK, PAPER AND POP NEVER CHANGE.</Label>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
         {THEMES.map(x => (
-          <Tap key={x.id} onPress={() => setId(x.id)} accessibilityState={{ selected: x.id === id }} accessibilityLabel={`${x.name} world`} style={{ minHeight: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.canvas, borderWidth: 2, borderColor: x.id === id ? x.acc : C.rope }}>
+          <Tap key={x.id} onPress={() => setId(x.id)} accessibilityState={{ selected: x.id === id }} accessibilityLabel={`${x.name} world`} style={{ minHeight: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.canvas, borderWidth: 2, borderColor: x.id === id ? x.acc : C.smoke }}>
             <CutShape width={16} height={12} fill={x.acc} />
             <Txt face="label" w={600} size={14} ls={0.1} color={x.id === id ? C.chalk : C.smoke}>{x.name.toUpperCase()}</Txt>
           </Tap>
         ))}
       </View>
 
-      <Block title="Type" meta="Anton · Barlow Condensed · Barlow" acc={acc}>
+      <Block title="Type" meta="Dela Gothic One · Zen Maru Gothic" acc={acc}>
         <Txt face="display" size={56} lh={1.1}>1,240</Txt>
         <Txt face="display" size={28}>ROUND WON</Txt>
         <Txt face="labelItalic" w={600} size={14} ls={0.14}>TO THE BELL</Txt>
-        <Txt size={15} w={500}>Chicken tikka 150 g. Body text is Barlow, 500 to 700.</Txt>
+        <Txt size={15} w={500}>Chicken tikka 150 g. Body text is Zen Maru Gothic, 500 to 900.</Txt>
         <Txt face="label" size={12} ls={0.12} color={C.smoke}>4 MEALS LANDED</Txt>
       </Block>
 
@@ -61,7 +61,7 @@ export default function Gallery() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {[...SWATCHES.slice(0, 5), ['CORNER', acc, 'you + CTA'] as [string, string, string], ...SWATCHES.slice(5)].map(([name, col, use]) => (
             <View key={name} style={{ width: 76, gap: 2 }}>
-              <View style={{ height: 36, backgroundColor: col, borderWidth: 2, borderColor: C.rope }} />
+              <View style={{ height: 36, backgroundColor: col, borderWidth: 2, borderColor: C.smoke }} />
               <Txt face="label" w={600} size={13} ls={0.08}>{name}</Txt>
               <Txt face="label" size={12} color={C.smoke}>{col.toUpperCase()}</Txt>
               <Txt face="label" size={12} color={C.smoke}>{use}</Txt>
@@ -170,7 +170,7 @@ export default function Gallery() {
       <Block title="Six worlds, one token" acc={acc}>
         <View style={{ gap: 8 }}>
           {THEMES.map(x => (
-            <View key={x.id} style={{ backgroundColor: C.canvas, padding: 12, gap: 10 }}>
+            <View key={x.id} style={{ backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk, padding: 12, gap: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Txt face="display" size={22} color={x.acc}>{x.name.toUpperCase()}</Txt>
                 <Combo count={3} size="sm" accent={x.acc} />

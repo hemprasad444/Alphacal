@@ -39,7 +39,7 @@ export default function Memory() {
           <SectionHeader title="Nothing yet" meta="For example" />
           <View style={{ marginTop: SP.md, gap: SP.xs }}>
             {EXAMPLES.map(e => (
-              <Tap key={e} onPress={() => setText(e)} accessibilityLabel={`Use the example: ${e}`} style={{ minHeight: HIT, justifyContent: 'center', paddingHorizontal: SP.md, backgroundColor: C.canvas }}>
+              <Tap key={e} onPress={() => setText(e)} accessibilityLabel={`Use the example: ${e}`} style={{ minHeight: HIT, justifyContent: 'center', paddingHorizontal: SP.md, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk }}>
                 <Txt size={15} w={500} color={C.smoke}>{`“${e}”`}</Txt>
               </Tap>
             ))}
@@ -52,7 +52,7 @@ export default function Memory() {
           <SectionHeader title={KIND_LABEL[k]} meta={`${ms.length}`} />
           <View style={{ marginTop: SP.md, gap: SP.xs }}>
             {ms.map(m => (
-              <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm, minHeight: 56, paddingLeft: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas }}>
+              <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm, minHeight: 56, paddingLeft: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk }}>
                 {m.source === 'rei' ? <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: accent }} /> : null}
                 <View style={{ flex: 1, gap: 2 }}>
                   <Txt size={15} w={500} lh={1.35}>{m.text}</Txt>
@@ -72,7 +72,7 @@ export default function Memory() {
         {MEMORY_KINDS.map(k => {
           const on = k === kind;
           return (
-            <Tap key={k} onPress={() => setKind(k)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={KIND_LABEL[k]} style={{ minHeight: HIT, paddingHorizontal: SP.md, justifyContent: 'center', borderWidth: 2, borderColor: on ? accent : C.rope, backgroundColor: on ? accent : C.canvas }}>
+            <Tap key={k} onPress={() => setKind(k)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={KIND_LABEL[k]} style={{ minHeight: HIT, paddingHorizontal: SP.md, justifyContent: 'center', borderWidth: 2, borderColor: on ? accent : C.smoke, backgroundColor: on ? accent : C.canvas }}>
               <Txt face="label" w={600} size={15} ls={0.08} color={on ? onColor(accent) : C.smoke}>{KIND_LABEL[k].toUpperCase()}</Txt>
             </Tap>
           );
@@ -88,7 +88,7 @@ export default function Memory() {
         returnKeyType="done"
         maxLength={160}
         accessibilityLabel="Something REI should remember"
-        style={[{ marginTop: SP.md, height: 52, paddingHorizontal: SP.md, backgroundColor: C.canvas, borderWidth: 2, borderColor: text ? accent : C.rope }, inputType(s.settings.textSize)]}
+        style={[{ marginTop: SP.md, height: 52, paddingHorizontal: SP.md, backgroundColor: C.canvas, borderWidth: 2, borderColor: text ? accent : C.smoke }, inputType(s.settings.textSize)]}
       />
       <CutButton label="Remember this" disabled={!text.trim()} onPress={add} style={{ marginTop: SP.md }} />
     </Screen>

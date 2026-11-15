@@ -48,7 +48,7 @@ export default function Board() {
         </View>
         <Txt size={14} w={500} lh={1.4} color={F.smoke}>XP comes from what you log: meals, protein days, sessions, runs, weigh-ins and streaks. Same rules for everyone.</Txt>
         {s.cloud ? (
-          <View style={{ backgroundColor: F.canvas, paddingHorizontal: SP.md }}>
+          <View style={{ backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, paddingHorizontal: SP.md }}>
             <Row title="Show me on the board" sub="Your first name and XP, seen by everyone in the beta" right={<Toggle on={shown} onPress={() => s.setOpt('board', !shown)} accessibilityLabel="Show me on the board" />} last />
           </View>
         ) : null}
@@ -94,7 +94,7 @@ function RankSteps({ xp, current, accent }: { xp: number; current: string; accen
         const say = `Rank ${i + 1}, ${r.name}, ${num(r.min)} XP. ${mine ? 'Your rank' : cleared ? 'Cleared' : `${num(r.min - xp)} XP to go`}`;
         return (
           <View key={r.id} accessible accessibilityLabel={say} style={{ width, paddingRight: SHADOW, paddingBottom: mine ? SHADOW : 0 }}>
-            <CutBox fill={mine ? accent : F.canvas} stroke={mine ? undefined : cleared ? F.chalk : F.rope} shadow={mine ? F.chalk : undefined} style={{ minHeight: 40, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <CutBox fill={mine ? accent : F.canvas} stroke={mine ? undefined : cleared ? F.chalk : F.smoke} shadow={mine ? F.chalk : undefined} style={{ minHeight: 40, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Txt face="display" lean={false} size={20} lh={1.15} color={ink} style={{ minWidth: 14 }}>{i + 1}</Txt>
               <View style={{ flexShrink: 1 }}>
                 <Txt face="label" w={600} size={15} ls={0.08} color={ink} numberOfLines={1}>{r.name.toUpperCase()}</Txt>

@@ -34,7 +34,7 @@ function Pill({ on, children, onPress }: { on?: boolean; children: string; onPre
   const accent = useStore(s => s.accent);
   return (
     <Tap onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected: !!on, checked: !!on }} accessibilityLabel={children} hitSlop={4}>
-      <CutBox fill={on ? accent : F.canvas} stroke={on ? undefined : F.rope} style={{ minHeight: 36, paddingHorizontal: 16, justifyContent: 'center' }}>
+      <CutBox fill={on ? accent : F.canvas} stroke={on ? undefined : F.smoke} style={{ minHeight: 36, paddingHorizontal: 16, justifyContent: 'center' }}>
         <Txt face="label" w={600} size={14} ls={0.06} color={on ? onColor(accent) : F.chalk}>{children.toUpperCase()}</Txt>
       </CutBox>
     </Tap>
@@ -64,7 +64,7 @@ export function Button({ children, onPress, primary, danger, disabled }: { child
       {({ pressed }) => (
         <CutBox
           fill={solid ? accent : disabled ? F.canvas2 : F.canvas}
-          stroke={solid ? undefined : danger && !disabled ? C.alert : F.rope}
+          stroke={solid ? undefined : danger && !disabled ? C.alert : F.smoke}
           shadow={solid && !pressed ? F.chalk : undefined}
           style={{ minHeight: 48, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center', opacity: pressed && !solid ? 0.7 : 1, transform: solid && pressed ? [{ translateX: SHADOW / 2 }, { translateY: SHADOW / 2 }] : undefined }}
         >
@@ -79,7 +79,7 @@ function Stepper({ value, step, onChange }: { value: number; step: number; onCha
   const textSize = useStore(s => s.settings.textSize);
   const [text, setText] = useState<string | null>(null);
   const fix = (v: number) => Math.max(step, Math.round(v / step) * step);
-  const key = { width: HIT, height: HIT, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center' } as const;
+  const key = { width: HIT, height: HIT, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center' } as const;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
       <Tap onPress={() => onChange(fix(value - step))} accessibilityLabel="Less" style={key}>
@@ -163,7 +163,7 @@ export function FoodSheetBody({ pick, onDone, src = 'food', beforeLog }: { pick:
           <Label size={11} ls={0.12}>{food.brand ? `${food.brand.toUpperCase()} · ${SOURCE[food.src]}` : SOURCE[food.src]}</Label>
           <Txt face="display" size={26} lh={1.2}>{food.name.toUpperCase()}</Txt>
         </View>
-        <Tap onPress={() => s.toggleFav(food)} accessibilityRole="switch" accessibilityState={{ checked: fav }} accessibilityLabel="Favourite" style={{ width: HIT, height: HIT, borderWidth: 2, borderColor: fav ? s.accent : F.rope, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center' }}>
+        <Tap onPress={() => s.toggleFav(food)} accessibilityRole="switch" accessibilityState={{ checked: fav }} accessibilityLabel="Favourite" style={{ width: HIT, height: HIT, borderWidth: 2, borderColor: fav ? s.accent : F.smoke, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="star" size={20} color={fav ? s.accent : F.smoke} tint={fav ? 1 : 0} strokeWidth={1.8} />
         </Tap>
       </View>
@@ -202,7 +202,7 @@ function NumField({ label, value, onChange }: { label: string; value: number; on
         keyboardAppearance="dark"
         selectTextOnFocus
         accessibilityLabel={label}
-        style={{ height: HIT, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas, paddingHorizontal: SP.sm, fontFamily: fontFamily(settings.font, 500), fontSize: 17 * settings.textSize, color: C.text }}
+        style={{ height: HIT, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas, paddingHorizontal: SP.sm, fontFamily: fontFamily(settings.font, 500), fontSize: 17 * settings.textSize, color: C.text }}
       />
     </View>
   );

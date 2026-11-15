@@ -1,96 +1,103 @@
-// Fight Night: REI's design tokens. Every day is a match, you vs. your excuses, so the app is a
-// fight HUD. Flat colour, one cut angle, hard offset shadows, two lights (your corner vs. the far corner).
+// Manga Panel: REI's design tokens. Every block is an ink panel with a paper-coloured stroke on a
+// 12pt gutter grid; hero panels get screentone, an accent drop shadow and a tilt of at most 1°.
+// Ink, paper and pop stay fixed in every world: the accent is the only colour that changes.
 import type { FontKey, IconKey, ThemeId } from '@rei/shared';
 import type { ImageSourcePropType, ViewStyle } from 'react-native';
 
-/** The Fight Night palette. Only `corner` (the world accent) changes between worlds. */
+/** The palette. The names are kept from the earlier system so every screen keeps compiling. */
 export const F = {
-  /** Ground. */
-  arena: '#0B0C10',
-  /** Rows and panels. */
-  canvas: '#171A21',
+  /** Ink: the ground. */
+  arena: '#0E0E10',
+  /** Panel fill. */
+  canvas: '#17171B',
   /** A panel on a panel, and pressed rows. */
-  canvas2: '#1F232C',
-  /** Lines, tracks and borders. */
-  rope: '#3A404D',
-  /** Quiet text (7.7:1 on canvas). */
-  smoke: '#A7ADBA',
-  /** Text, and the hard shadow under your-corner shapes. */
+  canvas2: '#222228',
+  /** Quiet lines: tracks, dividers inside a panel, the border of a secondary control. */
+  rope: '#55535A',
+  /** Tone: second text (8.6:1 on canvas). */
+  smoke: '#B8B2A7',
+  /** Paper: text, and the stroke around every panel. */
   chalk: '#F4F1EA',
-  /** The far corner: Excuses and nothing else. */
-  rival: '#FF3B6B',
+  /** Pop: alerts, the rival, the GET! stamp. */
+  rival: '#FF4D6D',
   rivalDeep: '#C7244F',
-  /** Medal tiers. */
-  bronze: '#C98A4B',
-  silver: '#C9D3DE',
-  gold: '#F5C542',
+  /** Rarity frames. */
+  bronze: '#C77B3F',
+  silver: '#C9D1D9',
+  gold: '#F2C230',
   /** Locked artwork: decoration only, never text. */
-  locked: '#4A5160',
+  locked: '#34343C',
   /** The two fields behind a versus split. */
-  cornerField: '#141821',
+  cornerField: '#17171B',
   rivalField: '#1C0E15',
 } as const;
 
-/**
- * Colours by role. The original keys are kept (remapped to the Fight Night palette) so every
- * screen keeps compiling; the palette names are here too (`C.chalk`, `C.rope`, …).
- */
+/** Colours by role. */
 export const C = {
   ...F,
   text: F.chalk,
-  textSoft: '#E9E6DF',
-  body: '#CDD0D7',
-  value: '#CDD0D7',
+  textSoft: '#EDE9E0',
+  body: '#DCD7CD',
+  value: '#DCD7CD',
   sub: F.smoke,
   muted: F.smoke,
   label: F.smoke,
-  // Text greys meet WCAG AA (4.5:1) on arena and canvas down to faint; ghost is for decoration and large text only.
-  dim: '#959CAA',
-  faint: '#8B92A0',
-  ghost: '#5A6070',
+  // Text greys meet WCAG AA (4.5:1) on ink and panel down to faint; ghost is for decoration and large text only.
+  dim: '#A6A095',
+  faint: '#9A948A',
+  ghost: '#5E5B56',
   ink: F.arena,
   alert: F.rival,
-  alertSoft: '#FF6B8E',
+  alertSoft: '#FF7A92',
   warn: '#E8C27A',
   carbs: '#E8C27A',
   fat: '#B8A6FF',
-  line: '#262B35',
-  line2: '#2E3440',
+  line: '#2C2C33',
+  line2: '#38383F',
   line3: F.rope,
   card: F.canvas,
-  card2: '#111319',
+  card2: '#121215',
 };
 
-/** The one cut angle, in degrees: every slanted edge in the app leans this much. */
-export const CUT = 18;
-/** Display type leans this much (degrees). */
-export const LEAN = 10;
+/** The lean of a tag (degrees): section tags, the current tab, pips. The only slanted edge left. */
+export const CUT = 10;
+/** Kept for old callers: display type stands upright now. */
+export const LEAN = 0;
 /** Hard shadow offset (pt), down and to the right, no blur. */
 export const SHADOW = 4;
 /** Smallest touch target (pt). */
 export const HIT = 44;
+/** The paper stroke around a panel (pt). Controls inside a panel use 2. */
+export const STROKE = 3;
+/** The gutter between panels (pt). */
+export const GUTTER = 12;
+/** The most a hero panel may tilt (degrees). */
+export const TILT = 1;
 
 /** Spacing scale (pt). */
 export const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, huge: 32 } as const;
 /** Corners are square. `sm` is for the rare soft edge (photos, inputs). */
 export const RADIUS = { none: 0, sm: 2 } as const;
 
-/** How far a cut edge travels sideways over `height` points. */
+/** How far a leaning edge travels sideways over `height` points. */
 export const cutDx = (height: number, angle = CUT) => height * Math.tan((angle * Math.PI) / 180);
 
-/** A hard offset shadow for a rectangle: no blur, full colour. (Slanted shapes draw their own; see CutBox.) */
+/** A hard offset shadow for a rectangle: no blur, full colour. */
 export const hard = (color: string = F.chalk, d: number = SHADOW): ViewStyle => ({ boxShadow: `${d}px ${d}px 0px ${color}` });
+
+/** An ink panel: panel fill inside a paper stroke. Spread it into a View's style. */
+export const panel = (stroke: string = F.chalk, width: number = STROKE): ViewStyle => ({ backgroundColor: F.canvas, borderWidth: width, borderColor: stroke });
 
 export type { FontKey, ThemeId };
 
-/** A world: it sets the corner colour. The far corner (rival) never changes. */
+/** A world: it sets the accent. Ink, paper and pop never change. */
 export interface Theme {
   id: ThemeId;
   name: string;
   /** The world's crest, drawn from REI's icon set. */
   icon: IconKey;
   vibe: string;
-  /** Your corner. */
+  /** The world's accent. */
   acc: string;
   /** A second tone, for the world's swatch and onboarding art only. */
   acc2: string;
@@ -99,12 +106,12 @@ export interface Theme {
 }
 
 export const THEMES: Theme[] = [
-  { id: 'zero', name: 'Zero', icon: 'rei', vibe: 'Ice cyan corner', acc: '#9BE7F2', acc2: '#3A6FF2', bg: F.arena, motto: 'ZERO EXCUSES · EVERY ROUND' },
-  { id: 'shinobi', name: 'Blaze', icon: 'flame', vibe: 'Blaze orange corner', acc: '#FF7A1A', acc2: '#2B4CC9', bg: F.arena, motto: 'LIGHT IT UP · ONE MORE ROUND' },
-  { id: 'voyager', name: 'Voyager', icon: 'star', vibe: 'Gold corner', acc: '#F5C542', acc2: '#D7263D', bg: F.arena, motto: 'LONG ROAD · STEADY PACE' },
-  { id: 'hero', name: 'Hero', icon: 'fist', vibe: 'Signal green corner', acc: '#2FE08A', acc2: '#E8463B', bg: F.arena, motto: 'SHOW UP · DO THE WORK' },
-  { id: 'cursed', name: 'Hex', icon: 'eye', vibe: 'Void blue corner', acc: '#6E8BFF', acc2: '#9B3CF5', bg: F.arena, motto: 'QUIET MIND · HEAVY HANDS' },
-  { id: 'slayer', name: 'Tide', icon: 'wave', vibe: 'Deep teal corner', acc: '#2FC4A5', acc2: '#E0303F', bg: F.arena, motto: 'SLOW BREATH · SHARP EDGE' },
+  { id: 'zero', name: 'Zero', icon: 'rei', vibe: 'Ice cyan ink', acc: '#9BE7F2', acc2: '#3A6FF2', bg: F.arena, motto: 'ZERO EXCUSES · EVERY ROUND' },
+  { id: 'shinobi', name: 'Blaze', icon: 'flame', vibe: 'Blaze orange ink', acc: '#FF7A1A', acc2: '#2B4CC9', bg: F.arena, motto: 'LIGHT IT UP · ONE MORE ROUND' },
+  { id: 'voyager', name: 'Voyager', icon: 'star', vibe: 'Gold ink', acc: '#F5C542', acc2: '#D7263D', bg: F.arena, motto: 'LONG ROAD · STEADY PACE' },
+  { id: 'hero', name: 'Hero', icon: 'fist', vibe: 'Signal green ink', acc: '#2FE08A', acc2: '#E8463B', bg: F.arena, motto: 'SHOW UP · DO THE WORK' },
+  { id: 'cursed', name: 'Hex', icon: 'eye', vibe: 'Void blue ink', acc: '#6E8BFF', acc2: '#9B3CF5', bg: F.arena, motto: 'QUIET MIND · HEAVY HANDS' },
+  { id: 'slayer', name: 'Tide', icon: 'wave', vibe: 'Deep teal ink', acc: '#2FC4A5', acc2: '#E0303F', bg: F.arena, motto: 'SLOW BREATH · SHARP EDGE' },
 ];
 
 export const ACCENT_EXTRAS = ['#FF6A4D', '#B8A6FF', '#9EF2B5', '#E9E3D3'];
@@ -229,26 +236,36 @@ export type Weight = 300 | 400 | 500 | 600 | 700;
 
 /**
  * Typefaces:
- * - `display`: Anton. HUD numbers, titles, the primary action. Set it leaning (see `LEAN`).
- * - `label` / `labelItalic`: Barlow Condensed 600/700. Uppercase labels and meta; italic for section names.
- * - `body`: Barlow 500–700. Everything you read.
+ * - `display`: Dela Gothic One. Numbers, titles, the primary action. Wide and heavy: `Txt` sets it at
+ *   `DISPLAY_SCALE` of the asked size, so sizes written for the old condensed face keep their width.
+ * - `label` / `labelItalic`: Zen Maru Gothic 700 / 900. Labels and meta; the heavy one for names of things.
+ * - `body`: Zen Maru Gothic 500 to 900. Everything you read.
  */
 export type Face = 'display' | 'label' | 'labelItalic' | 'body';
 
-const BODY: Record<Weight, string> = { 300: 'Barlow_400Regular', 400: 'Barlow_500Medium', 500: 'Barlow_600SemiBold', 600: 'Barlow_700Bold', 700: 'Barlow_700Bold' };
-const LABEL: Record<Weight, string> = { 300: 'BarlowCondensed_600SemiBold', 400: 'BarlowCondensed_600SemiBold', 500: 'BarlowCondensed_700Bold', 600: 'BarlowCondensed_700Bold', 700: 'BarlowCondensed_700Bold' };
-const LABEL_ITALIC: Record<Weight, string> = { 300: 'BarlowCondensed_600SemiBold_Italic', 400: 'BarlowCondensed_600SemiBold_Italic', 500: 'BarlowCondensed_700Bold_Italic', 600: 'BarlowCondensed_700Bold_Italic', 700: 'BarlowCondensed_700Bold_Italic' };
-const DISPLAY: Record<Weight, string> = { 300: 'Anton_400Regular', 400: 'Anton_400Regular', 500: 'Anton_400Regular', 600: 'Anton_400Regular', 700: 'Anton_400Regular' };
+/** Dela Gothic One is about 1.8 times as wide as the condensed display face it replaced. */
+export const DISPLAY_SCALE = 0.58;
+/** The smallest display text drawn (pt). */
+export const DISPLAY_MIN = 13;
+/** The smallest body or label text drawn (pt). */
+export const TEXT_MIN = 12;
+/** Display size in points for a size written in the old scale. */
+export const displaySize = (size: number) => Math.max(DISPLAY_MIN, Math.round(size * DISPLAY_SCALE * 10) / 10);
+
+const BODY: Record<Weight, string> = { 300: 'ZenMaruGothic_500Medium', 400: 'ZenMaruGothic_500Medium', 500: 'ZenMaruGothic_700Bold', 600: 'ZenMaruGothic_700Bold', 700: 'ZenMaruGothic_900Black' };
+const LABEL: Record<Weight, string> = { 300: 'ZenMaruGothic_700Bold', 400: 'ZenMaruGothic_700Bold', 500: 'ZenMaruGothic_700Bold', 600: 'ZenMaruGothic_700Bold', 700: 'ZenMaruGothic_900Black' };
+const LABEL_HEAVY = 'ZenMaruGothic_900Black';
+const DISPLAY = 'DelaGothicOne_400Regular';
 
 /**
- * Font file for a face and weight. The app has one type system now, so the old faces still work
- * and land on it: any body font key (`Geist`, …) and `jp` give Barlow one step heavier (its
- * 500–700 is the design's body range), and `mono` gives the condensed label face.
+ * Font file for a face and weight. The app has one type system, so the old faces still work and
+ * land on it: any body font key (`Geist`, ...) and `jp` give Zen Maru Gothic (500 is its lightest
+ * weight here), `mono` gives the label weight and `labelItalic` the heavy label (nothing is italic).
  */
 export function fontFamily(face: FontKey | Face | 'mono' | 'jp', weight: Weight = 400): string {
-  if (face === 'display') return DISPLAY[weight];
+  if (face === 'display') return DISPLAY;
   if (face === 'label' || face === 'mono') return LABEL[weight];
-  if (face === 'labelItalic') return LABEL_ITALIC[weight];
+  if (face === 'labelItalic') return LABEL_HEAVY;
   return BODY[weight];
 }
 
@@ -284,5 +301,5 @@ export function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** Ink or chalk, whichever reads better on `bg` (accent overrides can be pale or dark). */
+/** Ink or paper, whichever reads better on `bg` (accent overrides can be pale or dark). */
 export const onColor = (bg: string): string => (contrast(F.arena, bg) >= contrast(F.chalk, bg) ? F.arena : F.chalk);

@@ -103,6 +103,7 @@ export default function Fuel() {
   return (
     <Screen>
       <PageTitle
+        icon="fuel"
         title="Fuel"
         sub={`ROUND ${round} · ${dayStamp(now)}`}
         right={<RoundStamp size="sm" label={tag === 'Nothing yet' ? 'Round open' : tag} tone={tag === 'Over' ? 'rival' : tag === 'On track' ? 'accent' : 'outline'} />}
@@ -147,7 +148,7 @@ export default function Fuel() {
       <SectionHeader title="Log a meal" style={{ marginTop: SP.xxl }} />
       <CutButton label="Log a meal" icon="plus" meta={need} accessibilityLabel={`Log a meal: type it${need ? `. ${need}` : ''}`} onPress={() => input.current?.focus()} style={{ marginTop: SP.md }} />
       <View style={{ flexDirection: 'row', gap: SP.sm, marginTop: SP.md }}>
-        <View style={{ flex: 1, height: 52, backgroundColor: F.canvas, borderWidth: 2, borderColor: draft ? accent : F.rope, justifyContent: 'center', paddingHorizontal: SP.lg }}>
+        <View style={{ flex: 1, height: 52, backgroundColor: F.canvas, borderWidth: 2, borderColor: draft ? accent : F.smoke, justifyContent: 'center', paddingHorizontal: SP.lg }}>
           <TextInput
             ref={input}
             value={draft}
@@ -161,7 +162,7 @@ export default function Fuel() {
             style={{ fontFamily: fontFamily(settings.font, 400), fontSize: 16 * settings.textSize, color: C.text }}
           />
         </View>
-        <Tap onPress={() => log(draft)} disabled={!has} accessibilityLabel={s.fuelBusy ? 'REI is working on it' : 'Log this meal'} style={{ width: 52, height: 52, backgroundColor: has ? accent : F.canvas, borderWidth: 2, borderColor: has ? accent : F.rope, alignItems: 'center', justifyContent: 'center' }}>
+        <Tap onPress={() => log(draft)} disabled={!has} accessibilityLabel={s.fuelBusy ? 'REI is working on it' : 'Log this meal'} style={{ width: 52, height: 52, backgroundColor: has ? accent : F.canvas, borderWidth: 2, borderColor: has ? accent : F.smoke, alignItems: 'center', justifyContent: 'center' }}>
           {s.fuelBusy ? <Dots /> : <Icon name="check" size={22} color={has ? onColor(accent) : F.smoke} tint={0} strokeWidth={2.4} />}
         </Tap>
       </View>
@@ -171,7 +172,7 @@ export default function Fuel() {
             const it = itemFor(food, piece!.qty, piece!.unit);
             return (
               <Tap key={food.id} onPress={() => setPick({ food, qty: piece!.qty, unit: piece!.unit })} accessibilityLabel={`${food.name}, ${amountLabel(it)}, ${it.kcal} kcal, protein ${Math.round(it.p)} grams${food.fav ? ', favourite' : ''}`}>
-                <View style={{ minHeight: HIT, backgroundColor: F.canvas, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm }}>
+                <View style={{ minHeight: HIT, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm }}>
                   {food.fav ? <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: accent }} /> : null}
                   <View style={{ flex: 1, gap: 2 }}>
                     <Txt size={15} w={500} numberOfLines={1}>{food.name}</Txt>
@@ -202,9 +203,9 @@ export default function Fuel() {
       </View>
 
       <SectionHeader title="Hit log" meta={meals.length ? `${meals.length} ${meals.length === 1 ? 'meal' : 'meals'} landed · ${fmt(nu.kcal)} kcal` : 'Nothing landed'} style={{ marginTop: SP.xxl }} />
-      <View style={{ marginTop: SP.md, gap: SP.xs }}>
+      <View style={{ marginTop: SP.md, gap: SP.sm }}>
         {meals.length === 0 ? (
-          <View style={{ padding: SP.lg, borderWidth: 2, borderColor: F.rope, gap: SP.xs }}>
+          <View style={{ padding: SP.lg, borderWidth: 2, borderColor: F.smoke, gap: SP.xs }}>
             <Txt face="display" size={20} lh={1.2} color={F.smoke}>NOTHING ON THE PLATE YET</Txt>
             <Txt size={14} lh={1.4} color={F.smoke}>Log your first meal for +10 XP.</Txt>
           </View>
@@ -214,7 +215,7 @@ export default function Fuel() {
           const rest = ([['P', m.p], ['C', m.c], ['F', m.f], ['FIBRE', m.n?.fib]] as const).filter(([, v]) => typeof v === 'number').map(([k, v]) => `${k} ${Math.round(v as number)}`);
           return (
             <Tap key={m.id ?? `${m.time}-${i}`} haptic={false} onPress={() => setEditing(m)} accessibilityLabel={`${m.time}, ${m.name}, ${fmt(m.kcal)} kcal, protein ${Math.round(m.p)} grams${est ? ', estimated' : ''}. Edit`}>
-              <View style={{ minHeight: HIT, backgroundColor: F.canvas, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingLeft: SP.md, paddingVertical: SP.sm }}>
+              <View style={{ minHeight: HIT, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingLeft: SP.md, paddingVertical: SP.sm }}>
                 <Txt face="label" w={600} size={14} ls={0.07} color={F.smoke} style={{ minWidth: 40 }}>{m.time}</Txt>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Txt size={15} w={500} lh={1.3} numberOfLines={2}>{m.name}</Txt>
@@ -238,11 +239,11 @@ export default function Fuel() {
   );
 }
 
-/** A quick-add chip: a cut tag, 44pt tall. Favourites are outlined in your colour and carry a star. */
+/** A quick-add chip: an inked tag, 44pt tall. Favourites are outlined in your colour and carry a star. */
 function Chip({ label, fav, accent, onPress }: { label: string; fav?: boolean; accent: string; onPress: () => void }) {
   return (
     <Tap onPress={onPress} accessibilityLabel={`${fav ? 'Favourite: ' : 'Add '}${label}`} style={{ flexShrink: 1 }}>
-      <CutBox fill={F.canvas} stroke={fav ? accent : F.rope} style={{ minHeight: HIT, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <CutBox fill={F.canvas} stroke={fav ? accent : F.smoke} style={{ minHeight: HIT, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         {fav ? <View><Icon name="star" size={14} color={accent} tint={1} strokeWidth={1.6} /></View> : <Txt face="label" w={600} size={16} color={F.smoke}>+</Txt>}
         <Txt size={14} w={500} numberOfLines={1} style={{ flexShrink: 1 }}>{label}</Txt>
       </CutBox>

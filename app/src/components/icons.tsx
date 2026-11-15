@@ -1,4 +1,4 @@
-// REI's icon set: small original Fight Night props. A ring for home, a glove for training, a
+// REI's icon set: small original props. A ring for home, a glove for training, a
 // kettlebell for strength, three slashes for REI. Line art on a 24-unit grid with a soft tint
 // fill, so they read at 14–40 px. Keys are stable (they're stored and shared); only the art changes.
 import type { IconKey } from '@rei/shared';

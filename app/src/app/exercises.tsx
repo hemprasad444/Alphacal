@@ -46,7 +46,7 @@ export default function Exercises() {
 
 const Row = memo(function Row({ e }: { e: LibExercise }) {
   return (
-    <Tap onPress={() => router.push({ pathname: '/lift', params: { name: e.name, id: e.id } })} accessibilityLabel={`${e.name}. ${e.primary.join(', ')}, ${e.equipment}, ${e.level}`} style={{ minHeight: HIT, marginBottom: SP.xs, paddingVertical: SP.sm, paddingHorizontal: SP.md, backgroundColor: F.canvas, flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+    <Tap onPress={() => router.push({ pathname: '/lift', params: { name: e.name, id: e.id } })} accessibilityLabel={`${e.name}. ${e.primary.join(', ')}, ${e.equipment}, ${e.level}`} style={{ minHeight: HIT, marginBottom: SP.xs, paddingVertical: SP.sm, paddingHorizontal: SP.md, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
       <View style={{ flex: 1, gap: 2 }}>
         <Txt size={15} w={600} lh={1.3}>{e.name}</Txt>
         <Txt face="label" w={400} size={12} ls={0.08} color={F.smoke} numberOfLines={1}>{`${e.primary.join(', ')} · ${e.equipment} · ${e.level}`.toUpperCase()}</Txt>

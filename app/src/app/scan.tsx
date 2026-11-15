@@ -44,7 +44,7 @@ export default function Scan() {
 
   const camera = Platform.OS !== 'web' && perm?.granted;
   // A panel over the camera: arena, with your corner colour along the top.
-  const panel = { backgroundColor: F.arena, borderWidth: 2, borderColor: F.rope, borderTopColor: s.accent, padding: SP.lg, paddingBottom: SP.lg + SHADOW } as const;
+  const panel = { backgroundColor: F.arena, borderWidth: 2, borderColor: F.smoke, borderTopColor: s.accent, padding: SP.lg, paddingBottom: SP.lg + SHADOW } as const;
 
   return (
     <View style={{ flex: 1, backgroundColor: camera && state.k === 'scan' ? '#000' : F.arena }}>
@@ -117,7 +117,7 @@ export default function Scan() {
                 keyboardType="number-pad"
                 keyboardAppearance="dark"
                 accessibilityLabel="Barcode number"
-                style={{ flex: 1, height: 48, paddingHorizontal: SP.lg, backgroundColor: F.canvas, borderWidth: 2, borderColor: typed ? s.accent : F.rope, fontFamily: fontFamily(s.settings.font, 500), fontSize: 16 * s.settings.textSize, color: C.text }}
+                style={{ flex: 1, minWidth: 0, height: 48, paddingHorizontal: SP.lg, backgroundColor: F.arena, borderWidth: 2, borderColor: typed ? s.accent : F.smoke, fontFamily: fontFamily(s.settings.font, 500), fontSize: 16 * s.settings.textSize, color: C.text }}
               />
               <View style={{ width: 112, flexDirection: 'row' }}>
                 <Button primary disabled={typed.length < 6} onPress={() => look(typed)}>Find</Button>
@@ -145,7 +145,7 @@ function LabelForm({ code, why, panel, onSaved, onRetry }: { code: string; why: 
         keyboardType={numeric ? 'decimal-pad' : 'default'}
         keyboardAppearance="dark"
         accessibilityLabel={label}
-        style={{ height: HIT, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas, paddingHorizontal: SP.sm, fontFamily: fontFamily(s.settings.font, 500), fontSize: 16 * s.settings.textSize, color: C.text }}
+        style={{ height: HIT, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas, paddingHorizontal: SP.sm, fontFamily: fontFamily(s.settings.font, 500), fontSize: 16 * s.settings.textSize, color: C.text }}
       />
     </View>
   );

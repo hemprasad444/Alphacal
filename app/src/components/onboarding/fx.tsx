@@ -7,7 +7,7 @@ import Svg, { Polygon } from 'react-native-svg';
 import { CutBox, cutPoints, useSize } from '../cut';
 import { Icon } from '../icons';
 import { Txt } from '../ui';
-import { C, CUT, cutDx, F, onColor, SHADOW } from '../../lib/theme';
+import { C, CUT, F, onColor, SHADOW, STROKE } from '../../lib/theme';
 
 /** The round card: a slanted wipe in your colour carrying the next round's number and name. Calls `onSwap` mid-wipe, `onEnd` when gone. */
 export function ChapterCard({ n, t, total, acc, bg, onSwap, onEnd }: { n: number; t: string; total: number; acc: string; bg: string; onSwap: () => void; onEnd: () => void }) {
@@ -37,11 +37,11 @@ export function ChapterCard({ n, t, total, acc, bg, onSwap, onEnd }: { n: number
       <Animated.View style={[panel, { backgroundColor: F.chalk }, wipe(0)]} />
       <Animated.View style={[panel, { backgroundColor: acc }, wipe(0.05)]} />
       <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }, card]}>
-        <Txt face="labelItalic" w={600} size={20} ls={0.3} color={ink}>ROUND</Txt>
-        <Txt face="display" size={168} lh={1.05} color={ink}>{String(n).padStart(2, '0')}</Txt>
+        <Txt face="display" exact size={18} lh={1.25} color={ink}>ROUND</Txt>
+        <Txt face="display" exact size={104} lh={1.15} color={ink}>{String(n).padStart(2, '0')}</Txt>
         <Txt face="label" w={600} size={14} ls={0.2} color={ink}>{`OF ${total}`}</Txt>
-        <CutBox fill={bg} shadow={F.chalk} style={{ marginTop: 18, minHeight: 52, paddingHorizontal: 28, justifyContent: 'center' }}>
-          <Txt face="display" lean={false} size={30} lh={1.2} ls={0.02} color={acc}>{t}</Txt>
+        <CutBox fill={bg} stroke={F.arena} strokeWidth={STROKE} shadow={F.chalk} style={{ marginTop: 18, marginHorizontal: 20, minHeight: 52, paddingHorizontal: 18, justifyContent: 'center' }}>
+          <Txt face="display" exact size={18} lh={1.25} color={acc} fit>{t}</Txt>
         </CutBox>
       </Animated.View>
     </View>
@@ -97,13 +97,13 @@ export function HoldSeal({ acc, onSeal }: { acc: string; onSeal: () => void }) {
     v.stopAnimation(h => Animated.timing(v, { toValue: 0, duration: h * 400, useNativeDriver: false }).start());
   };
 
-  const w = size?.w ?? 0, dx = cutDx(SEAL_H);
+  const w = size?.w ?? 0, dx = 0;
   // The ink's leading edge, measured at the middle of the slab (the edge itself is cut).
   const inkW = hold > 0 ? dx + (w - dx) * hold : 0;
   const words = (color: string) => (
     <View style={{ width: w, height: SEAL_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
       <Icon name="scroll" size={24} color={color} tint={0} strokeWidth={2.2} />
-      <Txt face="display" lean={false} size={26} lh={1.2} ls={0.03} color={color}>HOLD TO SIGN</Txt>
+      <Txt face="display" exact size={17} lh={1.25} color={color}>HOLD TO SIGN</Txt>
     </View>
   );
   return (
@@ -118,9 +118,9 @@ export function HoldSeal({ acc, onSeal }: { acc: string; onSeal: () => void }) {
           {size ? (
             <>
               <Svg width={w + SHADOW} height={SEAL_H + SHADOW} style={{ position: 'absolute', left: 0, top: 0 }}>
-                {hold > 0 ? null : <Polygon points={cutPoints(w, SEAL_H, { ox: SHADOW, oy: SHADOW })} fill={F.chalk} />}
-                <Polygon points={cutPoints(w, SEAL_H, { inset: 1 })} fill={F.canvas} stroke={acc} strokeWidth={2} />
-                {inkW > 0 ? <Polygon points={cutPoints(inkW, SEAL_H, { inset: 2 })} fill={acc} /> : null}
+                {hold > 0 ? null : <Polygon points={cutPoints(w, SEAL_H, { ends: 'none', ox: SHADOW, oy: SHADOW })} fill={acc} />}
+                <Polygon points={cutPoints(w, SEAL_H, { ends: 'none', inset: STROKE / 2 })} fill={F.canvas} stroke={F.chalk} strokeWidth={STROKE} />
+                {inkW > 0 ? <Polygon points={cutPoints(inkW, SEAL_H, { ends: 'none', inset: STROKE })} fill={acc} /> : null}
               </Svg>
               {words(F.chalk)}
               {/* The same words in ink, shown only where your colour has reached. */}
@@ -167,9 +167,9 @@ export function EnterFx({ name, acc, bg, onEnd }: { name: string; acc: string; b
           transform: [{ scale: v.interpolate({ inputRange: [0, 0.2, 0.34, 0.7, 1], outputRange: [1.3, 1.3, 1, 1.04, 1.04] }) }],
         }}
       >
-        <Txt face="labelItalic" w={600} size={15} ls={0.24} color={acc}>NOW ENTERING THE RING</Txt>
+        <Txt face="labelItalic" size={14} color={acc}>NOW ENTERING THE RING</Txt>
         <Txt face="display" size={76} lh={1.1} align="center" fit>{name.toUpperCase()}</Txt>
-        <Txt face="label" w={600} size={15} ls={0.16} color={F.smoke}>DAY ONE · FIRST BELL</Txt>
+        <Txt face="label" size={14} color={F.smoke}>DAY ONE · FIRST BELL</Txt>
       </Animated.View>
       {/* The cut to the app: the arena colour wipes across and stays. */}
       <Animated.View

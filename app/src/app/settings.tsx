@@ -25,8 +25,8 @@ export default function Settings() {
     { title: 'Account', sub: s.cloud ? 'Signed in · data · credits' : 'Demo · data · credits', to: () => router.push('/account') },
     { title: 'Badges', sub: `${g.earned.length} of ${g.earned.length + g.locked.length} earned`, to: () => router.push('/badges') },
   ];
-  // Development builds only: every Fight Night part, in every world.
-  if (__DEV__) rooms.push({ title: 'Gallery', sub: 'Fight Night parts, all six worlds', to: () => router.push('/gallery') });
+  // Development builds only: every Manga Panel part, in every world.
+  if (__DEV__) rooms.push({ title: 'Gallery', sub: 'Manga Panel parts, all six worlds', to: () => router.push('/gallery') });
 
   return (
     <Screen tabs={false}>
@@ -34,7 +34,7 @@ export default function Settings() {
 
       {/* The fighter card: who's in your corner. Opens the Vow. */}
       <Tap onPress={() => router.navigate('/vow')} accessibilityLabel={`${name}. Week ${programWeek(s.startedOn)}, ${daysLeft} days to the vow. ${g.rank.name}, ${g.xp.toLocaleString('en-US')} XP. Opens the Vow.`} style={{ marginTop: SP.xl, paddingRight: SHADOW, paddingBottom: SHADOW }}>
-        <View style={[{ flexDirection: 'row', alignItems: 'center', gap: SP.lg, backgroundColor: C.canvas, padding: SP.lg }, hard(accent)]}>
+        <View style={[{ flexDirection: 'row', alignItems: 'center', gap: SP.lg, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk, padding: SP.lg }, hard(accent)]}>
           <View style={{ width: 64, height: 64, alignItems: 'center', justifyContent: 'center', backgroundColor: C.arena, borderWidth: 2, borderColor: accent }}>
             <Txt face="display" lean={false} size={34} color={accent}>{name.trim().charAt(0).toUpperCase()}</Txt>
           </View>
@@ -54,7 +54,7 @@ export default function Settings() {
       <View style={{ marginTop: SP.md, gap: SP.xs }}>
         {rooms.map((r, i) => (
           <Tap key={r.title} onPress={r.to} accessibilityLabel={`${r.title}. ${r.sub}`}>
-            <View style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas }}>
+            <View style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk }}>
               <Txt face="label" w={600} size={14} ls={0.07} color={C.smoke} style={{ minWidth: 22 }}>{String(i + 1).padStart(2, '0')}</Txt>
               <View style={{ flex: 1, alignItems: 'flex-start' }}>
                 <Txt face="display" size={22} lh={1.2}>{r.title.toUpperCase()}</Txt>

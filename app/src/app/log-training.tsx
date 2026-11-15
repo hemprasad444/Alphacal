@@ -100,7 +100,7 @@ export default function LogTraining() {
           </>
         ) : sport ? (
           <>
-            <Tap onPress={() => setSport(null)} accessibilityLabel={`${sport.name}. Change`} style={{ minHeight: HIT, flexDirection: 'row', alignItems: 'center', gap: SP.md, backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: accent, paddingHorizontal: SP.md, paddingVertical: SP.sm }}>
+            <Tap onPress={() => setSport(null)} accessibilityLabel={`${sport.name}. Change`} style={{ minHeight: HIT, flexDirection: 'row', alignItems: 'center', gap: SP.md, backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${accent}`, paddingHorizontal: SP.md, paddingVertical: SP.sm }}>
               <Txt size={17} w={600} style={{ flex: 1 }}>{sport.name}</Txt>
               <Txt face="label" w={600} size={13} ls={0.1} color={accent}>CHANGE</Txt>
             </Tap>

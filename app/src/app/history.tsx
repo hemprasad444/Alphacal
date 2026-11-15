@@ -53,7 +53,7 @@ export default function History() {
 
       <SectionHeader title="Sessions" meta={`${sorted.length} total`} style={{ marginTop: SP.xxl, marginBottom: SP.md }} />
       {!sorted.length ? (
-        <View style={{ padding: SP.lg, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas, alignItems: 'flex-start', gap: SP.xs }}>
+        <View style={{ padding: SP.lg, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas, alignItems: 'flex-start', gap: SP.xs }}>
           <Txt face="display" size={24} lh={1.2}>NO FIGHTS ON RECORD</Txt>
           <Txt size={14} w={500} lh={1.4} color={F.smoke}>Nothing logged yet. Start a workout or log a run in the Dojo.</Txt>
         </View>
@@ -77,7 +77,7 @@ function SessionCard({ l, prs }: { l: SessionLog; prs: number }) {
   const title = l.title ?? l.plan;
   const gold = useTierColors().gold;
   return (
-    <View style={{ marginBottom: SP.sm, backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: prs ? gold : F.rope }}>
+    <View style={{ marginBottom: SP.sm, backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${prs ? gold : F.rope}`}}>
       <Tap
         haptic={false}
         onPress={() => setOpen(o => !o)}

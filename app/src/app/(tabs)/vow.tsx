@@ -96,7 +96,7 @@ export default function Vow() {
       </View>
       <View style={{ flexDirection: 'row', gap: SP.sm }}>
         {SHIFTS.map(([l, d, say]) => (
-          <Tap key={l} onPress={() => shift(d)} accessibilityLabel={`Move the fight date ${say}`} style={{ flex: 1, minHeight: HIT, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.rope, backgroundColor: C.canvas }}>
+          <Tap key={l} onPress={() => shift(d)} accessibilityLabel={`Move the fight date ${say}`} style={{ flex: 1, minHeight: HIT, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.smoke, backgroundColor: C.canvas }}>
             <Txt face="label" w={600} size={14} ls={0.1}>{l}</Txt>
           </Tap>
         ))}
@@ -117,7 +117,7 @@ export default function Vow() {
       </View>
 
       <SectionHeader title="The vow" meta="Sworn to REI" style={{ marginTop: SP.huge }} />
-      <View style={{ marginTop: SP.md, backgroundColor: C.canvas, borderLeftWidth: 4, borderLeftColor: accent, padding: SP.lg, gap: SP.sm }}>
+      <View style={{ marginTop: SP.md, backgroundColor: C.canvas, borderWidth: 3, borderColor: C.chalk, boxShadow: `4px 4px 0px ${accent}`, padding: SP.lg, gap: SP.sm }}>
         {editingVow ? (
           <ProfileInput
             k="goal"
@@ -144,7 +144,7 @@ export default function Vow() {
       <SectionHeader title="Tale of the tape" meta="Tap a number to edit" style={{ marginTop: SP.huge }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.xs, marginTop: SP.md }}>
         {BODY.map(([label, k, unit, target]) => (
-          <View key={k} style={{ width: '48%', flexGrow: 1, backgroundColor: C.canvas, paddingHorizontal: SP.md, paddingTop: SP.sm, paddingBottom: SP.xs }}>
+          <View key={k} style={{ width: '48%', flexGrow: 1, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk, paddingHorizontal: SP.md, paddingTop: SP.sm, paddingBottom: SP.xs }}>
             <Txt face="label" w={600} size={12} ls={0.12} color={C.smoke}>{label.toUpperCase()}</Txt>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
               {field(k, label, 28, target ? accent : C.chalk)}
@@ -157,10 +157,10 @@ export default function Vow() {
       <SectionHeader title="Round targets" meta="Every day" style={{ marginTop: SP.huge }} />
       <View style={{ marginTop: SP.md, gap: SP.xs }}>
         {TARGETS.map(([label, k, unit]) => (
-          <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: 48, paddingHorizontal: SP.md, backgroundColor: C.canvas }}>
+          <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: 48, paddingHorizontal: SP.md, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk }}>
             <Txt size={15} w={500} style={{ flex: 1 }}>{label}</Txt>
             <View style={{ width: 104, flexDirection: 'row' }}>{field(k, label, 22, accent, 'right')}</View>
-            <Txt face="label" w={600} size={14} ls={0.08} color={C.smoke} style={{ width: 44 }}>{unit.toUpperCase()}</Txt>
+            <Txt face="label" size={12} color={C.smoke} numberOfLines={1} style={{ width: 52 }}>{unit.toUpperCase()}</Txt>
           </View>
         ))}
       </View>
@@ -168,7 +168,7 @@ export default function Vow() {
       <SectionHeader title="Routine" meta="24 h clock" style={{ marginTop: SP.huge }} />
       <View style={{ flexDirection: 'row', gap: SP.xs, marginTop: SP.md }}>
         {ROUTINE.map(([label, k, hint]) => (
-          <View key={k} style={{ flex: 1, backgroundColor: C.canvas, paddingHorizontal: SP.md, paddingVertical: SP.sm }}>
+          <View key={k} style={{ flex: 1, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk, paddingHorizontal: SP.md, paddingVertical: SP.sm }}>
             <Txt face="label" w={600} size={12} ls={0.12} color={C.smoke}>{label.toUpperCase()}</Txt>
             <ProfileInput
               k={k}
@@ -191,7 +191,7 @@ export default function Vow() {
         {Object.keys(s.disc).map(k => {
           const on = s.disc[k];
           return (
-            <Tap key={k} onPress={() => s.toggleDisc(k)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={k} style={{ minHeight: HIT, paddingHorizontal: SP.md, justifyContent: 'center', borderWidth: 2, borderColor: on ? accent : C.rope, backgroundColor: on ? accent : C.canvas }}>
+            <Tap key={k} onPress={() => s.toggleDisc(k)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={k} style={{ minHeight: HIT, paddingHorizontal: SP.md, justifyContent: 'center', borderWidth: 2, borderColor: on ? accent : C.smoke, backgroundColor: on ? accent : C.canvas }}>
               <Txt face="label" w={600} size={15} ls={0.08} color={on ? onColor(accent) : C.smoke}>{k.toUpperCase()}</Txt>
             </Tap>
           );
@@ -204,7 +204,7 @@ export default function Vow() {
       <Txt size={13} w={500} lh={1.4} color={C.smoke} style={{ marginTop: SP.sm }}>Each bar runs from where you started to your goal. Your best logged lift or run moves it; chest press counts toward bench.</Txt>
       <View style={{ marginTop: SP.md, gap: SP.xs }}>
         {benchmarks(s.sessions, s.bests ?? DEFAULT_BESTS).map(b => (
-          <View key={b.id} style={{ backgroundColor: C.canvas, padding: SP.md, gap: SP.sm }}>
+          <View key={b.id} style={{ backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk, padding: SP.md, gap: SP.sm }}>
             {b.logged ? <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: accent }} /> : null}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
               <Txt size={15} w={600} style={{ flex: 1 }}>{b.name}</Txt>

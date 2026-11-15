@@ -19,7 +19,7 @@ import { takeVoiceSession, type VoiceSession } from '../lib/live';
 import { newId } from '../lib/sync';
 import { C } from '../lib/theme';
 import { type Store, useStore } from '../state/store';
-// Fight Night parts for the call screen (the rendered view only).
+// Manga Panel parts for the call screen (the rendered view only).
 import { CoachLine, CornerLine, LevelBars } from './corner';
 import { CutButton, RoundStamp } from './fight';
 

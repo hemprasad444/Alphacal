@@ -35,7 +35,7 @@ export default function Account() {
   );
   const action = (label: string, sub: string, onPress: () => void, danger?: boolean) => (
     <Tap onPress={onPress} accessibilityLabel={`${label}. ${sub}`}>
-      <View style={{ minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas }}>
+      <View style={{ minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk }}>
         {danger ? <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: C.rival }} /> : null}
         <View style={{ flex: 1 }}>
           <Txt size={16} w={500}>{label}</Txt>

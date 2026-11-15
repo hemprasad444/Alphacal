@@ -1,13 +1,14 @@
-// Talking with REI, in the Fight Night system: REI speaks from your corner on the chalk panel
-// (REI's alone), you answer on a canvas strip in your colour. Shared by Talk, Voice and Live.
+// Talking with REI, as manga dialogue: REI speaks through the jagged paper bubble (REI's alone),
+// you answer in an ink panel edged in your colour. Shared by Talk, Voice and Live.
 import { shout } from '@rei/shared';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Animated, Easing, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { CutBox } from './cut';
 import { RoundStamp } from './fight';
 import { Icon } from './icons';
+import { ReiAvatar, ShoutBubble } from './ink';
 import { IconButton, Tap, Txt } from './ui';
-import { C, contrast, F, fontFamily, hard, HIT, onColor, SHADOW, SP } from '../lib/theme';
+import { C, contrast, F, fontFamily, HIT, onColor, SHADOW, SP, STROKE } from '../lib/theme';
 import { useStore } from '../state/store';
 
 /** `color` if it reads on `bg` (4.5:1), else chalk. For colours that come from data (a voice's own colour). */
@@ -20,36 +21,42 @@ export const inputType = (textSize: number, size = 16): TextStyle => ({ fontFami
 const SHOUT_MAX = 64;
 
 /**
- * REI's line: a chalk panel on a hard shadow in your colour. `lead` is the first sentence, set
- * loud (display type when short; capitals only for Latin script); `callout` marks REI calling you out, with the far corner's red.
+ * REI's line: a small avatar, then the jagged paper bubble on a hard shadow in your colour.
+ * `lead` is the first sentence, set loud (display type when short; capitals only for Latin
+ * script); `callout` marks REI calling you out, with the pop red.
  */
-export function CoachLine({ text, lead, time, callout, maxWidth = '90%', children }: { text?: string; lead?: string; time?: string; callout?: boolean; maxWidth?: ViewStyle['maxWidth']; children?: ReactNode }) {
+export function CoachLine({ text, lead, time, callout, maxWidth = '94%', children }: { text?: string; lead?: string; time?: string; callout?: boolean; maxWidth?: ViewStyle['maxWidth']; children?: ReactNode }) {
   const accent = useStore(s => s.accent);
   const edge = callout ? F.rival : accent;
   const tag = `${callout ? 'REI · CALL-OUT' : 'REI'}${time ? ` · ${time}` : ''}`;
   return (
-    <View style={{ alignSelf: 'flex-start', maxWidth, gap: 6, paddingRight: SHADOW, paddingBottom: SHADOW }}>
-      <Txt face="labelItalic" w={600} size={12} ls={0.14} color={edge}>{tag}</Txt>
-      <View style={[{ backgroundColor: F.chalk, paddingVertical: SP.md, paddingHorizontal: SP.lg, gap: SP.xs }, hard(edge)]}>
-        {lead ? (
-          lead.length <= SHOUT_MAX
-            ? <Txt face="display" size={20} lh={1.25} ls={0.01} color={F.arena}>{shout(lead)}</Txt>
-            : <Txt size={17} w={600} lh={1.35} color={F.arena}>{lead}</Txt>
-        ) : null}
-        {text ? <Txt size={16} w={500} lh={1.45} color={F.arena}>{text}</Txt> : null}
-        {children}
+    <View style={{ alignSelf: 'flex-start', maxWidth, gap: 4, paddingRight: SHADOW + 2, paddingBottom: SHADOW + 2 }}>
+      <Txt face="labelItalic" size={12} color={edge} style={{ marginLeft: 46 }}>{tag}</Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+        <View style={{ paddingTop: 6 }}>
+          <ReiAvatar size={34} accent={edge} />
+        </View>
+        <ShoutBubble accent={edge} tailY={22} style={{ flexShrink: 1, gap: SP.xs, minHeight: 52, paddingVertical: 16 }}>
+          {lead ? (
+            lead.length <= SHOUT_MAX
+              ? <Txt face="display" exact size={15} lh={1.35} color={F.arena}>{shout(lead)}</Txt>
+              : <Txt size={17} w={600} lh={1.4} color={F.arena}>{lead}</Txt>
+          ) : null}
+          {text ? <Txt size={16} w={500} lh={1.45} color={F.arena}>{text}</Txt> : null}
+          {children}
+        </ShoutBubble>
       </View>
     </View>
   );
 }
 
-/** Your line: a canvas strip with your colour down the right edge. */
+/** Your line: an ink panel in a paper stroke, on a hard shadow in your colour. */
 export function CornerLine({ text, time, maxWidth = '82%' }: { text: string; time?: string; maxWidth?: ViewStyle['maxWidth'] }) {
   const accent = useStore(s => s.accent);
   return (
-    <View style={{ alignSelf: 'flex-end', alignItems: 'flex-end', maxWidth, gap: 6 }}>
-      <Txt face="labelItalic" w={600} size={12} ls={0.14} color={F.smoke}>{`YOU${time ? ` · ${time}` : ''}`}</Txt>
-      <View style={{ backgroundColor: F.canvas, borderRightWidth: 4, borderRightColor: accent, paddingVertical: SP.md, paddingHorizontal: SP.lg }}>
+    <View style={{ alignSelf: 'flex-end', alignItems: 'flex-end', maxWidth, gap: 4, paddingRight: SHADOW, paddingBottom: SHADOW }}>
+      <Txt face="labelItalic" size={12} color={F.smoke}>{`YOU${time ? ` · ${time}` : ''}`}</Txt>
+      <View style={{ backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, paddingVertical: 10, paddingHorizontal: SP.md, boxShadow: `${SHADOW}px ${SHADOW}px 0px ${accent}` }}>
         <Txt size={16} w={500} lh={1.45}>{text}</Txt>
       </View>
     </View>
@@ -61,18 +68,18 @@ export function RingNote({ text, style }: { text: string; style?: StyleProp<View
   return (
     <View style={[{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }, style]}>
       <View style={{ flex: 1, minWidth: 12, height: 2, backgroundColor: F.rope }} />
-      <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} align="center" style={{ flexShrink: 1 }}>{text.toUpperCase()}</Txt>
+      <Txt face="label" size={12} color={F.smoke} align="center" style={{ flexShrink: 1 }}>{text.toUpperCase()}</Txt>
       <View style={{ flex: 1, minWidth: 12, height: 2, backgroundColor: F.rope }} />
     </View>
   );
 }
 
-/** Top of a call screen (Voice, Live): leaning title, a status tag, close. */
+/** Top of a call screen (Voice, Live): display title, a status stamp, close. */
 export function CallHeader({ title, status, live, top, onClose }: { title: string; status: string; /** The status is "on air": filled in your colour. */ live?: boolean; /** Safe-area inset. */ top: number; onClose: () => void }) {
   return (
-    <View style={{ paddingTop: top + 6, paddingHorizontal: SP.lg, paddingBottom: SP.sm, flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: HIT, borderBottomWidth: 2, borderBottomColor: F.rope }}>
-      <View accessibilityRole="header">
-        <Txt face="display" size={26} ls={0.02}>{title.toUpperCase()}</Txt>
+    <View style={{ paddingTop: top + 6, paddingHorizontal: SP.lg, paddingBottom: SP.sm, flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: HIT, borderBottomWidth: STROKE, borderBottomColor: F.chalk }}>
+      <View accessibilityRole="header" style={{ flexShrink: 1 }}>
+        <Txt face="display" exact size={18} lh={1.25} fit>{title.toUpperCase()}</Txt>
       </View>
       <View accessibilityLiveRegion="polite" style={{ flex: 1, alignItems: 'flex-start' }}>
         <RoundStamp label={status} tone={live ? 'accent' : 'outline'} size="sm" />
@@ -82,13 +89,13 @@ export function CallHeader({ title, status, live, top, onClose }: { title: strin
   );
 }
 
-/** A small cut slab in your colour on a chalk shadow: the send button beside a text box. `children` gets the ink colour. */
+/** A small inked button in your colour on a paper shadow: the send button beside a text box. `children` gets the ink colour. */
 export function SlabButton({ onPress, accessibilityLabel, disabled, children }: { onPress: () => void; accessibilityLabel: string; disabled?: boolean; children: (ink: string) => ReactNode }) {
   const accent = useStore(s => s.accent);
   const ink = disabled ? F.smoke : onColor(accent);
   return (
     <Tap onPress={onPress} disabled={disabled} accessibilityLabel={accessibilityLabel} style={{ paddingRight: SHADOW, paddingBottom: SHADOW }}>
-      <CutBox fill={disabled ? F.canvas2 : accent} stroke={disabled ? F.rope : undefined} shadow={disabled ? undefined : F.chalk} style={{ width: 60, height: 48, alignItems: 'center', justifyContent: 'center' }}>
+      <CutBox fill={disabled ? F.canvas2 : accent} stroke={disabled ? F.rope : F.chalk} strokeWidth={STROKE} shadow={disabled ? undefined : F.chalk} style={{ width: 56, height: 48, alignItems: 'center', justifyContent: 'center' }}>
         {children(ink)}
       </CutBox>
     </Tap>

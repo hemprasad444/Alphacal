@@ -6,7 +6,7 @@ import { F } from '../lib/theme';
 import { Txt } from './ui';
 
 /**
- * Small line chart in the Fight Night look (flat line, square markers, rope grid): one value per point, oldest first, with the first and last labelled.
+ * Small line chart in the Manga Panel look (flat line, square markers, rope grid): one value per point, oldest first, with the first and last labelled.
  * Long series are thinned to at most 120 points; dots are drawn only for short ones.
  */
 export const LineChart = memo(function LineChart({ values, labels, color, height = 140, unit = '' }: { values: number[]; labels: string[]; color: string; height?: number; unit?: string }) {
