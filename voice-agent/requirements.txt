@@ -2,3 +2,5 @@ livekit-agents[deepgram,openai,silero,soniox]==1.8.4
 livekit-plugins-fishaudio==1.8.4
 livekit-plugins-elevenlabs==1.8.4
 python-dotenv>=1.0
+# Time zone data for the user's clock: the slim Docker image has none of its own.
+tzdata>=2024.1

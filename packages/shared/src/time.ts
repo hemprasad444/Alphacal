@@ -95,3 +95,24 @@ export function isoWeek(d: Date = new Date()): string {
   const n = Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   return `${t.getUTCFullYear()}-W${String(n).padStart(2, '0')}`;
 }
+
+/**
+ * The Monday a training week is written for, on the user's own calendar. `next`: the week about to
+ * start, for the Sunday-night run. That run fires at one moment for everyone (21:00 in India), when it
+ * is already Monday for someone further east: for them "the week about to start" is the one that began
+ * an hour ago, not the one after it. So it is the first Monday on or after yesterday.
+ */
+export function programMonday(now: Date, next = false): Date {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (next ? 1 : 0));
+  const back = weekdayIndex(d);
+  d.setDate(d.getDate() + (next ? (7 - back) % 7 : -back));
+  return d;
+}
+
+/**
+ * The moment a week's report is about, for the Sunday-evening run: twelve hours back, so that someone
+ * for whom it is already Monday still gets the week that just ended, not an empty new one.
+ */
+export function reportMoment(now: Date): Date {
+  return new Date(now.getTime() - 12 * 3600000);
+}

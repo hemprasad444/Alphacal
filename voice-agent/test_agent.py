@@ -5,7 +5,7 @@ import re
 
 from livekit.agents import llm as lkllm
 
-from agent import TextCleaner, clean_text, merge_pending_turns, spoken_language
+from agent import TextCleaner, clean_text, local_time_note, merge_pending_turns, spoken_language
 
 # Real replies from calls: spaced tags, grouped numbers and a "… ... …" breakdown.
 SAMPLES = [
@@ -136,7 +136,22 @@ def test_lines_said_across_pauses_become_one_turn():
     assert merge_pending_turns(single) is single
 
 
+def test_rei_is_told_the_users_time():
+    from datetime import datetime, timezone
+
+    # 20:37 UTC on Saturday is 02:07 on Sunday in India and still Saturday lunchtime in California.
+    utc = datetime(2026, 11, 14, 20, 37, tzinfo=timezone.utc)
+    assert local_time_note("Asia/Kolkata", utc).startswith("Their clock right now: Sunday 15 November 2026, 02:07 (late night).")
+    assert local_time_note("America/Los_Angeles", utc).startswith("Their clock right now: Saturday 14 November 2026, 12:37 (afternoon).")
+    assert "(evening)" in local_time_note("Asia/Kolkata", datetime(2026, 11, 15, 13, 0, tzinfo=timezone.utc))  # 18:30
+    # No zone (an older server) or a made-up one: no note, never a wrong time.
+    assert local_time_note(None, utc) is None
+    assert local_time_note("", utc) is None
+    assert local_time_note("Not/AZone", utc) is None
+
+
 if __name__ == "__main__":
+    test_rei_is_told_the_users_time()
     test_rei_is_spoken_as_a_name()
     test_clean_text()
     test_streaming_matches_whole_text()

@@ -65,6 +65,8 @@ export const voiceSession = onCall({ secrets: [LIVEKIT_API_SECRET, OPENROUTER_AP
     models: LLM_LIVE.value().split(',').map(s => s.trim()).filter(Boolean),
     tools,
     maxSeconds: MAX_SECONDS,
+    // Their zone, so the agent can tell REI the time as the call goes on (the prompt's clock is from when the call was set up).
+    timeZone: data.timeZone,
   };
   // The session rides inside the join token, which travels in the connect URL: compress it.
   const metadata = `gz:${gzipSync(JSON.stringify(session)).toString('base64')}`;

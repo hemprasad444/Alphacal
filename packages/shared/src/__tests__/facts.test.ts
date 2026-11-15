@@ -3,7 +3,7 @@ import { DEFAULT_PROFILE } from '../data';
 import { factsBlock, fullDate, partOfDay, span, timeFacts, type FactsInput } from '../facts';
 import { reiContext } from '../context';
 import { systemContext } from '../rei';
-import { hhmm, isoDate, zonedNow } from '../time';
+import { hhmm, isoDate, isoWeek, programMonday, reportMoment, zonedNow } from '../time';
 import type { Meal } from '../types';
 
 const profile = { ...DEFAULT_PROFILE, kcal: '2100', protein: '150', carbs: '220', fat: '65', sessionTime: '18:30', bedtime: '23:00', deadline: '2026-12-31' };
@@ -130,6 +130,24 @@ describe('bedtime', () => {
     expect(text({ now: at(2, 0) })).toContain('BEDTIME: 23:00, 3 h ago.');
     // After midnight, seen in the evening: still ahead.
     expect(text({ now: at(22, 0), profile: { ...profile, bedtime: '00:30' } })).toContain('BEDTIME: 00:30, in 2 h 30 min.');
+  });
+});
+
+describe('the Sunday-night jobs, which fire at one moment for every time zone', () => {
+  // Sunday 15 Nov 2026, 21:00 in India (15:30 UTC): Sunday morning in California, already Monday in Tokyo.
+  const fire = new Date(Date.UTC(2026, 10, 15, 15, 30));
+  const zones = ['Asia/Kolkata', 'America/Los_Angeles', 'Asia/Tokyo', 'Pacific/Auckland', 'Pacific/Honolulu'];
+  it('write next week\'s program for the week starting Monday 16 November, everywhere', () => {
+    expect(zones.map(z => isoDate(programMonday(zonedNow(z, fire), true)))).toEqual(Array(5).fill('2026-11-16'));
+    expect(zones.map(z => isoWeek(programMonday(zonedNow(z, fire), true)))).toEqual(Array(5).fill('2026-W47'));
+  });
+  it('report on the week that is ending (9 to 15 November), everywhere', () => {
+    expect(zones.map(z => isoWeek(reportMoment(zonedNow(z, fire))))).toEqual(Array(5).fill('2026-W46'));
+  });
+  it('a rebuild during the week is for this week\'s Monday', () => {
+    expect([15, 16, 18, 22].map(d => isoDate(programMonday(at(10, 0, d))))).toEqual(['2026-11-09', '2026-11-16', '2026-11-16', '2026-11-16']);
+    // Joined on a Sunday: "next" is tomorrow's week.
+    expect(isoDate(programMonday(at(10, 0, 15), true))).toBe('2026-11-16');
   });
 });
 

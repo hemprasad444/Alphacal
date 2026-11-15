@@ -115,13 +115,23 @@ export async function complete(o: CompleteOpts): Promise<LlmResult> {
   };
 
   let res: Response | null = null;
+  let unreachable = '';
   for (let attempt = 0; attempt < 3; attempt++) {
-    res = await fetch(URL, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${OPENROUTER_API_KEY.value()}`, 'Content-Type': 'application/json', 'X-Title': 'REI' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(110_000),
-    });
+    try {
+      res = await fetch(URL, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${OPENROUTER_API_KEY.value()}`, 'Content-Type': 'application/json', 'X-Title': 'REI' },
+        body: JSON.stringify(body),
+        // Quick chat gives up sooner: nobody waits two minutes for a one-line reply.
+        signal: AbortSignal.timeout(o.task === 'fast' ? 60_000 : 110_000),
+      });
+    } catch (e) {
+      // The connection failed or timed out before any answer: worth another try, like a 5xx.
+      res = null;
+      unreachable = e instanceof Error ? e.message : String(e);
+      await new Promise(r => setTimeout(r, 400));
+      continue;
+    }
     if (res.ok) break;
     // Some models must think; they reject effort "none". Ask for the least instead.
     if (res.status === 400 && body.reasoning.effort === 'none') {
@@ -131,7 +141,8 @@ export async function complete(o: CompleteOpts): Promise<LlmResult> {
     if (res.status !== 429 && res.status < 500) break;
     await new Promise(r => setTimeout(r, 400));
   }
-  if (!res || !res.ok) throw new LlmError(`OpenRouter ${res?.status}: ${(await res?.text())?.slice(0, 300)}`, res?.status);
+  if (!res) throw new LlmError(`OpenRouter unreachable: ${unreachable}`, 503);
+  if (!res.ok) throw new LlmError(`OpenRouter ${res.status}: ${(await res.text().catch(() => '')).slice(0, 300)}`, res.status);
 
   let text = '';
   const calls: { name: string; args: string }[] = [];
@@ -169,7 +180,14 @@ export async function complete(o: CompleteOpts): Promise<LlmResult> {
       for (const line of lines) {
         if (!line.startsWith('data:')) continue; // ": OPENROUTER PROCESSING" keep-alives
         const data = line.slice(5).trim();
-        if (data && data !== '[DONE]') take(JSON.parse(data) as Chunk);
+        if (!data || data === '[DONE]') continue;
+        let chunk: Chunk;
+        try {
+          chunk = JSON.parse(data) as Chunk;
+        } catch {
+          continue; // A garbled line: skip it rather than lose the whole reply.
+        }
+        take(chunk);
       }
     }
   } else {

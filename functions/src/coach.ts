@@ -1,10 +1,11 @@
-import { nudgeDue, nutrition, parseReply, reiContext, swearOnlyBack, systemContext, systemRules, todaysPlan, week, type Nudge } from '@rei/shared';
+import { hhmm, nudgeDue, nutrition, parseReply, reiContext, swearOnlyBack, systemContext, systemRules, todaysPlan, week, type Nudge } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { db } from './admin';
 import { loadUser } from './chat/load';
 import { complete, OPENROUTER_API_KEY } from './llm';
+import { pool } from './pool';
 
 /** REI's proactive message for one nudge, in its own voice; the canned line if the model fails. */
 async function write(data: Awaited<ReturnType<typeof loadUser>>, nudge: Nudge): Promise<string> {
@@ -13,7 +14,7 @@ async function write(data: Awaited<ReturnType<typeof loadUser>>, nudge: Nudge): 
     const res = await complete({
       task: 'fast',
       system: `${systemRules({ tough: ctx.tough, bro: ctx.bro, nudge: ctx.nudge, tools: false })}\n\n${systemContext(ctx)}`,
-      messages: [{ role: 'user', content: `(You are messaging first; they have not said anything.) ${nudge.fact} Write one check-in message, under 30 words, that names the number and the next action. No swearing: it arrives as a notification.` }],
+      messages: [{ role: 'user', content: `(You are messaging first; they have not said anything.) ${nudge.fact} Write one check-in message, under 30 words, that names the number and the next action. Take any time, number, food or next step from FACTS and SUGGESTIONS in the context; never work one out or make one up. No swearing: it arrives as a notification.` }],
       maxTokens: 300,
     });
     // A notification: never sworn, whatever the tone.
@@ -45,7 +46,7 @@ export async function coachUser(uid: string, at?: Date): Promise<string | null> 
   const text = await write(data, nudge);
   const user = db.doc(`users/${uid}`);
   const batch = db.batch();
-  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const time = hhmm(now);
   batch.set(user.collection('messages').doc(), { role: 'rei', text, time, createdAt: Date.now(), alert: true, nudge: nudge.id });
   batch.set(user.collection('days').doc(data.today), { nudges: FieldValue.arrayUnion(nudge.id) }, { merge: true });
   await batch.commit();
@@ -59,7 +60,7 @@ export const coach = onSchedule(
   { schedule: 'every 15 minutes', secrets: [OPENROUTER_API_KEY], timeoutSeconds: 300, memory: '512MiB' },
   async () => {
     const users = await db.collection('users').where('settings.nudge', '==', true).select().get();
-    const results = await Promise.allSettled(users.docs.map(u => coachUser(u.id)));
-    results.forEach((r, i) => r.status === 'rejected' && logger.error('coach failed', { uid: users.docs[i].id, error: String(r.reason) }));
+    // Eight at a time, done well inside the 15 minutes before the next run.
+    await pool(users.docs, 8, u => coachUser(u.id), { budgetMs: 240_000, onError: (u, e) => logger.error('coach failed', { uid: u.id, error: String(e) }) });
   },
 );
