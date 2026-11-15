@@ -114,12 +114,12 @@ const CASES: Case[] = [
   // Time and the calendar: every answer is in the facts.
   { id: 'time-workout', what: "When's my workout → 18:30", text: "when's my workout today?", judge: says(/18[:.]30|6[:.]30|half past six/i, 'no 18:30') },
   { id: 'time-until', what: 'How long until the session → 4 h 25 min', text: 'how long until my session starts?', judge: all(says(/\b(4|four)\s*(h|hr|hrs|hours?)\b/i, 'not 4 h'), says(/\b25\b|twenty[- ]five/i, 'not 25 min')) },
-  { id: 'time-date', what: 'Date and weekday → Sunday 15 November', text: "what's the date today, and which day of the week?", judge: all(says(/sunday/i, 'no Sunday'), says(/\b15(th)?\b/, 'no 15'), says(/nov/i, 'no November')) },
-  { id: 'time-deadline', what: 'Days to the deadline → 46', text: 'how many days do I have left until my deadline?', judge: says(/\b46\b|forty[- ]six/i, 'not 46 days') },
+  { id: 'time-date', what: 'Date and weekday → Sunday 15 November', text: "what's the date today, and which day of the week?", judge: all(says(/sunday/i, 'no Sunday'), says(/(?<!\d)15(?!\d)/, 'no 15'), says(/nov/i, 'no November')) },
+  { id: 'time-deadline', what: 'Days to the deadline → 46', text: 'how many days do I have left until my deadline?', judge: says(/(?<!\d)46(?!\d)|forty[- ]six/i, 'not 46 days') },
   { id: 'time-since-meal', what: 'Since the last meal → 45 min', text: 'how long has it been since my last meal?', judge: says(/\b(45|forty[- ]five)\s*(min|minutes)/i, 'not 45 min') },
   { id: 'ate-today', what: 'What did I eat today → the two logged meals, nothing logged', text: 'what have I eaten so far today?', judge: all(noMeal, says(/rajma/i, 'no rajma'), says(/egg/i, 'no eggs')) },
   { id: 'ate-yesterday', what: "Yesterday's meals → masala dosa, paneer bhurji", text: 'what did I eat yesterday?', judge: all(noMeal, says(/dosa/i, 'no dosa'), says(/paneer/i, 'no paneer')) },
-  { id: 'left-today', what: 'Calories and protein left → 1360 and 118', text: 'how many calories and how much protein do I have left today?', judge: all(says(/\b1360\b/, 'not 1360'), says(/\b118\b/, 'not 118')) },
+  { id: 'left-today', what: 'Calories and protein left → 1360 and 118', text: 'how many calories and how much protein do I have left today?', judge: all(says(/(?<!\d)1360(?!\d)/, 'not 1360'), says(/(?<!\d)118(?!\d)/, 'not 118')) },
   // What to eat: from the suggestions, inside the budget, respecting the diet.
   { id: 'eat-veg', what: 'Dinner idea for a vegetarian who eats no eggs: no meat or eggs, nothing logged, calories within what is left', text: 'what should I eat for dinner tonight?', patch: { memory: VEG, meals: VEG_MEALS },
     judge: all(noMeal, g => (/\b(chicken|eggs?|fish|mutton|prawns?|tuna|omelette)\b/i.test(g.text.replace(NEGATED, ' ')) ? `suggested non-veg: "${g.text.slice(0, 110)}"` : null), g => {
