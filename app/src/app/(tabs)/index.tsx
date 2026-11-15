@@ -9,7 +9,7 @@ import { Icon } from '../../components/icons';
 import { PageTitle } from '../../components/PageTitle';
 import { Screen } from '../../components/Screen';
 import { Tap, Txt } from '../../components/ui';
-import { CLEARED, dayStamp, daysBetween, minutesUntil, hero as calcHero, integrity as calcIntegrity, nutrition, pad, parseIsoDate, programWeek, protocol, type ProtocolRow, sessionCountdown, todaysPlan, trajectory, week as calcWeek } from '@rei/shared';
+import { CLEARED, dayStamp, ENERGY_WON_AT, daysBetween, minutesUntil, hero as calcHero, integrity as calcIntegrity, nutrition, pad, parseIsoDate, programWeek, protocol, type ProtocolRow, sessionCountdown, todaysPlan, trajectory, week as calcWeek } from '@rei/shared';
 import { C, F, SP } from '../../lib/theme';
 import { useGame } from '../../state/game';
 import { useStore } from '../../state/store';
@@ -123,7 +123,7 @@ export default function Today() {
           <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>ENERGY</Txt>
           <Txt face="label" w={600} size={12} ls={0.12} color={tone(energy.tone)}>{energy.status}</Txt>
         </View>
-        <Meter value={nu.kcal} target={kcalT} unit="kcal" size="lg" past="flag" label="Energy" />
+        <Meter value={nu.kcal} target={kcalT} unit="kcal" size="lg" past="flag" wonAt={ENERGY_WON_AT} label="Energy" />
       </Tap>
       <View style={{ flexDirection: 'row', gap: SP.lg, marginTop: SP.lg }}>
         <Goal row={protein} color={tone(protein.tone)} onPress={toFuel} />

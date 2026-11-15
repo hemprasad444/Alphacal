@@ -269,10 +269,48 @@ export interface ProtocolRow {
   fuel?: boolean;
 }
 
+/** Energy counts as a round won from this share of the calorie target up to the target itself. */
+export const ENERGY_WON_AT = 0.95;
+
+/**
+ * Where the day's energy stands against the calorie target. One answer for the status label, its
+ * colour, the meter's stamp and the done-count, so they can't disagree:
+ * `unset` no target, `empty` nothing logged, `open` filling, `watch` getting close,
+ * `won` at or just under the target, `over` past it.
+ */
+export type EnergyState = 'unset' | 'empty' | 'open' | 'watch' | 'won' | 'over';
+export function energyState(kcal: number, target: number): EnergyState {
+  if (!(target > 0)) return 'unset';
+  if (!(kcal > 0)) return 'empty';
+  // Compared as shown (whole calories), so "2,100 / 2,100" is never "over".
+  const k = Math.round(kcal), t = Math.round(target);
+  if (k > t) return 'over';
+  if (k >= t * ENERGY_WON_AT) return 'won';
+  return k > t * 0.78 ? 'watch' : 'open';
+}
+const ENERGY_ROW: Record<EnergyState, Pick<ProtocolRow, 'status' | 'tone'>> = {
+  unset: { status: 'NO TARGET', tone: 'warn' },
+  // Nothing logged isn't "OK": it would count as a cleared row on a day with no food in the log.
+  empty: { status: 'NOT LOGGED', tone: 'warn' },
+  open: { status: 'OK', tone: 'acc' },
+  watch: { status: 'WATCH', tone: 'warn' },
+  won: { status: 'ROUND WON', tone: 'acc' },
+  over: { status: 'OVER', tone: 'alert' },
+};
+
+/** XP still needed to pass the player above (one more than their lead); 0 or less once you're past them. */
+export const xpToPass = (aboveXp: number, myXp: number): number => aboveXp - myXp + 1;
+
+const LATIN_ONLY = /^[\s\u0020-\u024F\u1E00-\u1EFF\u2000-\u206F\u20A0-\u20BF]*$/;
+/**
+ * A line set loud for display type: capitals for Latin-script text, and exactly as written for
+ * anything else (other scripts have no capitals, or change meaning when their case is forced).
+ */
+export const shout = (text: string): string => (LATIN_ONLY.test(text) ? text.toUpperCase() : text);
+
 export function protocol(plan: SessionPlan | null, nu: Nutrition, profile: Profile, sessionDone: boolean, loggedMin: number, strong: boolean): ProtocolRow[] {
   const protT = num(profile.protein), kcalT = num(profile.kcal), stepsT = num(profile.steps), sleepT = num(profile.sleep);
   const frac = (a: number, b: number) => Math.max(0, Math.min(1, b ? a / b : 0));
-  const kp = kcalT ? nu.kcal / kcalT : 0;
   const pp = protT ? nu.protein / protT : 0;
   const fmt = (n: number) => n.toLocaleString('en-US');
   const training: ProtocolRow = !plan
@@ -283,8 +321,7 @@ export function protocol(plan: SessionPlan | null, nu: Nutrition, profile: Profi
   return [
     training,
     { label: 'Protein', icon: 'protein', value: `${nu.protein} / ${protT} g`, status: pp < 0.7 ? 'BEHIND' : 'ON TRACK', tone: pp < 0.7 ? 'alert' : 'acc', pct: frac(nu.protein, protT), fuel: true },
-    // Nothing logged isn't "OK": it would count as a cleared row on a day with no food in the log.
-    { label: 'Calories', icon: 'kcal', value: `${fmt(nu.kcal)} / ${fmt(kcalT)}`, status: kp > 0.95 ? 'AT LIMIT' : kp > 0.78 ? 'WATCH' : nu.kcal > 0 ? 'OK' : 'NOT LOGGED', tone: kp > 0.78 && kp <= 0.95 ? 'warn' : kp > 0.95 ? 'alert' : nu.kcal > 0 ? 'acc' : 'warn', pct: frac(nu.kcal, kcalT), fuel: true },
+    { label: 'Calories', icon: 'kcal', value: kcalT > 0 ? `${fmt(nu.kcal)} / ${fmt(kcalT)}` : fmt(nu.kcal), ...ENERGY_ROW[energyState(nu.kcal, kcalT)], pct: frac(nu.kcal, kcalT), fuel: true },
     nu.steps == null
       ? { label: 'Steps', icon: 'steps', value: `\u2014 / ${fmt(stepsT)}`, status: 'NO DATA', tone: 'warn', pct: 0 }
       : { label: 'Steps', icon: 'steps', value: `${fmt(nu.steps)} / ${fmt(stepsT)}`, status: nu.steps / stepsT < 0.5 ? 'BEHIND' : nu.steps >= stepsT ? 'DONE' : 'ON TRACK', tone: nu.steps / stepsT < 0.5 ? 'alert' : 'acc', pct: frac(nu.steps, stepsT) },
@@ -294,7 +331,8 @@ export function protocol(plan: SessionPlan | null, nu: Nutrition, profile: Profi
   ];
 }
 
-export const CLEARED = ['DONE', 'ON TRACK', 'OK', 'REST'];
+/** Statuses that count toward "n of 5 done". Energy at its target is a round won; over it is not. */
+export const CLEARED = ['DONE', 'ON TRACK', 'OK', 'REST', 'ROUND WON'];
 
 export function sessionLine(f: number, plan: SessionPlan): string {
   if (f === 0) return plan.key === 'RUN' ? 'Warm up properly. Easy first kilometre, then we go to work.' : `No skipping warm-ups. Two ramp sets on the first lift, then ${plan.exercises[0].target.split('· ')[1] ?? 'working weight'} for real.`;

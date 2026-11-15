@@ -59,14 +59,14 @@ export interface Stat {
   hot?: boolean;
 }
 
-/** Numbers side by side on one canvas strip, split by ropes: the number is the loud part. */
+/** Numbers side by side on one canvas strip, split by ropes: the number is the loud part. Values keep their own case ("12 t", "5:42 /km"): units mean something else in capitals. */
 export function StatStrip({ items, style }: { items: Stat[]; style?: StyleProp<ViewStyle> }) {
   const accent = useStore(s => s.accent);
   return (
     <View style={[{ flexDirection: 'row', backgroundColor: F.canvas }, style]}>
       {items.map((x, i) => (
         <View key={x.k} accessible accessibilityLabel={`${x.k.toLowerCase()}: ${x.v}`} style={{ flex: 1, paddingVertical: SP.md, paddingHorizontal: SP.sm, alignItems: 'center', gap: 2, borderLeftWidth: i ? 2 : 0, borderLeftColor: F.arena }}>
-          <Txt face="display" size={24} lh={1.2} color={x.hot ? accent : F.chalk} fit>{x.v.toUpperCase()}</Txt>
+          <Txt face="display" size={24} lh={1.2} color={x.hot ? accent : F.chalk} fit>{x.v}</Txt>
           <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} numberOfLines={1}>{x.k.toUpperCase()}</Txt>
         </View>
       ))}

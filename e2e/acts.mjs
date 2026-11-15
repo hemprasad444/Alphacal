@@ -1,5 +1,5 @@
 // Everyday actions, each confirmed in the database (not just on screen).
-import { APP, db, tap, type, text, shot, sleep, log, uidOf, setTime } from './lib.mjs';
+import { APP, db, tap, type, text, shot, sleep, log, uidOf, setTime, label } from './lib.mjs';
 import { see } from './flows.mjs';
 
 export const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -19,11 +19,13 @@ export async function login(page, u) {
   await page.goto(APP + '/');
   await sleep(3000);
   const t = await text(page);
-  if (!t.includes('WELCOME BACK') && !t.includes('Log in')) return;
+  // Labels are drawn in capitals ("LOG IN"), so match in any case.
+  if (!/welcome back|log in/i.test(t)) return;
   await type(page, 'Email', u.email);
   await type(page, 'Password', u.password);
-  await page.getByText('Log in', { exact: true }).last().click();
-  await see(page, /Good (morning|afternoon|evening)|REI SAYS/i, 30000);
+  // The last "LOG IN" is the button; the first is the tab above the form.
+  await page.getByText(label('Log in')).last().click();
+  await see(page, /Good (morning|afternoon|evening)|Up late|REI SAYS/i, 30000);
 }
 
 export async function signOut(page) {
@@ -103,9 +105,10 @@ export async function train(page, u, when, kind, a, b) {
     await type(page, kind === 'cycle' ? '45:00' : '28:30', b);
   }
   await sleep(500);
-  const btn = page.getByText(/^Save · \+\d+ XP$/);
-  const label = await btn.textContent({ timeout: 5000 }).catch(() => null);
-  if (!label) {
+  // The save slab reads "SAVE" with "+N XP" beside it; its button name is "Save, +N XP".
+  const btn = page.getByRole('button', { name: /^Save, \+\d+ XP$/i });
+  const saveName = await btn.getAttribute('aria-label', { timeout: 5000 }).catch(() => null);
+  if (!saveName) {
     log(u.name, iso(when), 'TRAIN FAILED (no save button)', kind, a, b, (await text(page)).slice(0, 300).replace(/\n/g, ' | '));
     await shot(page, `fail-train-${iso(when)}`);
     return null;
@@ -114,7 +117,7 @@ export async function train(page, u, when, kind, a, b) {
   await sleep(2500);
   const snap = await db.collection(`users/${await uid(u)}/sessions`).get();
   const s = snap.docs.map(d => d.data()).sort((x, y) => (x.createdAt ?? 0) - (y.createdAt ?? 0)).pop();
-  log(u.name, iso(when), 'TRAINED', kind, a, b, '| button', label, '| stored', snap.size > before ? `${s.title} date=${s.date} ${JSON.stringify(s.cardio ?? s.activity)}` : 'NOTHING STORED');
+  log(u.name, iso(when), 'TRAINED', kind, a, b, '| button', saveName, '| stored', snap.size > before ? `${s.title} date=${s.date} ${JSON.stringify(s.cardio ?? s.activity)}` : 'NOTHING STORED');
   return s;
 }
 
@@ -123,7 +126,7 @@ export async function gym(page, u, when, kgs = []) {
   await setTime(page, when);
   await go(page, '/session');
   const t = await text(page);
-  if (t.includes('Use today’s plan')) await tap(page, 'Use today’s plan');
+  if (/use today’s plan/i.test(t)) await tap(page, 'Use today’s plan');
   const head = (await text(page)).split('\n')[0];
   await sleep(800);
   await tap(page, 'Already done? Log it without the timer');
@@ -135,9 +138,10 @@ export async function gym(page, u, when, kgs = []) {
   await sleep(800);
   await shot(page, `gym-${iso(when)}`);
   const before = (await db.collection(`users/${await uid(u)}/sessions`).get()).size;
-  const save = page.getByText(/^Save workout · \+\d+ XP$/);
-  const label = await save.textContent({ timeout: 5000 }).catch(() => null);
-  if (!label) {
+  // Button name: "Save workout, +N XP" (shown as "SAVE WORKOUT" with "+N XP" beside it).
+  const save = page.getByRole('button', { name: /^Save workout, \+\d+ XP$/i });
+  const saveName = await save.getAttribute('aria-label', { timeout: 5000 }).catch(() => null);
+  if (!saveName) {
     log(u.name, iso(when), 'GYM FAILED: no save button', (await text(page)).slice(0, 300).replace(/\n/g, ' | '));
     return null;
   }
@@ -145,7 +149,7 @@ export async function gym(page, u, when, kgs = []) {
   await sleep(2500);
   const snap = await db.collection(`users/${await uid(u)}/sessions`).get();
   const s = snap.docs.map(d => d.data()).sort((x, y) => (x.createdAt ?? 0) - (y.createdAt ?? 0)).pop();
-  log(u.name, iso(when), 'GYM', head, '|', label, '| ticks', n, '| stored', snap.size > before ? `${s.title} date=${s.date} ${s.done}/${s.total} sets` : 'NOTHING STORED');
+  log(u.name, iso(when), 'GYM', head, '|', saveName, '| ticks', n, '| stored', snap.size > before ? `${s.title} date=${s.date} ${s.done}/${s.total} sets` : 'NOTHING STORED');
   return s;
 }
 

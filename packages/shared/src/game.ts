@@ -91,7 +91,7 @@ const EXTRA: { id: string; title: string; desc: string; have: (s: Stats) => numb
   { id: 'dawn-patrol', title: 'Dawn Patrol', desc: 'Train before 8 in the morning', have: s => +s.early, need: 1 },
   { id: 'night-shift', title: 'Night Shift', desc: 'Train after 9 at night', have: s => +s.late, need: 1 },
   { id: 'mirror-check', title: 'Mirror Check', desc: 'Weigh in 4 times', have: s => s.weighIns, need: 4 },
-  { id: 'before-arc', title: 'The Before Arc', desc: 'Take your first progress photo', have: s => s.photos, need: 1 },
+  { id: 'before-arc', title: 'Day One Photo', desc: 'Take your first progress photo', have: s => s.photos, need: 1 },
   { id: 'open-book', title: 'Open Book', desc: 'Let REI remember 10 things about you', have: s => s.memory, need: 10 },
 ];
 

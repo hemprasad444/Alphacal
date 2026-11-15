@@ -1,5 +1,5 @@
 // The weekly leaderboard as a ladder: live rows from Firestore (a sample board in demo mode).
-import { isoWeek, RANKS } from '@rei/shared';
+import { isoWeek, RANKS, xpToPass } from '@rei/shared';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Ladder, type LadderRow } from './fight';
@@ -20,15 +20,18 @@ export function BoardLadder({ rows, limit, you }: { rows: Player[]; limit?: numb
   const mine = rows.findIndex(r => r.uid === me);
   const rung = (r: Player, i: number): LadderRow => ({ id: r.uid, rank: i + 1, name: r.name, score: r.xp, you: r.uid === me, tag: rankName(r.rank) });
   const shown = rows.map(rung).filter((_, i) => !limit || i < limit);
-  if (limit && mine >= limit) shown.push({ ...rung(rows[mine], mine), score: Math.max(you ?? 0, rows[mine].xp) });
-  const myXp = shown.find(r => r.you)?.score ?? 0;
+  // Your XP is the live figure wherever you stand: the board can lag behind what you just logged.
+  const myXp = mine >= 0 ? Math.max(you ?? 0, rows[mine].xp) : 0;
+  if (limit && mine >= limit) shown.push({ ...rung(rows[mine], mine), score: myXp });
   const above = mine > 0 ? rows[mine - 1] : null;
+  // Already past them on live XP (the board hasn't caught up): say nothing rather than "1 XP to pass".
+  const gap = above ? xpToPass(above.xp, myXp) : 0;
   return (
     <View style={{ gap: SP.sm }}>
       <Ladder rows={shown} showGap={false} />
-      {mine >= 0 ? (
+      {mine >= 0 && (!above || gap > 0) ? (
         <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>
-          {above ? `${Math.max(1, above.xp - myXp + 1).toLocaleString('en-US')} XP TO PASS ${above.name.toUpperCase()}` : 'TOP OF THE LADDER. HOLD IT.'}
+          {above ? `${gap.toLocaleString('en-US')} XP TO PASS ${above.name.toUpperCase()}` : 'TOP OF THE LADDER. HOLD IT.'}
         </Txt>
       ) : null}
     </View>

@@ -78,6 +78,9 @@ function Root() {
           <Stack.Screen name="account" />
           <Stack.Screen name="board" />
           <Stack.Screen name="log-training" options={{ presentation: 'modal' }} />
+        </Stack.Protected>
+        {/* Development only: release builds have no /gallery route at all (the screen also sends you home). */}
+        <Stack.Protected guard={__DEV__ && !needsAuth && !onboarding}>
           <Stack.Screen name="gallery" />
         </Stack.Protected>
       </Stack>

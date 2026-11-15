@@ -13,7 +13,7 @@ import { Icon } from '../../components/icons';
 import { PageTitle } from '../../components/PageTitle';
 import { Screen } from '../../components/Screen';
 import { Dots, Tap, Txt } from '../../components/ui';
-import { amountLabel, dailyTargets, dayIntake, dayStamp, daysBetween, type Food, fuelLine, itemFor, type Meal, nutrition, parseIsoDate, searchFoods, splitMealText } from '@rei/shared';
+import { amountLabel, dailyTargets, dayIntake, dayStamp, daysBetween, ENERGY_WON_AT, energyState, type Food, fuelLine, itemFor, type Meal, nutrition, parseIsoDate, searchFoods, splitMealText } from '@rei/shared';
 import { C, F, fontFamily, HIT, onColor, SP } from '../../lib/theme';
 import { useStore } from '../../state/store';
 
@@ -40,7 +40,8 @@ export default function Fuel() {
   const n = (k: keyof typeof profile) => parseFloat(profile[k]) || 0;
   const kcalT = n('kcal'), protT = n('protein');
   const kL = kcalT - nu.kcal, pL = protT - nu.protein;
-  const tag = kL < 0 ? 'Over' : !meals.length ? 'Nothing yet' : pL > 0 && pL * 4 > kL * 0.6 ? 'Tight' : 'On track';
+  const energy = energyState(nu.kcal, kcalT);
+  const tag = energy === 'over' ? 'Over' : !meals.length ? 'Nothing yet' : pL > 0 && pL * 4 > kL * 0.6 ? 'Tight' : 'On track';
   const has = !!draft.trim() && !s.fuelBusy;
   const fmt = (v: number) => Math.round(v).toLocaleString('en-US');
   const started = parseIsoDate(s.startedOn);
@@ -92,7 +93,9 @@ export default function Fuel() {
   // One cell is about 100 kcal; the count is kept sane for very small or very large targets.
   const cells = Math.max(10, Math.min(30, Math.round(kcalT / 100) || 10));
   const toNutrition = () => router.push('/nutrition');
-  const need = pL > 0 ? `Protein needs ${fmt(pL)} g` : kL > 0 ? `${fmt(kL)} kcal to full` : undefined;
+  const need = pL > 0 ? `Protein needs ${fmt(pL)} g` : kL > 0 && energy !== 'won' && energy !== 'unset' ? `${fmt(kL)} kcal to full` : undefined;
+  // What the meter shows, in words: the same call as its stamp and as Today's status.
+  const energySay = energy === 'unset' ? `Energy ${fmt(nu.kcal)} kcal, no target set` : `Energy ${fmt(nu.kcal)} of ${fmt(kcalT)} kcal, ${energy === 'over' ? `${fmt(-kL)} over` : energy === 'won' ? 'round won' : `${fmt(kL)} to full`}`;
 
   return (
     <Screen>
@@ -103,13 +106,17 @@ export default function Fuel() {
       />
 
       <SectionHeader title="Super meter" meta="Full breakdown" onMeta={toNutrition} style={{ marginTop: SP.xl }} />
-      <Tap onPress={toNutrition} accessibilityLabel={`Energy ${fmt(nu.kcal)} of ${fmt(kcalT)} kcal, ${kL < 0 ? `${fmt(-kL)} over` : `${fmt(kL)} to full`}. Open the full breakdown`} style={{ marginTop: SP.md }}>
-        <Meter value={nu.kcal} target={kcalT} unit="kcal" size="lg" segments={cells} past="flag" label="Energy" />
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: SP.xs }}>
-          <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>0</Txt>
-          <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{`1 CELL = ${fmt(kcalT / cells)} KCAL`}</Txt>
-          <Txt face="label" w={600} size={12} ls={0.12} color={accent}>{`${fmt(kcalT)} FULL`}</Txt>
-        </View>
+      <Tap onPress={toNutrition} accessibilityLabel={`${energySay}. Open the full breakdown`} style={{ marginTop: SP.md }}>
+        <Meter value={nu.kcal} target={kcalT} unit="kcal" size="lg" segments={cells} past="flag" wonAt={ENERGY_WON_AT} label="Energy" />
+        {energy === 'unset' ? (
+          <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} style={{ marginTop: SP.xs }}>NO CALORIE TARGET YET. SET ONE IN VOW.</Txt>
+        ) : (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: SP.xs }}>
+            <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>0</Txt>
+            <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{`1 CELL = ${fmt(kcalT / cells)} KCAL`}</Txt>
+            <Txt face="label" w={600} size={12} ls={0.12} color={accent}>{`${fmt(kcalT)} FULL`}</Txt>
+          </View>
+        )}
       </Tap>
 
       <View style={{ marginTop: SP.lg, gap: SP.md }}>

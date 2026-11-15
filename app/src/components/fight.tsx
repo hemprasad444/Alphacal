@@ -96,6 +96,8 @@ export interface MeterBarProps {
 export function MeterBar({ pct, height = 16, segments, over = 0, accent, accessibilityLabel, style }: MeterBarProps) {
   const acc = useAccent(accent);
   const [size, onLayout] = useSize();
+  // A missing target (a division by zero upstream) draws as empty, never as full.
+  if (!Number.isFinite(pct)) pct = 0;
   const p = useFill(Math.max(0, Math.min(1, pct)));
   const full = pct >= 1;
   const border = height >= 14 ? 2 : 1;
@@ -156,6 +158,8 @@ export interface MeterProps {
    * `flag`: show how far over instead (energy when cutting).
    */
   past?: 'win' | 'flag';
+  /** The share of the target that already counts as met (default 1). Energy passes ENERGY_WON_AT, so the stamp agrees with its status. */
+  wonAt?: number;
   /** The stamp shown when the target is met. */
   wonLabel?: string;
   accent?: string;
@@ -165,15 +169,22 @@ export interface MeterProps {
 /**
  * The energy meter: number, target, how much is left "to full", and a bar that fills toward full.
  * At the target it locks full and stamps ROUND WON; with `past="flag"` it shows the overflow instead.
+ * Without a target (0 or missing) it shows the value alone over an empty bar and asks for one.
  */
-export function Meter({ label, value, target, unit = '', size = 'md', segments, past = 'win', wonLabel = 'ROUND WON', accent, style }: MeterProps) {
+export function Meter({ label, value, target, unit = '', size = 'md', segments, past = 'win', wonAt = 1, wonLabel = 'ROUND WON', accent, style }: MeterProps) {
   const acc = useAccent(accent);
-  const safe = Math.max(1, target), pct = value / safe;
-  const won = value >= target && target > 0, overBy = Math.max(0, value - target), flagged = past === 'flag' && overBy > 0;
-  const left = Math.max(0, target - value);
-  const say = `${label ?? 'Progress'} ${num(value)} of ${num(target)}${unit ? ` ${unit}` : ''}${flagged ? `, ${num(overBy)} over` : won ? `, ${wonLabel.toLowerCase()}` : ''}`;
+  const unset = !(target > 0);
+  // Compared as shown (whole numbers), so the stamp never disagrees with the digits.
+  const v = Math.round(value), t = unset ? 0 : Math.round(target);
+  const safe = Math.max(1, t), pct = unset ? 0 : value / safe;
+  const won = !unset && v >= t * wonAt, overBy = unset ? 0 : Math.max(0, v - t), flagged = past === 'flag' && overBy > 0;
+  const left = Math.max(0, t - v);
+  const units = unit ? ` ${unit}` : '';
+  const say = unset
+    ? `${label ?? 'Progress'} ${num(value)}${units}, no target set`
+    : `${label ?? 'Progress'} ${num(value)} of ${num(target)}${units}${flagged ? `, ${num(overBy)} over` : won ? `, ${wonLabel.toLowerCase()}` : ''}`;
   const over = flagged ? overBy / safe : 0;
-  const targetText = `/ ${num(target)}${unit ? ` ${unit}` : ''}`;
+  const targetText = unset ? unit : `/ ${num(target)}${units}`;
 
   if (size === 'sm') {
     return (
@@ -184,12 +195,15 @@ export function Meter({ label, value, target, unit = '', size = 'md', segments, 
           <Txt face="label" size={14} color={F.smoke} numberOfLines={1} style={{ flexShrink: 1 }}>{targetText}</Txt>
         </View>
         <MeterBar pct={pct} over={over} height={8} accent={acc} accessibilityLabel={say} />
+        {unset ? <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} numberOfLines={1}>SET TARGET</Txt> : null}
       </View>
     );
   }
 
   const big = size === 'lg';
-  const status = flagged ? (
+  const status = unset ? (
+    <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>SET YOUR TARGET</Txt>
+  ) : flagged ? (
     <Txt face="label" w={600} size={12} ls={0.12} color={F.chalk}>{`${num(overBy)} OVER`}</Txt>
   ) : won ? (
     <RoundStamp label={wonLabel} size={big ? 'md' : 'sm'} />
@@ -207,7 +221,7 @@ export function Meter({ label, value, target, unit = '', size = 'md', segments, 
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: big ? 12 : 8, flexShrink: 1 }}>
           <Txt face="display" size={big ? 64 : 28} lh={big ? 1.08 : 1.15}>{num(value)}</Txt>
-          <Txt face="label" size={big ? 18 : 14} ls={0.03} color={F.smoke} numberOfLines={1} style={{ flexShrink: 1 }}>{label && !big ? `${targetText} ${label.toUpperCase()}` : targetText}</Txt>
+          <Txt face="label" size={big ? 18 : 14} ls={0.03} color={F.smoke} numberOfLines={1} style={{ flexShrink: 1 }}>{label && !big ? `${targetText} ${label.toUpperCase()}`.trim() : targetText}</Txt>
         </View>
         <View style={{ paddingBottom: big ? 6 : 4 }}>{status}</View>
       </View>

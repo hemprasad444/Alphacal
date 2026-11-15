@@ -66,9 +66,13 @@ export async function shot(page, label) {
   return f;
 }
 
-/** Click the innermost element whose text is exactly `text`. */
+const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** Matches a whole label whatever its case: buttons, tabs and tiles are drawn in capitals ("Log in" is on screen as "LOG IN"). */
+export const label = s => new RegExp(`^\\s*${esc(s)}\\s*$`, 'i');
+
+/** Click the innermost element whose text is exactly `text`, in any case (`exact: false`: contains it). */
 export async function tap(page, text, opts = {}) {
-  const loc = page.getByText(text, { exact: opts.exact ?? true }).last();
+  const loc = (opts.exact === false ? page.getByText(text) : page.getByText(text instanceof RegExp ? text : label(text))).last();
   await loc.waitFor({ state: 'visible', timeout: opts.timeout ?? 15000 });
   await loc.scrollIntoViewIfNeeded();
   await loc.click();

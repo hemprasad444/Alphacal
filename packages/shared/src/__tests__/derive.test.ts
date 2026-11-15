@@ -1,6 +1,6 @@
 import { activityFor, DEFAULT_PROFILE, SESSIONS } from '../data';
 import type { History } from '../types';
-import { hero, integrity, nutrition, protocol, sessionCountdown, todaysPlan, trajectory, week, weekNote } from '../derive';
+import { CLEARED, ENERGY_WON_AT, energyState, hero, integrity, nutrition, protocol, sessionCountdown, shout, todaysPlan, trajectory, week, weekNote, xpToPass } from '../derive';
 
 // 2026-10-02 is a Friday (PUSH in the weekly plan).
 const FRI = new Date(2026, 9, 2, 17, 52);
@@ -134,5 +134,67 @@ describe('hero after the session', () => {
   it('does not ask for 0 g of protein', () => {
     const h = hero(week(SLIP, true, FRI), SESSIONS.PUSH, true, true, 0, 10000);
     expect(h.parts.map(p => p.t).join('')).toBe('Good. That’s one back and protein is hit. The week is still two down. Don’t celebrate yet.');
+  });
+});
+
+describe('energy against the calorie target', () => {
+  const none = { steps: null, sleep: null, sleepL: '—' };
+  const row = (kcal: number, target: string) =>
+    protocol(SESSIONS.PUSH, nutrition(kcal ? [{ time: '12:00', name: 'x', kcal, p: 0, c: 0, f: 0 }] : [], none), { ...DEFAULT_PROFILE, kcal: target }, false, 0, false)[2];
+
+  it('names one state for every amount eaten', () => {
+    expect(energyState(0, 2000)).toBe('empty');
+    expect(energyState(300, 2000)).toBe('open');
+    expect(energyState(1700, 2000)).toBe('watch');
+    expect(energyState(2000 * ENERGY_WON_AT, 2000)).toBe('won');
+    expect(energyState(1999, 2000)).toBe('won');
+    expect(energyState(2000, 2000)).toBe('won');
+    // Compared as shown: 2,000.4 reads "2,000 / 2,000", so it isn't over.
+    expect(energyState(2000.4, 2000)).toBe('won');
+    expect(energyState(2001, 2000)).toBe('over');
+    expect(energyState(500, 0)).toBe('unset');
+    expect(energyState(500, NaN)).toBe('unset');
+  });
+
+  it('calls 96 to 100% of the target a round won, in your colour, and counts it as done', () => {
+    for (const kcal of [1920, 1990, 2000]) {
+      const r = row(kcal, '2000');
+      expect([r.status, r.tone]).toEqual(['ROUND WON', 'acc']);
+      expect(CLEARED).toContain(r.status);
+    }
+  });
+
+  it('keeps going over the target a warning that is not counted as done', () => {
+    const r = row(2150, '2000');
+    expect([r.status, r.tone]).toEqual(['OVER', 'alert']);
+    expect(CLEARED).not.toContain(r.status);
+    expect(CLEARED).not.toContain(row(1700, '2000').status);
+    expect(CLEARED).not.toContain(row(0, '2000').status);
+  });
+
+  it('shows the amount alone, with nothing filled, when there is no calorie target', () => {
+    for (const target of ['', '0']) {
+      const r = row(640, target);
+      expect(r).toMatchObject({ value: '640', status: 'NO TARGET', tone: 'warn', pct: 0 });
+      expect(CLEARED).not.toContain(r.status);
+    }
+  });
+});
+
+describe('xpToPass', () => {
+  it('is one more than their lead, and nothing once you are past them', () => {
+    expect(xpToPass(1240, 1105)).toBe(136);
+    expect(xpToPass(500, 500)).toBe(1);
+    expect(xpToPass(500, 620)).toBeLessThanOrEqual(0);
+  });
+});
+
+describe('shout', () => {
+  it('capitalises Latin-script lines, accents and punctuation included', () => {
+    expect(shout('Two missed. Not today.')).toBe('TWO MISSED. NOT TODAY.');
+    expect(shout('Ça suffit — “now”, José!')).toBe('ÇA SUFFIT — “NOW”, JOSÉ!');
+  });
+  it('leaves every other script exactly as written', () => {
+    for (const line of ['आज का सेशन मत छोड़ना।', 'Сегодня без отговорок.', '今日は休まない。', 'Σήμερα δουλεύουμε.', 'Aaj gym जाना है, Hem.']) expect(shout(line)).toBe(line);
   });
 });

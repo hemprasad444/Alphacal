@@ -1,4 +1,4 @@
-import { ARCHETYPES, DEFAULT_INTAKE, fuel, GOALS, intakeDisciplines, intakeMemory, intakeProfile, pactRows, reiLine, sleepHours, STEPS, CHAPTERS, suggestedTarget, TONES, trainTime, vowSentence, weeklyRate, type Intake } from '../onboarding';
+import { ARCHETYPES, DEFAULT_INTAKE, fuel, GOALS, intakeDisciplines, intakeMemory, intakeProfile, pactRows, reiLine, sleepHours, STEPS, CHAPTERS, suggestedTarget, TONES, toneSample, trainTime, vowSentence, weeklyRate, type Intake } from '../onboarding';
 import { CHARACTERS, characterOf, forSpeech, greeting, hasVoice, isSpeakVoice, speakVoice, spokenName } from '../characters';
 import { DEFAULT_PROFILE } from '../data';
 import { DEFAULT_VOICE } from '../voices';
@@ -222,5 +222,23 @@ describe('current bests', () => {
     expect(bench.now).not.toBe('—');
     expect(bench.logged).toBe(true);
     expect(bench.start).toBe('—');
+  });
+});
+
+describe('onboarding copy', () => {
+  it('samples each tone from what the user can choose: the tone, their name and their training time', () => {
+    for (const { id } of TONES) {
+      const sample = toneSample(id, d({ time: 'Morning' }));
+      expect(sample).toContain('Hem');
+      expect(sample).toContain('06:30');
+      // The intensity picker is gone: a value left over in an old draft changes nothing.
+      for (const intensity of [1, 5]) expect(toneSample(id, d({ time: 'Morning', intensity }))).toBe(sample);
+    }
+    expect(new Set(TONES.map(t => toneSample(t.id, d()))).size).toBe(TONES.length);
+    expect(DEFAULT_INTAKE).not.toHaveProperty('intensity');
+  });
+
+  it('describes every look in its own words, with no borrowed routine', () => {
+    for (const a of ARCHETYPES) expect(a.quip).not.toMatch(/100 push-ups|100 sit-ups|10 km/i);
   });
 });

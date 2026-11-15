@@ -34,7 +34,7 @@ export const ARCHETYPES: Archetype[] = [
   { id: 'slayer', icon: 'flame', name: 'The Engine', ref: 'Athletic · tireless', bf: 12, gain: 1, goal: 'lean', bars: [62, 82, 50], spec: '11–13% BF · ATHLETIC', disc: ['Running', 'Calisthenics', 'Hypertrophy'], quip: 'The Engine. A motor that never quits. Expect early runs and breath work. Full focus.' },
   { id: 'sorcerer', icon: 'eye', name: 'The Apex', ref: 'Shredded · powerful', bf: 9, gain: 4, goal: 'recomp', bars: [92, 86, 80], spec: '8–10% BF · SHREDDED', disc: ['Hypertrophy', 'Strength', 'Calisthenics', 'Running'], quip: 'The Apex. Shredded and powerful. The hardest one on this list. Good. I wanted to see if you would pick it.' },
   { id: 'symbol', icon: 'star', name: 'The Titan', ref: 'Maximum size', bf: 14, gain: 8, goal: 'size', bars: [100, 48, 100], spec: '12–15% BF · MAXIMUM SIZE', disc: ['Hypertrophy', 'Strength'], quip: 'The Titan. Maximum size. That means eating a lot more than you want to, every day. No days off.' },
-  { id: 'caped', icon: 'fist', name: 'The Minimalist', ref: 'Simply fit', bf: 13, gain: 0, goal: 'lean', bars: [74, 72, 38], spec: '12–14% BF · SIMPLY FIT', disc: ['Calisthenics', 'Running'], quip: 'The Minimalist. 100 push-ups, 100 sit-ups, 10 km. Simple. Simple is the hardest thing to do every single day.' },
+  { id: 'caped', icon: 'fist', name: 'The Minimalist', ref: 'Simply fit', bf: 13, gain: 0, goal: 'lean', bars: [74, 72, 38], spec: '12–14% BF · SIMPLY FIT', disc: ['Calisthenics', 'Running'], quip: 'The Minimalist. Push, pull, squat, run. No machines, no fuss. Simple is the hardest thing to do every single day.' },
 ];
 
 export type GoalId = 'lean' | 'size' | 'strong' | 'recomp';
@@ -74,8 +74,8 @@ export type StepId = 'boot' | 'name' | 'ideal' | 'vow' | 'body' | 'target' | 'tr
  * - tone: `tone`, `nudge`, `speak`. How REI talks and when.
  * - pact: nothing new. Read it, hold to sign.
  *
- * `waist`, `intensity`, `health` and `photo` are still on the intake (old drafts and saved intakes
- * have them) but no round asks for them: nothing in the app read them.
+ * `waist`, `health` and `photo` are still on the intake (old drafts and saved intakes have them)
+ * but no round asks for them: nothing in the app read them. `intensity` is only on the type now.
  */
 export const STEPS: { id: StepId; icon?: IconKey; t?: string; cta?: string }[] = [
   { id: 'boot' },
@@ -147,7 +147,8 @@ export interface Intake {
   injuries: Record<string, boolean>;
   note: string;
   tone: Tone;
-  intensity: number;
+  /** No longer asked, read or written. Old drafts and saved intakes may still carry it. */
+  intensity?: number;
   /** Voice character (characters.ts). */
   character: string;
   theme: ThemeId;
@@ -185,7 +186,7 @@ export const DEFAULT_INTAKE: Intake = {
   job: 'Desk', wake: 405, bed: 1395, stress: 3, steps: 10000,
   diet: 'Non-veg', meals: 4, cook: 'Sometimes', alcohol: 'Weekends', cuisine: { Indian: true }, kcalAdj: 0,
   quit: { 'Work gets busy': true, Weekends: true }, injuries: {}, note: '',
-  tone: 'Tough love', intensity: 4, character: 'rei', theme: 'zero', health: true, nudge: true, speak: true, photo: true,
+  tone: 'Tough love', character: 'rei', theme: 'zero', health: true, nudge: true, speak: true, photo: true,
 };
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -287,9 +288,7 @@ export function toneSample(tone: Tone, d: Intake): string {
   const n = nameOf(d), t = trainTime(d);
   if (tone === 'Coach') return `Two sessions missed this week, ${n}. Tonight’s push puts you back on plan. ${t}, 52 minutes, top set 82.5 × 6.`;
   if (tone === 'Bro') return `${n}. Two missed. Happens once, not three times. Tonight we lift. ${t}. Let’s go.`;
-  return d.intensity >= 4
-    ? `${n}, you said this mattered. Two sessions missed. Stop negotiating with yourself. Push at ${t}. I already cut it to 52 minutes.`
-    : `Two missed, ${n}. Not a disaster, but don’t let it become a pattern. Push at ${t}.`;
+  return `${n}, you said this mattered. Two sessions missed. Stop negotiating with yourself. Push at ${t}. I already cut it to 52 minutes.`;
 }
 
 export function pactRows(d: Intake): [string, string][] {

@@ -1,5 +1,6 @@
 // Talking with REI, in the Fight Night system: REI speaks from your corner on the chalk panel
 // (REI's alone), you answer on a canvas strip in your colour. Shared by Talk, Voice and Live.
+import { shout } from '@rei/shared';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Animated, Easing, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { CutBox } from './cut';
@@ -20,7 +21,7 @@ const SHOUT_MAX = 64;
 
 /**
  * REI's line: a chalk panel on a hard shadow in your colour. `lead` is the first sentence, set
- * loud (display type when short); `callout` marks REI calling you out, with the far corner's red.
+ * loud (display type when short; capitals only for Latin script); `callout` marks REI calling you out, with the far corner's red.
  */
 export function CoachLine({ text, lead, time, callout, maxWidth = '90%', children }: { text?: string; lead?: string; time?: string; callout?: boolean; maxWidth?: ViewStyle['maxWidth']; children?: ReactNode }) {
   const accent = useStore(s => s.accent);
@@ -32,7 +33,7 @@ export function CoachLine({ text, lead, time, callout, maxWidth = '90%', childre
       <View style={[{ backgroundColor: F.chalk, paddingVertical: SP.md, paddingHorizontal: SP.lg, gap: SP.xs }, hard(edge)]}>
         {lead ? (
           lead.length <= SHOUT_MAX
-            ? <Txt face="display" size={20} lh={1.25} ls={0.01} color={F.arena}>{lead.toUpperCase()}</Txt>
+            ? <Txt face="display" size={20} lh={1.25} ls={0.01} color={F.arena}>{shout(lead)}</Txt>
             : <Txt size={17} w={600} lh={1.35} color={F.arena}>{lead}</Txt>
         ) : null}
         {text ? <Txt size={16} w={500} lh={1.45} color={F.arena}>{text}</Txt> : null}

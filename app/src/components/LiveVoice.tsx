@@ -12,12 +12,12 @@ import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { checkLiveMeal, hhmm, isoDate, type LiveTool, MAX_MEALS, mealIndex, memoryKind, saysNumber, type Message, parseWorkout, shouldLogMeal, shouldLogWorkout, splitLead, workoutLog, stripTags, todayLine, vowChange } from '@rei/shared';
 import { Backdrop } from './Backdrop';
-import { Core, Wave } from './Core';
+import { Core } from './Core';
 import { Icon } from './icons';
 import { IconButton, Label, Tap, Txt } from './ui';
 import { takeVoiceSession, type VoiceSession } from '../lib/live';
 import { newId } from '../lib/sync';
-import { alpha, C, mix } from '../lib/theme';
+import { C } from '../lib/theme';
 import { type Store, useStore } from '../state/store';
 // Fight Night parts for the call screen (the rendered view only).
 import { CoachLine, CornerLine, LevelBars } from './corner';

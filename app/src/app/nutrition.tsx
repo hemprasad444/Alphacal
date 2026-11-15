@@ -1,7 +1,7 @@
 // Today's nutrition: everything eaten today, nutrient by nutrient, against your targets, and
 // which meal brought the most of each. Vitamins and minerals say how much of the day they're
 // based on, because an estimated meal has calories and macros but no iron figure.
-import { dailyTargets, dayIntake, formatNutrient, type IntakeKey, NUTRIENTS, type NutrientGroup, type NutrientKey } from '@rei/shared';
+import { dailyTargets, dayIntake, ENERGY_WON_AT, formatNutrient, type IntakeKey, NUTRIENTS, type NutrientGroup, type NutrientKey } from '@rei/shared';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
@@ -77,7 +77,7 @@ export default function Nutrition() {
       <SubHeader title="TODAY'S NUTRITION" onBack={() => router.back()} />
 
       <SectionHeader title="Eaten today" meta={s.sex === 'Female' ? 'Targets · women' : 'Targets · men'} style={{ marginTop: SP.xl }} />
-      <Meter value={d.totals.kcal} target={kcalT} unit="kcal" size="lg" past="flag" label="Energy" style={{ marginTop: SP.md }} />
+      <Meter value={d.totals.kcal} target={kcalT} unit="kcal" size="lg" past="flag" wonAt={ENERGY_WON_AT} label="Energy" style={{ marginTop: SP.md }} />
       <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} style={{ marginTop: SP.xs }}>{`${meals.length} MEAL${meals.length === 1 ? '' : 'S'} LANDED`}</Txt>
 
       <SectionHeader title="Macros & fibre" style={{ marginTop: SP.xxl }} />
