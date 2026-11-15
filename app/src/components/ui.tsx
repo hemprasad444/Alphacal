@@ -146,21 +146,31 @@ const TOGGLE_W = 52, TOGGLE_H = 28;
 export function Toggle({ on, onPress, accessibilityLabel }: { on: boolean; onPress: () => void; accessibilityLabel?: string }) {
   const accent = useStore(s => s.accent);
   return (
-    <Tap onPress={onPress} accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={accessibilityLabel} hitSlop={{ top: (HIT - TOGGLE_H) / 2, bottom: (HIT - TOGGLE_H) / 2, left: 6, right: 6 }} style={{ width: TOGGLE_W, height: TOGGLE_H }}>
-      <CutShape width={TOGGLE_W} height={TOGGLE_H} fill={on ? accent : C.canvas} stroke={on ? accent : C.rope} />
-      <CutShape width={24} height={16} fill={on ? onColor(accent) : C.smoke} style={{ position: 'absolute', top: 6, left: on ? TOGGLE_W - 24 - 7 : 7 }} />
+    // The switch is drawn 52×28 inside a 44pt-tall target (a real size, not hitSlop: slop is cut off by a tight parent).
+    <Tap onPress={onPress} accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={accessibilityLabel} hitSlop={{ left: 6, right: 6 }} style={{ width: TOGGLE_W, height: HIT, justifyContent: 'center' }}>
+      <View style={{ width: TOGGLE_W, height: TOGGLE_H }}>
+        <CutShape width={TOGGLE_W} height={TOGGLE_H} fill={on ? accent : C.canvas} stroke={on ? accent : C.rope} />
+        <CutShape width={24} height={16} fill={on ? onColor(accent) : C.smoke} style={{ position: 'absolute', top: 6, left: on ? TOGGLE_W - 24 - 7 : 7 }} />
+      </View>
     </Tap>
   );
 }
 
+const SEG_PAD = 4;
+
+/** A row of options, one picked (chalk). */
 export function Segmented<T extends string | number>({ value, options, onChange }: { value: T; options: [T, string][]; onChange: (v: T) => void }) {
   return (
-    <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', borderWidth: 2, borderColor: C.rope, backgroundColor: C.arena }}>
+    // Each option is a 44pt-tall target; the frame and the picked fill are drawn 36pt tall inside it.
+    <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', height: HIT, paddingHorizontal: 2 }}>
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: SEG_PAD, bottom: SEG_PAD, borderWidth: 2, borderColor: C.rope, backgroundColor: C.arena }} />
       {options.map(([v, label]) => {
         const on = v === value;
         return (
-          <Tap key={String(v)} onPress={() => onChange(v)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={label} hitSlop={{ top: 6, bottom: 6 }} style={{ minHeight: 32, paddingHorizontal: 11, justifyContent: 'center', backgroundColor: on ? C.chalk : 'transparent' }}>
-            <Txt face="label" w={600} size={14} ls={0.06} color={on ? C.ink : C.smoke}>{label.toUpperCase()}</Txt>
+          <Tap key={String(v)} onPress={() => onChange(v)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={label} style={{ height: HIT, minWidth: HIT, paddingVertical: SEG_PAD + 2 }}>
+            <View style={{ flex: 1, paddingHorizontal: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? C.chalk : 'transparent' }}>
+              <Txt face="label" w={600} size={14} ls={0.06} color={on ? C.ink : C.smoke}>{label.toUpperCase()}</Txt>
+            </View>
           </Tap>
         );
       })}

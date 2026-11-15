@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { StatStrip } from '../components/dojo';
-import { MoveRow, RoundStamp, SectionHeader } from '../components/fight';
+import { MoveRow, RoundStamp, SectionHeader, useTierColors } from '../components/fight';
 import { ListScreen, SubHeader } from '../components/Screen';
 import { Tap, Txt } from '../components/ui';
 import { F, HIT, SP } from '../lib/theme';
@@ -75,8 +75,9 @@ function SessionCard({ l, prs }: { l: SessionLog; prs: number }) {
       : `${Math.max(1, Math.round(l.seconds / 60))} MIN · ${l.done}/${l.total} SETS${vol ? ` · ${vol.toLocaleString('en-US')} KG` : ''}`;
   const hasSets = !!l.sets?.length;
   const title = l.title ?? l.plan;
+  const gold = useTierColors().gold;
   return (
-    <View style={{ marginBottom: SP.sm, backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: prs ? F.gold : F.rope }}>
+    <View style={{ marginBottom: SP.sm, backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: prs ? gold : F.rope }}>
       <Tap
         haptic={false}
         onPress={() => setOpen(o => !o)}
@@ -89,7 +90,7 @@ function SessionCard({ l, prs }: { l: SessionLog; prs: number }) {
             <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{`${kindOf(l)} · ${dayLabel(l.date)}`}</Txt>
             <Txt size={17} w={600} lh={1.3} numberOfLines={1}>{title}</Txt>
           </View>
-          {prs ? <RoundStamp label={`${prs} PR`} tone="accent" accent={F.gold} size="sm" /> : null}
+          {prs ? <RoundStamp label={`${prs} PR`} tone="accent" accent={gold} size="sm" /> : null}
           <Txt face="display" size={22} lh={1.15} color={accent}>{`+${sessionXp(l)}`}</Txt>
           <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>XP</Txt>
         </View>

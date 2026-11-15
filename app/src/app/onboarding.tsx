@@ -18,7 +18,7 @@ import { Icon } from '../components/icons';
 import { ChapterCard, EnterFx, Flash, HoldSeal, markArrival } from '../components/onboarding/fx';
 import { Atmosphere, Chips, Cta, Field, FieldLabel, Nums, Picked, Rise, Scrub, Seg, tile, ToggleRow } from '../components/onboarding/kit';
 import { Tap, Txt } from '../components/ui';
-import { C, DEFAULT_EMBLEM, EMBLEMS, F, fontFamily, hard, HIT, SHADOW, SP, THEMES } from '../lib/theme';
+import { C, DEFAULT_EMBLEM, EMBLEMS, F, fontFamily, hard, HIT, SHADOW, SP, THEMES, warnColor } from '../lib/theme';
 import { playGreeting, prefetchGreetings } from '../lib/greetings';
 import { useStore } from '../state/store';
 
@@ -452,7 +452,7 @@ function TargetStep({ d, patch, acc }: { d: Intake; patch: (o: Partial<Intake>) 
   const r = weeklyRate(d), total = r * d.weeks, fast = (Math.abs(r) / d.weight) * 100 > 1;
   const stats: [string, string, string][] = [
     ['CHANGE · KG', `${total > 0 ? '+' : ''}${total.toFixed(1)}`, F.chalk],
-    ['PER WEEK · KG', `${r > 0 ? '+' : ''}${r.toFixed(2)}`, fast ? C.warn : acc],
+    ['PER WEEK · KG', `${r > 0 ? '+' : ''}${r.toFixed(2)}`, fast ? warnColor(acc) : acc],
     ['LEAN MASS · KG', (d.targetWeight * (1 - d.targetBf / 100)).toFixed(1), F.chalk],
   ];
   return (
@@ -728,7 +728,7 @@ function CornerStep({ d, set, patch, acc }: { d: Intake; set: SetFn; patch: (o: 
         <View style={{ backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: acc, paddingVertical: SP.md, paddingHorizontal: SP.lg }}>
           <Txt size={15} w={500} lh={1.45} color={C.textSoft}>{`“${greeting(cur, d.name).replace(/\s*\[[^\]]*\]/g, '')}”`}</Txt>
         </View>
-        <Txt size={13} color={note ? C.warn : C.sub} lh={1.4} style={{ marginTop: SP.sm }}>{note || 'Tap a card to hear them; tap again to stop. You can change your corner any time in Settings.'}</Txt>
+        <Txt size={13} color={note ? warnColor(acc) : C.sub} lh={1.4} style={{ marginTop: SP.sm }}>{note || 'Tap a card to hear them; tap again to stop. You can change your corner any time in Settings.'}</Txt>
       </Rise>
       <Block i={6} label="World" right={THEMES.find(t => t.id === d.theme)?.vibe} acc={acc}>
         <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm, paddingRight: SHADOW, paddingBottom: SHADOW }}>

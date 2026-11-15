@@ -26,7 +26,7 @@ const ICONS: Record<IconKey, (k: Draw) => ReactNode> = {
       <P d="M2.5 20.1h19" />
     </>
   ),
-  // Fuel: a bowl of ramen with an egg, a naruto slice and chopsticks.
+  // Fuel: a bowl of ramen with an egg, a fish cake and chopsticks.
   fuel: ({ f }) => (
     <>
       <P d="M2.8 11.5h18.4c0 4.6-3.7 8.2-8.2 8.2h-2c-4.5 0-8.2-3.6-8.2-8.2z" fill={f} />

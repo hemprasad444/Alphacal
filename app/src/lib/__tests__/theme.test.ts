@@ -1,4 +1,4 @@
-import { C, contrast, cutDx, F, fontFamily, onColor, THEMES } from '../theme';
+import { ACCENT_EXTRAS, C, colorDistance, contrast, cutDx, DEFAULT_EMBLEM, emblemFor, emblemIdFor, EMBLEMS, F, fontFamily, medalColors, onColor, THEMES, warnColor } from '../theme';
 
 describe('Fight Night tokens', () => {
   it('keeps every text colour readable (4.5:1) on the arena and on canvas', () => {
@@ -34,5 +34,43 @@ describe('Fight Night tokens', () => {
 
   it('cuts at 18 degrees', () => {
     expect(cutDx(100)).toBeCloseTo(32.49, 1);
+  });
+
+  it('gives every world two emblems and never names one after a series', () => {
+    for (const t of THEMES) {
+      expect(EMBLEMS[t.id]).toHaveLength(2);
+      expect(EMBLEMS[t.id]!.map(e => e.id)).toContain(DEFAULT_EMBLEM[t.id]);
+    }
+    expect(Object.values(EMBLEMS).flat().map(e => e!.id).join(' ')).not.toMatch(/naruto/i);
+  });
+
+  it('resolves a saved emblem: default when unset, none when turned off, the replacement for an old id, the default for an unknown one', () => {
+    expect(emblemIdFor('shinobi', {})).toBe('seed-blaze-1');
+    expect(emblemIdFor('shinobi', undefined)).toBe('seed-blaze-1');
+    expect(emblemIdFor('shinobi', { shinobi: null })).toBeNull();
+    expect(emblemFor('shinobi', { shinobi: null })).toBeNull();
+    expect(emblemIdFor('shinobi', { shinobi: 'seed-blaze-2' })).toBe('seed-blaze-2');
+    expect(emblemIdFor('shinobi', { shinobi: 'seed-naruto-1' })).toBe('seed-blaze-1');
+    expect(emblemIdFor('shinobi', { shinobi: 'seed-naruto-2' })).toBe('seed-blaze-2');
+    expect(emblemIdFor('shinobi', { shinobi: 'something-gone' })).toBe('seed-blaze-1');
+    expect(emblemIdFor('cursed', { cursed: 'seed-cursed-2', shinobi: null })).toBe('seed-cursed-2');
+    expect(emblemFor('zero', { zero: 'seed-naruto-1' })?.id).toBe('seed-zero-1');
+  });
+
+  it('keeps medals and the warn colour apart from every accent, and readable', () => {
+    for (const acc of [...THEMES.map(t => t.acc), ...ACCENT_EXTRAS]) {
+      const m = medalColors(acc), warn = warnColor(acc);
+      // Bronze beside Blaze orange and gold in the gold world were the collisions; both now stand clear.
+      expect(colorDistance(m.bronze, acc)).toBeGreaterThanOrEqual(40);
+      expect(colorDistance(m.gold, acc)).toBeGreaterThanOrEqual(30);
+      expect(colorDistance(warn, acc)).toBeGreaterThanOrEqual(40);
+      expect(colorDistance(warn, F.rival)).toBeGreaterThanOrEqual(40);
+      for (const c of [m.bronze, m.silver, m.gold, warn]) expect(contrast(c, F.canvas)).toBeGreaterThanOrEqual(4.5);
+      expect(new Set([m.bronze, m.silver, m.gold]).size).toBe(3);
+    }
+    // Worlds that never collided keep the usual colours.
+    expect(medalColors('#9BE7F2')).toEqual({ bronze: F.bronze, silver: F.silver, gold: F.gold });
+    expect(warnColor('#9BE7F2')).toBe(C.warn);
+    expect(warnColor('not-a-colour')).toBe(C.warn);
   });
 });

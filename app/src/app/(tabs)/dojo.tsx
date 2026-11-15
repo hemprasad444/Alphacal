@@ -30,7 +30,7 @@ const LOG: { label: string; sub: string; go: () => void; hot?: boolean }[] = [
   { label: 'Walk', sub: 'distance', go: () => router.push({ pathname: '/log-training', params: { kind: 'walk' } }) },
   { label: 'Ride', sub: 'distance', go: () => router.push({ pathname: '/log-training', params: { kind: 'cycle' } }) },
   { label: 'Sport', sub: 'any activity', go: () => router.push({ pathname: '/log-training', params: { kind: 'sport' } }) },
-  { label: 'Gym', sub: 'sets · reps · kg', go: () => router.push({ pathname: '/session', params: { mode: 'free' } }) },
+  { label: 'Gym', sub: 'sets · reps', go: () => router.push({ pathname: '/session', params: { mode: 'free' } }) },
   { label: 'Tell REI', sub: 'just say it', go: () => router.push('/talk'), hot: true },
 ];
 
@@ -140,7 +140,7 @@ export default function Dojo() {
       {/* The weekly board as a ladder */}
       <SectionHeader title={`Week ${week} ladder`} meta="Full ladder" onMeta={() => router.push('/board')} style={{ marginTop: SP.xxl }} />
       <View style={{ marginTop: SP.md }}>
-        <BoardPreview you={g.weekXp} />
+        <BoardPreview you={g.weekXp} rank={g.rank.name} />
       </View>
 
       {/* Badges as special moves */}

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { LevelBars, readable } from '../components/corner';
 import { CutShape } from '../components/cut';
-import { RoundStamp, SectionHeader } from '../components/fight';
+import { RoundStamp, SectionHeader, useWarn } from '../components/fight';
 import { Icon } from '../components/icons';
 import { Screen, SubHeader } from '../components/Screen';
 import { Card, Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
@@ -22,6 +22,7 @@ const TONES: { id: Tone; title: string; sub: string; level: string }[] = [
 export default function ReiSettings() {
   const s = useStore();
   const { settings, accent } = s;
+  const warn = useWarn();
   const [playing, setPlaying] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const preview = useRef<{ stop: () => void } | null>(null);
@@ -117,7 +118,7 @@ export default function ReiSettings() {
         })}
       </View>
       <View accessibilityLiveRegion="polite">
-        <Txt size={13} w={500} lh={1.4} color={note ? C.warn : C.smoke} style={{ marginTop: SP.sm }}>{note || 'Tap a partner to hear them say hello; tap again to stop.'}</Txt>
+        <Txt size={13} w={500} lh={1.4} color={note ? warn : C.smoke} style={{ marginTop: SP.sm }}>{note || 'Tap a partner to hear them say hello; tap again to stop.'}</Txt>
       </View>
 
       <SectionHeader title="Conversation" style={{ marginTop: SP.huge }} />

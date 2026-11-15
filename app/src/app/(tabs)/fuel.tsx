@@ -6,7 +6,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Platform, TextInput, View } from 'react-native';
 import { CutBox } from '../../components/cut';
-import { CoachShout, CutButton, Meter, MeterBar, RoundStamp, SectionHeader } from '../../components/fight';
+import { CoachShout, CutButton, Meter, MeterBar, RoundStamp, SectionHeader, useWarn } from '../../components/fight';
 import { FoodSheet, MealSheet } from '../../components/FoodSheet';
 import { useNow } from '../../components/hooks';
 import { Icon } from '../../components/icons';
@@ -44,6 +44,9 @@ export default function Fuel() {
   const tag = energy === 'over' ? 'Over' : !meals.length ? 'Nothing yet' : pL > 0 && pL * 4 > kL * 0.6 ? 'Tight' : 'On track';
   const has = !!draft.trim() && !s.fuelBusy;
   const fmt = (v: number) => Math.round(v).toLocaleString('en-US');
+  const warn = useWarn();
+  // Shown by the time eaten, whatever order they were logged in (a breakfast added at night goes first).
+  const hits = meals.map((m, i) => ({ m, i })).sort((a, b) => a.m.time.localeCompare(b.m.time) || a.i - b.i);
   const started = parseIsoDate(s.startedOn);
   const round = started ? Math.max(1, daysBetween(started, now) + 1) : 1;
 
@@ -125,10 +128,10 @@ export default function Fuel() {
           return (
             <View key={m.label} style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
               <Txt face="label" w={600} size={13} ls={0.12} color={F.smoke} style={{ width: 62 }}>{m.label.toUpperCase()}</Txt>
-              <MeterBar pct={m.target ? m.eaten / m.target : 0} over={over} height={16} accessibilityLabel={`${m.label} ${fmt(m.eaten)} of ${fmt(m.target)} grams${over ? ', over' : ''}`} style={{ flex: 1, alignSelf: 'center' }} />
+              <MeterBar pct={m.target ? m.eaten / m.target : 0} over={over} overColor={F.rival} height={16} accessibilityLabel={`${m.label} ${fmt(m.eaten)} of ${fmt(m.target)} grams${over ? ', over' : ''}`} style={{ flex: 1, alignSelf: 'center' }} />
               <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', gap: 6, width: 98 }}>
                 <Txt face="display" size={22} lh={1.15}>{fmt(m.eaten)}</Txt>
-                <Txt face="label" size={14} color={over ? F.chalk : F.smoke} numberOfLines={1}>{over ? `/ ${fmt(m.target)} OVER` : `/ ${fmt(m.target)} g`}</Txt>
+                <Txt face="label" w={over ? 600 : 400} size={14} color={over ? F.rival : F.smoke} numberOfLines={1}>{over ? `/ ${fmt(m.target)} OVER` : `/ ${fmt(m.target)} g`}</Txt>
               </View>
             </View>
           );
@@ -189,7 +192,7 @@ export default function Fuel() {
         <CutButton label="Scan" tone="quiet" size="md" accessibilityLabel="Scan a barcode on packaged food" onPress={() => router.push('/scan')} style={{ flex: 1 }} />
         <CutButton label="Tell REI" tone="quiet" size="md" accessibilityLabel="Tell REI what you ate" onPress={() => router.push({ pathname: '/talk', params: { draft: 'I just ate ' } })} style={{ flex: 1 }} />
       </View>
-      {notice ? <Txt size={13} lh={1.4} color={C.warn} style={{ marginTop: SP.sm }}>{notice}</Txt> : null}
+      {notice ? <Txt size={13} lh={1.4} color={warn} style={{ marginTop: SP.sm }}>{notice}</Txt> : null}
 
       <SectionHeader title="Quick add" meta={favs.length || recent.length ? 'One tap' : 'Try one'} style={{ marginTop: SP.xxl }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm, marginTop: SP.md }}>
@@ -206,9 +209,9 @@ export default function Fuel() {
             <Txt size={14} lh={1.4} color={F.smoke}>Log your first meal for +10 XP.</Txt>
           </View>
         ) : null}
-        {meals.map((m, i) => {
+        {hits.map(({ m, i }) => {
           const est = m.items?.some(it => !it.food) || m.src === 'photo' || m.src === 'ai';
-          const rest = ([['C', m.c], ['F', m.f], ['FIBRE', m.n?.fib]] as const).filter(([, v]) => typeof v === 'number').map(([k, v]) => `${k} ${Math.round(v as number)}`);
+          const rest = ([['P', m.p], ['C', m.c], ['F', m.f], ['FIBRE', m.n?.fib]] as const).filter(([, v]) => typeof v === 'number').map(([k, v]) => `${k} ${Math.round(v as number)}`);
           return (
             <Tap key={m.id ?? `${m.time}-${i}`} haptic={false} onPress={() => setEditing(m)} accessibilityLabel={`${m.time}, ${m.name}, ${fmt(m.kcal)} kcal, protein ${Math.round(m.p)} grams${est ? ', estimated' : ''}. Edit`}>
               <View style={{ minHeight: HIT, backgroundColor: F.canvas, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingLeft: SP.md, paddingVertical: SP.sm }}>
@@ -220,9 +223,8 @@ export default function Fuel() {
                   ) : null}
                   {rest.length || est ? <Txt face="label" w={600} size={12} ls={0.08} color={F.smoke} numberOfLines={1}>{[...rest, ...(est ? ['EST'] : [])].join(' · ')}</Txt> : null}
                 </View>
-                <Txt face="label" w={600} size={14} ls={0.07} color={F.smoke}>{`P ${Math.round(m.p)}`}</Txt>
-                <Txt face="display" size={22} lh={1.15} color={accent} align="right" style={{ minWidth: 52 }}>{`+${fmt(m.kcal)}`}</Txt>
-                <Tap onPress={() => void s.removeMeal(m)} accessibilityLabel={`Delete ${m.name}`} style={{ width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
+                <Txt face="display" size={22} lh={1.15} color={accent} align="right">{`+${fmt(m.kcal)}`}</Txt>
+                <Tap onPress={() => void s.removeMeal(m)} accessibilityLabel={`Delete ${m.name}`} hitSlop={{ left: 8 }} style={{ width: 36, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name="close" size={16} color={F.smoke} tint={0} strokeWidth={2} />
                 </Tap>
               </View>

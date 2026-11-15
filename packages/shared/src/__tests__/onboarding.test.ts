@@ -154,7 +154,7 @@ describe('characters', () => {
 
   it('greets by name, cleaned up for speaking', () => {
     const allMight = characterOf('allmight');
-    expect(greeting(allMight, 'Hem')).toBe('Hey, Hem! Stand tall, because I am with you! From today, you and I go further than yesterday. Every day!');
+    expect(greeting(allMight, 'Hem')).toBe('Hey, Hem! Chin up, shoulders back! From today we lift a little more than yesterday. Every day!');
     expect(greeting(allMight, '  hem ')).toMatch(/^Hey, Hem!/);
     expect(greeting(allMight, '')).toMatch(/^Hey, friend!/);
     expect(greeting(allMight, null)).toMatch(/^Hey, friend!/);

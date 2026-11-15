@@ -1,10 +1,10 @@
 // The Vow: your title fight. The goal you made REI hold you to, the fight date (your deadline),
 // the tale of the tape (body and targets), your routine, and this week's card. Everything here is
 // editable; REI uses exactly what's written.
-import { benchmarks, DEFAULT_BESTS, isoDate, parseIsoDate, type ProfileKey, SESSIONS, trajectory, week, WEEK_PLAN, weekdayIndex } from '@rei/shared';
+import { type Benchmark, benchmarks, DEFAULT_BESTS, isoDate, parseIsoDate, type ProfileKey, SESSIONS, trajectory, week, WEEK_PLAN, weekdayIndex } from '@rei/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { TextInput, type TextInputProps, View } from 'react-native';
+import { Text, TextInput, type TextInputProps, View } from 'react-native';
 import { ConfirmSheet } from '../../components/ConfirmSheet';
 import { CutButton, MeterBar, MoveRow, RoundStamp, SectionHeader } from '../../components/fight';
 import { PageTitle } from '../../components/PageTitle';
@@ -28,6 +28,21 @@ const SHIFTS = [['− 1 WK', -7, 'one week earlier'], ['+ 1 WK', 7, 'one week la
 const DAY_NAMES = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 const fmtDate = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
+/**
+ * How far a benchmark has moved from where you started toward its goal, 0..1. (Its own `pct` is
+ * now ÷ goal, which draws a bench of 82.5 with a goal of 102.5 as 80% full on day one.)
+ * Times ("27:40") count in seconds, so a faster run fills the bar too.
+ */
+const climbed = (b: Benchmark): number => {
+  const n = (t: string) => {
+    const m = /^(\d+):(\d{2})(?::(\d{2}))?$/.exec(t.trim());
+    return m ? (m[3] ? +m[1] * 3600 + +m[2] * 60 + +m[3] : +m[1] * 60 + +m[2]) : parseFloat(t);
+  };
+  const start = n(b.start), now = n(b.now), goal = n(b.goal);
+  if (![start, now, goal].every(Number.isFinite) || goal === start) return 0;
+  return Math.max(0, Math.min(1, (now - start) / (goal - start)));
+};
+
 export default function Vow() {
   const s = useStore();
   const { profile, settings, accent } = s;
@@ -35,6 +50,10 @@ export default function Vow() {
   const deadline = parseIsoDate(profile.deadline) ?? new Date();
   const start = s.weighInsOrDemo?.[0]?.kg ?? traj.history[0] ?? traj.weight;
   const done = start === traj.target ? 1 : Math.max(0, Math.min(1, (start - traj.weight) / (start - traj.target)));
+  // The vow reads as text, all of it; tapping it swaps in the field to edit.
+  const [editingVow, setEditingVow] = useState(false);
+  const [vowHeight, setVowHeight] = useState(0);
+  const vowType = { fontFamily: fontFamily('body', 600), fontSize: 22 * settings.textSize, lineHeight: 22 * 1.3 * settings.textSize, color: C.chalk };
 
   const shift = (days: number) => {
     const d = new Date(deadline);
@@ -99,16 +118,25 @@ export default function Vow() {
 
       <SectionHeader title="The vow" meta="Sworn to REI" style={{ marginTop: SP.huge }} />
       <View style={{ marginTop: SP.md, backgroundColor: C.canvas, borderLeftWidth: 4, borderLeftColor: accent, padding: SP.lg, gap: SP.sm }}>
-        <ProfileInput
-          k="goal"
-          multiline
-          scrollEnabled={false}
-          keyboardAppearance="dark"
-          accessibilityLabel="Your vow"
-          placeholder="What are you going to become?"
-          placeholderTextColor={C.dim}
-          style={{ padding: 0, minHeight: HIT, fontFamily: fontFamily('body', 600), fontSize: 22 * settings.textSize, lineHeight: 22 * 1.3 * settings.textSize, color: C.chalk }}
-        />
+        {editingVow ? (
+          <ProfileInput
+            k="goal"
+            multiline
+            autoFocus
+            scrollEnabled={false}
+            keyboardAppearance="dark"
+            accessibilityLabel="Your vow"
+            placeholder="What are you going to become?"
+            placeholderTextColor={C.dim}
+            onContentSizeChange={e => setVowHeight(e.nativeEvent.contentSize.height)}
+            onDone={() => setEditingVow(false)}
+            style={[vowType, { padding: 0, minHeight: Math.max(HIT, vowHeight) }]}
+          />
+        ) : (
+          <Tap haptic={false} onPress={() => setEditingVow(true)} accessibilityLabel={profile.goal ? `Your vow: ${profile.goal}` : 'Your vow: not written yet'} accessibilityHint="Edit" style={{ minHeight: HIT, justifyContent: 'center' }}>
+            <Text allowFontScaling={false} style={[vowType, profile.goal ? null : { color: C.dim }]}>{profile.goal || 'What are you going to become?'}</Text>
+          </Tap>
+        )}
         <Txt face="label" w={600} size={12} ls={0.1} color={C.smoke}>TAP TO EDIT. REI HOLDS YOU TO EXACTLY THESE WORDS.</Txt>
       </View>
       <CutButton size="md" label="Rewrite with REI" onPress={() => router.push({ pathname: '/talk', params: { draft: 'Change my goal: ' } })} style={{ marginTop: SP.md }} />
@@ -173,7 +201,7 @@ export default function Vow() {
       <WeekPlan />
 
       <SectionHeader title="Benchmarks" meta="Log a lift ›" onMeta={() => router.push({ pathname: '/session', params: { mode: 'free' } })} style={{ marginTop: SP.huge }} />
-      <Txt size={13} w={500} lh={1.4} color={C.smoke} style={{ marginTop: SP.sm }}>Your best logged lift or run moves these. Chest press counts toward bench.</Txt>
+      <Txt size={13} w={500} lh={1.4} color={C.smoke} style={{ marginTop: SP.sm }}>Each bar runs from where you started to your goal. Your best logged lift or run moves it; chest press counts toward bench.</Txt>
       <View style={{ marginTop: SP.md, gap: SP.xs }}>
         {benchmarks(s.sessions, s.bests ?? DEFAULT_BESTS).map(b => (
           <View key={b.id} style={{ backgroundColor: C.canvas, padding: SP.md, gap: SP.sm }}>
@@ -184,9 +212,9 @@ export default function Vow() {
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: SP.sm }}>
               <Txt face="display" size={28} lh={1.15} color={b.logged ? accent : C.chalk}>{b.now}</Txt>
-              <Txt face="label" w={600} size={12} ls={0.1} color={C.smoke} numberOfLines={1} style={{ flexShrink: 1 }}>{`GOAL ${b.goal.toUpperCase()} · START ${b.start}`}</Txt>
+              <Txt face="label" w={600} size={12} ls={0.1} color={C.smoke} numberOfLines={1} style={{ flexShrink: 1 }}>{`START ${b.start} · GOAL ${b.goal.toUpperCase()}`}</Txt>
             </View>
-            <MeterBar pct={b.pct} height={8} accessibilityLabel={`${b.name}: ${b.now}, goal ${b.goal}`} />
+            <MeterBar pct={climbed(b)} height={8} accessibilityLabel={`${b.name}: ${b.now}, goal ${b.goal}, ${Math.round(climbed(b) * 100)} percent of the way from your start`} />
             {b.from ? <Txt face="label" w={600} size={12} ls={0.08} color={C.smoke}>{`FROM ${b.from.toUpperCase()}`}</Txt> : null}
           </View>
         ))}
@@ -199,7 +227,7 @@ export default function Vow() {
  * A Vow field as it's typed: the text stays as typed, but only a valid value is saved (no empty
  * calories or "18:" times). Left half-typed, it goes back to the last saved value.
  */
-function ProfileInput({ k, ...props }: { k: ProfileKey } & Omit<TextInputProps, 'value' | 'onChangeText' | 'onBlur'>) {
+function ProfileInput({ k, onDone, ...props }: { k: ProfileKey; /** Called when the field is left. */ onDone?: () => void } & Omit<TextInputProps, 'value' | 'onChangeText' | 'onBlur'>) {
   const saved = useStore(s => s.profile[k]);
   const setField = useStore(s => s.setProfileField);
   const [draft, setDraft] = useState<string | null>(null);
@@ -211,7 +239,10 @@ function ProfileInput({ k, ...props }: { k: ProfileKey } & Omit<TextInputProps, 
         setDraft(v);
         setField(k, v);
       }}
-      onBlur={() => setDraft(null)}
+      onBlur={() => {
+        setDraft(null);
+        onDone?.();
+      }}
     />
   );
 }

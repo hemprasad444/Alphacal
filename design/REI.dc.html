@@ -822,11 +822,11 @@ class Component extends DCLogic {
     { id: 'slayer', name: 'Demon Slayer', kanji: '刃', vibe: 'Water teal · flame crimson', acc: '#2FC4A5', acc2: '#E0303F', bg: '#070506', motto: '刃を研げ · 夜明けまで' },
   ];
   accent() { const s = this.state.settings || {}, th = this.theme(); return s.accent ?? (s.theme ? th.acc : (this.props.accent ?? th.acc)); }
-  SEED_EMBLEMS = { shinobi: [{ id: 'seed-naruto-1', url: './assets/emblem-naruto-1.png' }, { id: 'seed-naruto-2', url: './assets/emblem-naruto-2.png?v=2' }] };
+  SEED_EMBLEMS = { shinobi: [{ id: 'seed-blaze-1', url: './assets/emblem-blaze-1.png' }, { id: 'seed-blaze-2', url: './assets/emblem-blaze-2.png?v=2' }] };
   fileRef = React.createRef();
   emblemItems() { return this.SEED_EMBLEMS[this.theme().id] || []; }
   emblemUrl() { const id = this.bgSel(); if (!id) return ''; const it = this.emblemItems().find(x => x.id === id); return it ? it.url : ''; }
-  bgSel() { const m = (this.state.settings || {}).bgByTheme || {}, id = this.theme().id; return id in m ? m[id] : (id === 'shinobi' ? 'seed-naruto-1' : null); }
+  bgSel() { const m = (this.state.settings || {}).bgByTheme || {}, id = this.theme().id; return id in m ? m[id] : (id === 'shinobi' ? 'seed-blaze-1' : null); }
   setBg(id) { const m = { ...((this.state.settings || {}).bgByTheme || {}), [this.theme().id]: id }; this.setOpt('bgByTheme', m); }
   theme() { return this.THEMES.find(t => t.id === this.opt('theme', 'zero')) || this.THEMES[0]; }
   HISTORY = [86.0, 85.4, 85.1, 84.3, 84.0, 83.6, 83.1, 82.7, 82.2, 81.9, 81.4];

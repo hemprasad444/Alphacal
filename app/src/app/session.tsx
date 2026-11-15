@@ -6,14 +6,14 @@
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Modal, ScrollView, TextInput, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { CutBox, CutShape } from '../components/cut';
-import { Chip, Field, QuietButton } from '../components/dojo';
+import { Chip, Field, QuietButton, StatStrip } from '../components/dojo';
 import { ExerciseSheet } from '../components/ExerciseSheet';
-import { CutButton, MeterBar, MoveRow, RoundStamp, SectionHeader } from '../components/fight';
+import { CutButton, MeterBar, MoveRow, RoundStamp, SectionHeader, useTierColors } from '../components/fight';
 import { Icon } from '../components/icons';
 import { IconButton, Tap, Txt } from '../components/ui';
 import {
@@ -38,9 +38,27 @@ interface Row {
   done: boolean[];
 }
 
+/** The fight as it ended, frozen when you finish: what the ROUND WON card shows. */
+interface Summary {
+  title: string;
+  seconds: number;
+  done: number;
+  total: number;
+  xp: number;
+  /** Kilograms moved (weight × reps over the sets that landed). */
+  volume: number;
+  reps: number;
+  /** Lifts that beat their best, with the set that did it. */
+  prs: { name: string; set: string }[];
+}
+
+/** Leave the workout: back where you came from, or to the Dojo when there's nowhere to go back to (opened by link, or after a reload). */
+const leave = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/dojo'));
+
 export default function Session() {
   const s = useStore();
   const { accent } = s;
+  const gold = useTierColors().gold;
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ mode?: string }>();
   const free = params.mode === 'free';
@@ -65,12 +83,13 @@ export default function Session() {
   /** The exercise the picker is asking to remove (it has ticked sets). */
   const [asking, setAsking] = useState<{ name: string; ticked: number } | null>(null);
   const restDone = useRef(false);
+  const [summary, setSummary] = useState<Summary | null>(null);
 
   useEffect(() => {
-    if (phase !== 'live') return;
+    if (phase !== 'live' || summary) return;
     const t = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(t);
-  }, [phase]);
+  }, [phase, summary]);
 
   const start = () => {
     const t = stamp();
@@ -166,8 +185,16 @@ export default function Session() {
     if (!done || finished.current) return;
     finished.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    s.finishSession(done, total, elapsed, setLogs, free ? titleFor(exercises) : plan.title);
-    router.back();
+    const name = free ? titleFor(exercises) : plan.title;
+    // Worked out before saving: once this workout is in the log, its own sets are the records.
+    const prs = exercises.flatMap((e, i) => {
+      const beat = rows[i].done.map((_, j) => j).filter(j => isPr(i, j)).sort((a, b) => (e1rm(rows[i].kg[b], rows[i].reps[b]) ?? 0) - (e1rm(rows[i].kg[a], rows[i].reps[a]) ?? 0));
+      return beat.length ? [{ name: e.name, set: `${rows[i].kg[beat[0]]} × ${rows[i].reps[beat[0]]}` }] : [];
+    });
+    const landed = rows.flatMap(r => r.done.map((v, j) => (v ? { reps: r.reps[j], kg: r.kg[j] ?? 0 } : null))).filter(x => x !== null);
+    setSummary({ title: name, seconds: elapsed, done, total, xp, volume: landed.reduce((a, x) => a + x.kg * x.reps, 0), reps: landed.reduce((a, x) => a + x.reps, 0), prs });
+    setRest(null);
+    s.finishSession(done, total, elapsed, setLogs, name);
   };
 
   /** A done set that beats this lift's best estimated max. */
@@ -188,7 +215,7 @@ export default function Session() {
       {/* The HUD: which fight, which round, the clock and the hits landed */}
       <View style={{ paddingTop: insets.top + 6, paddingHorizontal: SP.lg, paddingBottom: SP.md, gap: SP.sm, borderBottomWidth: 2, borderBottomColor: F.rope }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
-          <IconButton size={HIT} onPress={() => router.back()} accessibilityLabel="Close workout">
+          <IconButton size={HIT} onPress={leave} accessibilityLabel="Close workout">
             <Icon name="close" size={20} color={F.chalk} tint={0} strokeWidth={2} />
           </IconButton>
           <View accessibilityRole="header" style={{ flex: 1 }}>
@@ -227,7 +254,14 @@ export default function Session() {
         </View>
 
         <MeterBar pct={total ? done / total : 0} segments={total > 1 && total <= 24 ? total : undefined} height={16} accessibilityLabel={`${done} of ${total} sets done`} />
-        {live && !free ? <Txt size={14} w={500} lh={1.4} color={F.smoke}>{sessionLine(total ? done / total : 0, plan)}</Txt> : null}
+        {/* REI's line always has its two lines of room, so a longer or shorter one never moves the set rows under your thumb. */}
+        {!free ? (
+          <View accessibilityLiveRegion="polite" style={{ height: 2 * 14 * 1.4 * s.settings.textSize, justifyContent: 'center' }}>
+            <Txt size={14} w={500} lh={1.4} color={F.smoke} numberOfLines={2}>
+              {live ? sessionLine(total ? done / total : 0, plan) : phase === 'past' ? 'Tick the sets you did and set how long it took.' : exercises.length ? 'Start the clock, or just tick your first set: that starts it too.' : 'Use today’s plan, or build your own below.'}
+            </Txt>
+          </View>
+        ) : null}
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: SP.lg, paddingHorizontal: SP.lg, paddingBottom: SP.xxl, gap: SP.lg }} keyboardShouldPersistTaps="handled">
@@ -235,7 +269,7 @@ export default function Session() {
           <TodayPlan plan={today} next={next} byRei={!!s.program} onUse={usePlan} onBuild={() => setAdding(true)} />
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
-            <Txt face="label" w={400} size={12} ls={0.1} lh={1.3} color={F.smoke} style={{ flex: 1 }}>TAP THE TICK WHEN A SET LANDS · TAP NUMBERS TO CHANGE · TAP A NAME FOR FORM TIPS</Txt>
+            <Txt face="label" w={400} size={12} ls={0.1} lh={1.3} color={F.smoke} style={{ flex: 1 }}>TAP THE BOX WHEN A SET LANDS · TAP NUMBERS TO CHANGE · TAP A NAME FOR FORM TIPS</Txt>
             <QuietButton lit icon="rei" label="Ask REI" accessibilityLabel="Ask REI to change today's workout" onPress={() => router.push({ pathname: '/talk', params: { draft: 'Change today’s workout: ' } })} />
           </View>
         )}
@@ -251,7 +285,7 @@ export default function Session() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
                     <Txt face="labelItalic" w={600} size={12} ls={0.14} color={i + 1 === round && !won ? accent : F.smoke}>{`ROUND ${i + 1}`}</Txt>
                     <View style={{ flexDirection: 'row', gap: 3 }}>
-                      {r.done.slice(0, 10).map((v, j) => <CutShape key={j} width={9} height={12} fill={v ? (isPr(i, j) ? F.gold : F.chalk) : F.rope} />)}
+                      {r.done.slice(0, 10).map((v, j) => <CutShape key={j} width={9} height={12} fill={v ? (isPr(i, j) ? gold : F.chalk) : F.rope} />)}
                     </View>
                   </View>
                   <Txt size={17} w={600} lh={1.25} numberOfLines={1}>{ex.name}</Txt>
@@ -264,11 +298,11 @@ export default function Session() {
               </View>
 
               <View style={{ gap: SP.xs, paddingRight: SP.xs }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm, paddingHorizontal: 6 }}>
-                  <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} style={{ width: 30 }}>SET</Txt>
-                  <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} align="center" style={{ flex: 1.15 }}>WEIGHT · KG</Txt>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: SET_GAP, paddingHorizontal: 6 }}>
+                  <Txt face="label" w={600} size={12} ls={0.08} color={F.smoke} style={{ width: SET_TAG }}>SET</Txt>
+                  <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} align="center" style={{ flex: 1.2 }}>WEIGHT · KG</Txt>
                   <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} align="center" style={{ flex: 1 }}>REPS</Txt>
-                  <View style={{ width: 52 }} />
+                  <Txt face="label" w={600} size={12} ls={0.08} color={F.smoke} align="center" style={{ width: SET_TICK }}>LANDED</Txt>
                 </View>
                 {r.reps.map((reps, j) => (
                   <SetRow
@@ -279,6 +313,7 @@ export default function Session() {
                     done={r.done[j]}
                     pr={isPr(i, j)}
                     acc={accent}
+                    gold={gold}
                     onKg={v => update(i, x => ({ ...x, kg: x.kg.map((k, b) => (b === j ? v : k)) }))}
                     onReps={v => update(i, x => ({ ...x, reps: x.reps.map((k, b) => (b === j ? v : k)) }))}
                     onToggle={() => toggle(i, j)}
@@ -341,27 +376,87 @@ export default function Session() {
         />
       </AddExercise>
       <ExerciseSheet name={info === null ? null : exercises[info]?.name ?? null} onClose={() => setInfo(null)} onSwap={to => info !== null && swap(info, to)} />
+      {summary ? <RoundWon sum={summary} gold={gold} onLeave={leave} /> : null}
     </View>
   );
 }
 
-/** One set: weight and reps you can step or type, and the hit button. Bodyweight shows BW until a load is added. */
-function SetRow({ n, kg, reps, done, pr, acc, onKg, onReps, onToggle }: { n: number; kg: number | null; reps: number; done: boolean; pr: boolean; acc: string; onKg: (v: number | null) => void; onReps: (v: number) => void; onToggle: () => void }) {
-  const lit = pr ? F.gold : acc;
+const big = (n: number) => Math.round(n).toLocaleString('en-US');
+
+/** The payoff: the fight card once the workout is saved. Time, hits, volume, records and the XP it earned, then one way out. */
+function RoundWon({ sum, gold, onLeave }: { sum: Summary; gold: string; onLeave: () => void }) {
+  const accent = useStore(s => s.accent);
+  const insets = useSafeAreaInsets();
+  const clean = sum.done === sum.total;
+  const stats = [
+    { k: 'Time', v: clock(sum.seconds) },
+    { k: 'Hits landed', v: `${sum.done}/${sum.total}` },
+    sum.volume > 0 ? { k: 'Volume', v: sum.volume >= 10000 ? `${(sum.volume / 1000).toFixed(1)} t` : `${big(sum.volume)} kg` } : { k: 'Reps', v: big(sum.reps) },
+    { k: 'PRs', v: String(sum.prs.length), hot: sum.prs.length > 0 },
+  ];
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm, padding: 4, borderWidth: 2, borderColor: done ? lit : F.rope, backgroundColor: done ? F.canvas2 : F.arena }}>
-      <View accessible accessibilityLabel={pr ? `Set ${n}, personal record` : `Set ${n}`} style={{ width: 30, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-        <CutShape width={30} height={24} fill={done ? lit : F.canvas2} style={{ position: 'absolute', left: 0, top: 0 }} />
-        <Txt face="label" w={600} size={pr ? 12 : 14} color={done ? onColor(lit) : F.smoke}>{pr ? 'PR' : String(n)}</Txt>
-      </View>
-      <Stepper flex={1.15} what={`Set ${n} weight`} value={kg} step={2.5} min={0} decimals onChange={v => onKg(v === 0 ? null : v)} empty="BW" />
-      <Stepper flex={1} what={`Set ${n} reps`} value={reps} step={1} min={1} onChange={v => onReps(Math.max(1, Math.round(v ?? 1)))} />
-      <Tap haptic={false} onPress={onToggle} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`Set ${n} done`} style={{ width: 52, height: HIT }}>
-        <CutBox fill={done ? lit : F.arena} stroke={done ? undefined : acc} style={{ width: 52, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
-          {/* In a View so it stacks above the cut shape on the web too. */}
-          <View>
-            <Icon name="check" size={22} color={done ? onColor(lit) : acc} tint={0} strokeWidth={2.6} />
+    <View accessibilityViewIsModal style={[StyleSheet.absoluteFill, { backgroundColor: F.arena }]}>
+      <Backdrop glow="bottom" />
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingTop: insets.top + SP.xl, paddingHorizontal: SP.lg, paddingBottom: SP.xl, gap: SP.xl }}>
+        <View style={{ alignItems: 'flex-start', gap: SP.sm }}>
+          <RoundStamp label={sum.title} tone="outline" size="sm" />
+          <View accessibilityRole="header" accessibilityLiveRegion="polite">
+            <Txt face="display" size={68} lh={1.05} color={accent} fit>ROUND WON</Txt>
           </View>
+          <Txt size={15} w={500} lh={1.4} color={F.smoke}>{clean ? 'Every set landed. Eat, then sleep: that’s where it turns into muscle.' : `${sum.done} of ${sum.total} sets landed. Every one of them counts.`}</Txt>
+        </View>
+
+        <View style={{ gap: SP.sm }}>
+          <View accessible accessibilityLabel={`${sum.xp} XP earned`} style={{ flexDirection: 'row', alignItems: 'baseline', gap: SP.md }}>
+            <Txt face="display" size={72} lh={1.08}>{`+${big(sum.xp)}`}</Txt>
+            <Txt face="labelItalic" w={600} size={16} ls={0.12} color={F.smoke}>XP EARNED</Txt>
+          </View>
+          <MeterBar pct={sum.total ? sum.done / sum.total : 0} segments={sum.total > 1 && sum.total <= 24 ? sum.total : undefined} height={16} accessibilityLabel={`${sum.done} of ${sum.total} sets landed`} />
+        </View>
+
+        <StatStrip items={stats} />
+
+        {sum.prs.length ? (
+          <View style={{ gap: SP.md }}>
+            <SectionHeader title="New records" meta={`${sum.prs.length}`} accent={gold} />
+            <View style={{ gap: SP.xs }}>
+              {sum.prs.map(p => <MoveRow key={p.name} name={p.name} value={p.set} accent={gold} style={{ borderLeftWidth: 4, borderLeftColor: gold }} />)}
+            </View>
+          </View>
+        ) : null}
+      </ScrollView>
+      <View style={{ paddingTop: SP.md, paddingHorizontal: SP.lg, paddingBottom: Math.max(insets.bottom, SP.lg), borderTopWidth: 2, borderTopColor: F.rope, backgroundColor: F.arena }}>
+        <CutButton icon="check" label="Leave the ring" meta="Saved" accessibilityLabel="Leave the workout. It is saved" onPress={onLeave} />
+      </View>
+    </View>
+  );
+}
+
+// Widths of the set row's fixed columns: the set number, the gaps and the landed box.
+const SET_TAG = 24, SET_GAP = 6, SET_TICK = 48;
+/** A stepper button is drawn 40pt wide; slop on its outer side makes the target 44. */
+const STEP_W = 40, STEP_SLOP = HIT - STEP_W;
+
+/** One set: weight and reps you can step or type, and the hit button. Bodyweight shows BW until a load is added. */
+function SetRow({ n, kg, reps, done, pr, acc, gold, onKg, onReps, onToggle }: { n: number; kg: number | null; reps: number; done: boolean; pr: boolean; acc: string; gold: string; onKg: (v: number | null) => void; onReps: (v: number) => void; onToggle: () => void }) {
+  const lit = pr ? gold : acc;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: SET_GAP, padding: 4, borderWidth: 2, borderColor: done ? lit : F.rope, backgroundColor: done ? F.canvas2 : F.arena }}>
+      <View accessible accessibilityLabel={pr ? `Set ${n}, personal record` : `Set ${n}`} style={{ width: SET_TAG, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+        <CutShape width={SET_TAG} height={24} fill={done ? lit : F.canvas2} style={{ position: 'absolute', left: 0, top: 0 }} />
+        <Txt face="label" w={600} size={pr ? 11 : 14} color={done ? onColor(lit) : F.smoke}>{pr ? 'PR' : String(n)}</Txt>
+      </View>
+      <Stepper flex={1.2} what={`Set ${n} weight`} value={kg} step={2.5} min={0} decimals onChange={v => onKg(v === 0 ? null : v)} empty="BW" />
+      <Stepper flex={1} what={`Set ${n} reps`} value={reps} step={1} min={1} onChange={v => onReps(Math.max(1, Math.round(v ?? 1)))} />
+      {/* Still to land: an empty box, quiet. Landed: filled in your colour (gold for a record) with the tick. Never a tick on an open set. */}
+      <Tap haptic={false} onPress={onToggle} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`Set ${n} done`} style={{ width: SET_TICK, height: HIT }}>
+        <CutBox fill={done ? lit : F.arena} stroke={done ? undefined : F.smoke} style={{ width: SET_TICK, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
+          {/* In a View so it stacks above the cut shape on the web too. */}
+          {done ? (
+            <View>
+              <Icon name="check" size={22} color={onColor(lit)} tint={0} strokeWidth={2.6} />
+            </View>
+          ) : null}
         </CutBox>
       </Tap>
     </View>
@@ -379,10 +474,10 @@ function Stepper({ value, step, min, onChange, empty, decimals, flex, what }: { 
     setText(null);
     onChange(v);
   };
-  const btn = { width: 32, height: HIT, alignItems: 'center' as const, justifyContent: 'center' as const };
+  const btn = { width: STEP_W, height: HIT, alignItems: 'center' as const, justifyContent: 'center' as const };
   return (
     <View style={{ flex, flexDirection: 'row', alignItems: 'center', backgroundColor: F.canvas2 }}>
-      <Tap haptic={false} onPress={() => bump(-step)} accessibilityLabel={`${what}: ${step} less`} style={btn}>
+      <Tap haptic={false} onPress={() => bump(-step)} accessibilityLabel={`${what}: ${step} less`} hitSlop={{ left: STEP_SLOP }} style={btn}>
         <Txt size={20} w={600} color={F.smoke}>−</Txt>
       </Tap>
       <TextInput
@@ -400,9 +495,9 @@ function Stepper({ value, step, min, onChange, empty, decimals, flex, what }: { 
         keyboardType={decimals ? 'decimal-pad' : 'number-pad'}
         keyboardAppearance="dark"
         selectTextOnFocus
-        style={{ flex: 1, minWidth: 0, height: HIT, padding: 0, textAlign: 'center', fontFamily: fontFamily('display', 400), fontSize: 20 * s.settings.textSize, color: F.chalk }}
+        style={{ flex: 1, minWidth: 0, height: HIT, padding: 0, textAlign: 'center', fontFamily: fontFamily('display', 400), fontSize: 18 * s.settings.textSize, color: F.chalk }}
       />
-      <Tap haptic={false} onPress={() => bump(step)} accessibilityLabel={`${what}: ${step} more`} style={btn}>
+      <Tap haptic={false} onPress={() => bump(step)} accessibilityLabel={`${what}: ${step} more`} hitSlop={{ right: STEP_SLOP }} style={btn}>
         <Txt size={20} w={600} color={F.smoke}>+</Txt>
       </Tap>
     </View>

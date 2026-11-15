@@ -9,7 +9,7 @@ import { Platform, ScrollView, View } from 'react-native';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { CutShape } from '../components/cut';
 import { BadgeGrid, Field, QuietButton } from '../components/dojo';
-import { Combo, CutButton, RoundStamp, SectionHeader } from '../components/fight';
+import { Combo, CutButton, RoundStamp, SectionHeader, useWarn } from '../components/fight';
 import { Sheet } from '../components/FoodSheet';
 import { LineChart } from '../components/LineChart';
 import { Screen, SubHeader } from '../components/Screen';
@@ -37,6 +37,10 @@ export default function Progress() {
   const [open, setOpen] = useState<Measure | null>(null);
   const [badge, setBadge] = useState<string | null>(null);
   const { earned, locked } = g;
+  // The latest few you've landed, then the three you're closest to. The Badges page has them all.
+  const landed = [...earned].sort((a, b) => (a.earned! < b.earned! ? 1 : -1)).slice(0, 5);
+  const closest = [...locked].sort((a, b) => b.progress - a.progress).slice(0, 3);
+  const allMoves = earned.length + locked.length;
 
   return (
     <Screen tabs={false}>
@@ -54,8 +58,10 @@ export default function Progress() {
         ))}
       </View>
 
-      <SectionHeader title="Special moves" meta={`${earned.length} / ${earned.length + locked.length}`} onMeta={() => router.push('/badges')} style={{ marginTop: SP.xxl }} />
-      <BadgeGrid badges={[...earned, ...locked]} open={badge} onOpen={setBadge} style={{ marginTop: SP.md }} />
+      <SectionHeader title="Special moves" meta={`${earned.length} of ${allMoves} unlocked`} onMeta={() => router.push('/badges')} style={{ marginTop: SP.xxl }} />
+      <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} style={{ marginTop: SP.md }}>{earned.length ? `${earned.length > landed.length ? 'LATEST ' : ''}LANDED · NEXT ${closest.length} CLOSEST` : `YOUR ${closest.length} CLOSEST`}</Txt>
+      <BadgeGrid badges={[...landed, ...closest]} open={badge} onOpen={setBadge} style={{ marginTop: SP.md }} />
+      <QuietButton label={`All ${allMoves} special moves`} accessibilityLabel={`See all ${allMoves} special moves`} onPress={() => router.push('/badges')} style={{ marginTop: SP.lg }} />
 
       <SectionHeader title="Body · cm" meta="+ Log" onMeta={() => setMeasuring(true)} style={{ marginTop: SP.xxl }} />
       <View style={{ marginTop: SP.md, gap: SP.xs }}>
@@ -86,6 +92,7 @@ export default function Progress() {
 
 function ReportCard() {
   const s = useStore();
+  const warn = useWarn();
   const [busy, setBusy] = useState(false);
   const [fresh, setFresh] = useState<WeeklyReport | null>(null);
   const week = isoWeek();
@@ -125,7 +132,7 @@ function ReportCard() {
                   <Txt size={14} w={500} lh={1.4} style={{ flex: 1 }}>{w}</Txt>
                 </View>
               ))}
-              {line('FIX', report.fix, C.warn)}
+              {line('FIX', report.fix, warn)}
               {line('NEXT', report.focus, s.accent)}
             </View>
             <View style={{ flexDirection: 'row', gap: SP.sm, flexWrap: 'wrap' }}>

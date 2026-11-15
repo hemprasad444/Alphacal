@@ -7,7 +7,7 @@ import { RoundStamp, SectionHeader } from '../components/fight';
 import { Icon } from '../components/icons';
 import { Screen, SubHeader } from '../components/Screen';
 import { Card, Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
-import { ACCENT_EXTRAS, C, DEFAULT_EMBLEM, EMBLEMS, hard, HIT, onColor, SHADOW, SP, THEMES } from '../lib/theme';
+import { ACCENT_EXTRAS, C, emblemIdFor, EMBLEMS, hard, HIT, onColor, SHADOW, SP, THEMES } from '../lib/theme';
 import { useStore } from '../state/store';
 
 const TEXT_SIZES: [number, string, number][] = [[0.82, 'Smallest', 12], [0.9, 'Small', 14], [1, 'Default', 16], [1.08, 'Large', 18]];
@@ -16,7 +16,7 @@ export default function Appearance() {
   const s = useStore();
   const { settings, theme, accent } = s;
   const emblems = EMBLEMS[theme.id] ?? [];
-  const selected = theme.id in settings.bgByTheme ? settings.bgByTheme[theme.id] : DEFAULT_EMBLEM[theme.id] ?? null;
+  const selected = emblemIdFor(theme.id, settings.bgByTheme);
   const accents = [theme.acc, ...ACCENT_EXTRAS].filter((c, i, a) => a.indexOf(c) === i);
 
   return (
