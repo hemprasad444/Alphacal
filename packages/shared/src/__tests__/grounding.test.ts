@@ -5,6 +5,7 @@ import { reiContext } from '../context';
 import { DEFAULT_DISCIPLINES, DEFAULT_PROFILE } from '../data';
 import { catalog, itemFor } from '../food';
 import { mentionsEating, shouldLogMeal } from '../mealGuard';
+import { reportDates, reportPrompt, type WeekStats } from '../progress';
 import { GROUNDING, systemRules } from '../rei';
 import { clockFromWords, dateFromWords, vowFromText } from '../vowText';
 import { durationSaid, groundWorkout, type Workout } from '../workout';
@@ -78,6 +79,23 @@ describe('what was eaten', () => {
     expect(shouldLogMeal('ate out, about 800 calories', { ...tikka, name: 'Meal out', kcal: 800 }, [], '14:05', false).ok).toBe(true);
     expect(shouldLogMeal('had my usual breakfast', { ...tikka, name: 'Usual breakfast' }, [], '08:05', false).ok).toBe(true);
     expect(shouldLogMeal('anda khaya', { ...tikka, name: 'Boiled egg' }, [], '08:05', true).ok).toBe(true);
+    // "Same as yesterday" points at a meal; "yesterday" in a question does not.
+    expect(shouldLogMeal('had the same as yesterday', { ...tikka, name: 'Masala dosa' }, [], '08:05', false).ok).toBe(true);
+  });
+  it('is not logged from a question about food', () => {
+    const day: Meal = { time: '14:05', name: "Yesterday's meals", kcal: 820, p: 29, c: 91, f: 38 };
+    for (const text of ['what did I eat yesterday?', 'what did i eat yesterday', 'should I eat rice tonight?', 'can I have pizza', 'did I eat enough today?', 'kya khau ab', 'क्या खाऊँ?', 'how many calories did my lunch have?']) {
+      expect(shouldLogMeal(text, day, [], '14:05').ok).toBe(false);
+    }
+    expect(shouldLogMeal('what did I eat yesterday?', day, [], '14:05')).toEqual({ ok: false, why: 'a question' });
+    // A statement that they ate, with or without a question after it, still logs.
+    const eggs: Meal = { time: '14:05', name: '2 boiled eggs', kcal: 156, p: 13, c: 1, f: 11 };
+    expect(shouldLogMeal('had 2 boiled eggs, is that ok?', eggs, [], '14:05').ok).toBe(true);
+    expect(shouldLogMeal('what a day, had 2 boiled eggs', eggs, [], '14:05').ok).toBe(true);
+    expect(shouldLogMeal('is that fine? I ate 2 boiled eggs', eggs, [], '14:05').ok).toBe(true);
+  });
+  it('keeps the old behaviour for a caller that does not say whether a food was named', () => {
+    const tikka: Meal = { time: '14:05', name: 'Chicken tikka snack', kcal: 270, p: 45, c: 6, f: 9 };
     // A caller that doesn't know (a live call) keeps the old behaviour.
     expect(shouldLogMeal('log my snack please', tikka, [], '14:05').ok).toBe(true);
   });
@@ -180,6 +198,18 @@ describe('a plain request to change a target', () => {
   it('reads a clock time only when it can be read one way', () => {
     expect([clockFromWords('10:30 pm'), clockFromWords('11pm'), clockFromWords('12 am'), clockFromWords('22:30'), clockFromWords('06:30')]).toEqual(['22:30', '23:00', '00:00', '22:30', '06:30']);
     expect([clockFromWords('7'), clockFromWords('7:30'), clockFromWords('25:00'), clockFromWords('soon')]).toEqual([null, null, null, null]);
+  });
+});
+
+describe('the weekly report', () => {
+  const stats = (to: string, end: number | null) => ({ week: '2026-W46', from: '2026-11-09', to, weight: { start: 84, end, change: null } }) as unknown as WeekStats;
+  it('is given the days to the deadline and the weight to go, worked out', () => {
+    expect(reportDates(stats('2026-11-15', 83.2), { ...DEFAULT_PROFILE, deadline: '2026-12-31', targetWeight: '76.5' })).toBe("\nFrom 2026-11-15 the deadline is 46 days away (6 full weeks). 6.7 kg above the target weight. (Computed: use these, don't recalculate.)");
+    expect(reportDates(stats('2026-11-15', null), { ...DEFAULT_PROFILE, deadline: '2026-11-10', targetWeight: '76.5' })).toContain('The deadline passed 5 days before 2026-11-15.');
+    expect(reportDates(stats('2026-11-15', 76.5), { ...DEFAULT_PROFILE, deadline: 'someday', targetWeight: '76.5' })).toContain('They are at the target weight.');
+    expect(reportDates(stats('2026-11-15', null), { ...DEFAULT_PROFILE, deadline: 'someday' })).toBe('');
+    const { user } = reportPrompt({ ...stats('2026-11-15', 83.2), sessions: { done: 3, planned: 4, target: 5 }, prs: [], food: { daysLogged: 5, avgKcal: 2000, avgProtein: 140, proteinDays: 3, overDays: 1, kcalTarget: 2100, proteinTarget: 150 }, steps: null, sleepH: null, runs: { count: 0, km: 0, best: null }, activities: { count: 0, minutes: 0, kcal: 0 } } as WeekStats, { ...DEFAULT_PROFILE, deadline: '2026-12-31' }, true);
+    expect(user).toContain('the deadline is 46 days away');
   });
 });
 

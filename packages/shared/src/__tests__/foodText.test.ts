@@ -129,6 +129,10 @@ describe('foods REI names itself', () => {
     expect(foodByName('roti', cat)?.id).toBe('d:roti');
     expect(foodByName('Paneer butter masala', cat)?.id).toBe('d:paneer-butter-masala');
     expect(foodByName('mom’s special pulao', cat)).toBeNull();
+    // The way a model words them: the describing word first, or extra ones that change nothing.
+    const named = (n: string) => foodByName(n, cat)?.id;
+    expect(['cooked rice', 'steamed rice', 'plain roti', 'whole wheat roti', 'homemade dal', 'a bowl of dal', 'boiled egg', 'grilled chicken breast', 'plain dosa', 'sweet lassi', 'Chapati'].map(named))
+      .toEqual(['d:rice', 'd:rice', 'd:roti', 'd:roti', 'd:dal', 'd:dal', 'd:boiled-egg', 'd:grilled-chicken', 'd:dosa', 'd:lassi', 'd:roti']);
     const [roti, dal] = resolveAiItems([ai('Roti', 2, 'piece', 200), ai('dal', 1, 'katori', 180)], cat);
     expect([roti.food, roti.kcal, roti.unit]).toEqual(['d:roti', 220, 'roti']);
     expect([dal.food, dal.kcal]).toEqual(['d:dal', 150]);

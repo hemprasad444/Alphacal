@@ -74,12 +74,28 @@ interface Case {
   judge: (g: Got) => string | null;
 }
 
+/** "1,360", "1 360" and "twenty‑five" (a non-breaking hyphen) read as 1360 and twenty-five. */
+const plain = (t: string) => t.replace(/[\u2010-\u2015]/g, '-').replace(/(\d)[\s\u00a0\u202f\u2009,](?=\d{3}\b)/g, '$1');
 const DEVANAGARI = /[ऀ-ॿ]/, TELUGU = /[ఀ-౿]/;
 const between = (v: number | undefined, lo: number, hi: number) => v !== undefined && v >= lo && v <= hi;
 const mealIn = (lo: number, hi: number, extra?: (m: SH.Meal) => string | null) => (g: Got) =>
   !g.out.meal ? 'no meal logged' : !between(g.out.meal.kcal, lo, hi) ? `meal ${g.out.meal.kcal} kcal, expected ${lo}-${hi}` : (extra?.(g.out.meal) ?? null);
+/**
+ * What REI says about a meal matches what was logged: every calorie or protein figure in the reply is the meal's,
+ * what's left after it, the day's total after it, or a target. A reply built on the model's own estimate fails
+ * when the food list's numbers were logged instead.
+ */
+const grounded = (g: Got) => {
+  const m = g.out.meal;
+  if (!m) return null;
+  const t = plain(g.text);
+  const near = (n: number, ok: number[]) => ok.some(x => Math.abs(x - n) <= 1);
+  const kcal = [...t.matchAll(/(\d{2,4})\s*(?:kcal|cal(?:ories)?\b|कैलोरी|कैलरी|క్యాలరీ|కేలరీ)/giu)].map(x => +x[1]).filter(n => !near(n, [m.kcal, LEFT.kcal - m.kcal, 740 + m.kcal, 2100, 740, LEFT.kcal, ...(m.items ?? []).map(i => i.kcal)]));
+  const protein = [...t.matchAll(/(\d{1,3})\s*(?:g|gm|grams?|ग्राम|గ్రా\S*)\s*(?:of\s*)?(?:protein|प्रोटीन|ప్రోటీన్)/giu)].map(x => +x[1]).filter(n => !near(n, [m.p, LEFT.protein - m.p, 32 + m.p, 150, 32, LEFT.protein, ...(m.items ?? []).map(i => Math.round(i.p))]));
+  return kcal.length || protein.length ? `says ${[...kcal.map(n => `${n} kcal`), ...protein.map(n => `${n} g protein`)].join(', ')} but logged ${m.kcal} kcal, ${m.p} g protein (left ${LEFT.kcal - m.kcal} / ${LEFT.protein - m.p})` : null;
+};
 const noMeal = (g: Got) => (g.out.meal ? `logged a meal: ${g.out.meal.name} ${g.out.meal.kcal}` : null);
-const says = (re: RegExp, miss: string) => (g: Got) => (re.test(g.text.replace(/,/g, '')) ? null : `${miss}: "${g.text.slice(0, 110)}"`);
+const says = (re: RegExp, miss: string) => (g: Got) => (re.test(plain(g.text)) ? null : `${miss}: "${g.text.slice(0, 110)}"`);
 const all = (...js: Case['judge'][]): Case['judge'] => g => js.map(j => j(g)).find(Boolean) ?? null;
 /** "no eggs", "skip the chicken": naming a food to rule it out isn't suggesting it. */
 const NEGATED = /\b(no|not|without|skip|avoid|zero|minus)\s+(the\s+|any\s+)?(meat|eggs?|chicken|fish)((\s*,\s*|\s+or\s+|\s+and\s+)(meat|eggs?|chicken|fish))*/gi;
@@ -88,13 +104,13 @@ const VEG_MEALS: SH.Meal[] = [{ time: '08:10', name: 'Poha and chai', kcal: 290,
 
 const CASES: Case[] = [
   // Meals: the food list has every one of these, so the stored numbers have one right answer.
-  { id: 'meal-en', what: 'English meal, list numbers (2 roti 220 + dal 150 + paneer sabzi 300 = 670)', text: 'had 2 roti, dal and paneer sabzi for lunch', judge: mealIn(560, 780) },
-  { id: 'meal-hinglish', what: 'Hinglish meal (3 idli 174 + sambar 110 = 284)', text: 'bhai abhi 3 idli aur sambar khaya', judge: mealIn(240, 340) },
-  { id: 'meal-hindi', what: 'Hindi meal in Devanagari (2 roti 220 + dal 150 = 370), reply in Hindi', text: 'मैंने अभी दो रोटी और एक कटोरी दाल खाई', judge: all(mealIn(300, 450), says(DEVANAGARI, 'reply not in Hindi')) },
-  { id: 'meal-telugu', what: 'Telugu meal (3 idli + sambar = 284), reply in Telugu', text: 'నేను ఇప్పుడే మూడు ఇడ్లీలు, సాంబార్ తిన్నాను', judge: all(mealIn(230, 350), says(TELUGU, 'reply not in Telugu')) },
-  { id: 'meal-biryani', what: 'Plate of chicken biryani 500 + cola 140 = 640', text: 'just had a plate of chicken biryani and a coke', judge: mealIn(560, 760) },
-  { id: 'meal-whey', what: 'Whey shake with milk (265 kcal, 32 g protein)', text: 'had a whey shake with milk', judge: mealIn(220, 330, m => (m.p >= 25 ? null : `protein ${m.p}`)) },
-  { id: 'meal-fuel', what: 'Fuel screen: curd rice bowl + pickle (curd rice 260 + a little)', text: 'a bowl of curd rice with pickle', mode: 'meal', judge: mealIn(250, 340) },
+  { id: 'meal-en', what: 'English meal, list numbers (2 roti 220 + dal 150 + paneer sabzi 300 = 670)', text: 'had 2 roti, dal and paneer sabzi for lunch', judge: all(mealIn(560, 780), grounded) },
+  { id: 'meal-hinglish', what: 'Hinglish meal (3 idli 174 + sambar 110 = 284)', text: 'bhai abhi 3 idli aur sambar khaya', judge: all(mealIn(240, 340), grounded) },
+  { id: 'meal-hindi', what: 'Hindi meal in Devanagari (2 roti 220 + dal 150 = 370), reply in Hindi', text: 'मैंने अभी दो रोटी और एक कटोरी दाल खाई', judge: all(mealIn(300, 450), says(DEVANAGARI, 'reply not in Hindi'), grounded) },
+  { id: 'meal-telugu', what: 'Telugu meal (3 idli + sambar = 284), reply in Telugu', text: 'నేను ఇప్పుడే మూడు ఇడ్లీలు, సాంబార్ తిన్నాను', judge: all(mealIn(230, 350), says(TELUGU, 'reply not in Telugu'), grounded) },
+  { id: 'meal-biryani', what: 'Plate of chicken biryani 500 + cola 140 = 640', text: 'just had a plate of chicken biryani and a coke', judge: all(mealIn(560, 760), grounded) },
+  { id: 'meal-whey', what: 'Whey shake with milk (265 kcal, 32 g protein)', text: 'had a whey shake with milk', judge: all(mealIn(220, 330, m => (m.p >= 25 ? null : `protein ${m.p}`)), grounded) },
+  { id: 'meal-fuel', what: 'Fuel screen: curd rice bowl + pickle (curd rice 260 + a little)', text: 'a bowl of curd rice with pickle', mode: 'meal', judge: all(mealIn(250, 340), grounded) },
   // Time and the calendar: every answer is in the facts.
   { id: 'time-workout', what: "When's my workout → 18:30", text: "when's my workout today?", judge: says(/18[:.]30|6[:.]30|half past six/i, 'no 18:30') },
   { id: 'time-until', what: 'How long until the session → 4 h 25 min', text: 'how long until my session starts?', judge: all(says(/\b(4|four)\s*(h|hr|hrs|hours?)\b/i, 'not 4 h'), says(/\b25\b|twenty[- ]five/i, 'not 25 min')) },
@@ -107,7 +123,7 @@ const CASES: Case[] = [
   // What to eat: from the suggestions, inside the budget, respecting the diet.
   { id: 'eat-veg', what: 'Dinner idea for a vegetarian who eats no eggs: no meat or eggs, nothing logged, calories within what is left', text: 'what should I eat for dinner tonight?', patch: { memory: VEG, meals: VEG_MEALS },
     judge: all(noMeal, g => (/\b(chicken|eggs?|fish|mutton|prawns?|tuna|omelette)\b/i.test(g.text.replace(NEGATED, ' ')) ? `suggested non-veg: "${g.text.slice(0, 110)}"` : null), g => {
-      const over = [...g.text.replace(/,/g, '').matchAll(/(\d{3,4})\s*(?:k?cal)/gi)].map(m => +m[1]).filter(n => n > LEFT.kcal + 60 && n !== 2100);
+      const over = [...plain(g.text).matchAll(/(\d{3,4})\s*(?:k?cal)/gi)].map(m => +m[1]).filter(n => n > LEFT.kcal + 60 && n !== 2100);
       return over.length ? `calories above what is left: ${over.join(', ')}` : null;
     }, says(/roti|dal|rajma|paneer|soya|chole|khichdi|rice|curd|tofu|sabzi/i, 'no concrete food')) },
   { id: 'eat-hinglish', what: 'Hinglish "what do I eat now": answers in Hinglish with a concrete food, nothing logged', text: 'bhai ab kya khau? bhook lagi hai', patch: { bro: true },
@@ -206,7 +222,34 @@ async function ask(model: string, c: Case) {
   }
   const final = { content, stop_reason: finish === 'length' ? 'max_tokens' : calls.length ? 'tool_use' : 'end_turn', model, usage: { input_tokens: usage?.prompt_tokens ?? 0, output_tokens: usage?.completion_tokens ?? 0, cache_read_input_tokens: 0 } } as any;
   const out = B.interpret(final, prep, k, a, NOW.getTime());
-  const said = S.dropRepeats(S.stripTags(S.parseReply(out.text).text));
+  let said = S.dropRepeats(S.stripTags(S.parseReply(out.text).text));
+  // The endpoint's catch for "logged" said without the call: the call is asked for on its own.
+  if (B.owesMeal?.(out, said, a)) {
+    const forced = { ...body, stream: false, max_tokens: 1024, tools: body.tools.filter(t => t.function.name === 'log_meal'), tool_choice: { type: 'function', function: { name: 'log_meal' } } };
+    const r0 = await fetch('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json', 'X-Title': 'REI eval' }, body: JSON.stringify(forced) });
+    const j0: any = r0.ok ? await r0.json() : null;
+    const content0 = (j0?.choices?.[0]?.message?.tool_calls ?? []).flatMap((t: any) => {
+      try {
+        return [{ type: 'tool_use', name: t.function.name, input: JSON.parse(t.function.arguments || '{}') }];
+      } catch {
+        return [];
+      }
+    });
+    const late = B.lateMeal({ content: content0, stop_reason: 'tool_use', model, usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0 } } as any, prep, k, a);
+    if (late) {
+      out.meal = late.meal;
+      out.mealClaimed = late.claimed;
+    }
+  }
+  // The endpoint's second pass (redoFor): REI must ask rather than confirm, or its numbers differ from what was logged.
+  const redo = B.redoFor?.(out, said, out.meal, k, prep.system);
+  if (redo) {
+    const r1 = await fetch('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json', 'X-Title': 'REI eval' }, body: JSON.stringify({ model, max_tokens: 512, reasoning: body.reasoning, messages: [{ role: 'system', content: `${prep.system}\n\n${redo}` }, ...prep.turns] }) });
+    const j1: any = r1.ok ? await r1.json() : null;
+    const again = S.dropRepeats(S.stripTags(S.parseReply(j1?.choices?.[0]?.message?.content ?? '').text));
+    if (again) said = again;
+  }
+  if (out.meal && B.groundedReply) said = B.groundedReply(said, out.meal, k, prep.system);
   // The endpoint's second pass: REI said "noted" without a remember call, so the fact is asked for on its own.
   if (a.mode === 'chat' && !out.memory.remember.length && B.saidNoted?.(said)) {
     const forced = { ...body, stream: false, max_tokens: 300, messages: [{ role: 'system', content: `${prep.system}\n\n${B.REMEMBER_PASS}` }, ...prep.turns], tools: body.tools.filter(t => t.function.name === 'remember'), tool_choice: { type: 'function', function: { name: 'remember' } } };

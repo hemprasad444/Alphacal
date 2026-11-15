@@ -6,33 +6,15 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { db } from '../admin';
 import { complete, LlmError, modelsFor, OPENROUTER_API_KEY } from '../llm';
 import { verify } from '../http';
-import { type Ask, interpret, mealFrom, prepare, REMEMBER_PASS, rememberedIn, saidNoted } from './brain';
+import { groundedReply, interpret, lateMeal, mealFrom, owesMeal, parseBody, prepare, redoFor, REMEMBER_PASS, rememberedIn, saidNoted } from './brain';
 import { DAILY_LIMIT, loadUser } from './load';
-import { type parseRemember, type parseVow, rememberTool } from './tools';
+import { logMealTool, type parseRemember, type parseVow, rememberTool } from './tools';
 
 // Index the food list when the instance starts, not on the first message.
 warmFoodSearch();
 
 /** Warm instances kept running so the first reply never waits on a cold start. */
 const MIN_INSTANCES = defineInt('CHAT_MIN_INSTANCES', { default: 1 });
-
-interface Body extends Ask {
-  /** Client-generated id for REI's reply, so the app can match its streamed bubble to the stored message. */
-  replyId: string;
-}
-
-const ID = /^[a-z0-9]{6,40}$/;
-
-export function parseBody(raw: unknown): Body | null {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const b = raw as Record<string, unknown>;
-  const text = typeof b.text === 'string' ? b.text.trim() : '';
-  if (!text || text.length > 2000) return null;
-  if (typeof b.replyId !== 'string' || !ID.test(b.replyId)) return null;
-  const mode = b.mode === 'meal' ? 'meal' : 'chat';
-  const userMessageId = typeof b.userMessageId === 'string' && ID.test(b.userMessageId) ? b.userMessageId : undefined;
-  return { text, mode, replyId: b.replyId, userMessageId, voice: b.voice === true && mode === 'chat' };
-}
 
 const textOf = (res: { content: { type: string; text?: string }[] } | null) => (res ? res.content.map(b => (b.type === 'text' ? (b.text ?? '') : '')).join('') : '');
 
@@ -124,23 +106,25 @@ export const chat = onRequest(
         logger.info('meal call came back without log_meal', { uid, model: final.model, backup, retried: !!m });
         if (m) {
           meal = m.meal;
+          o.mealClaimed = m.claimed;
           text = m.verdict || text;
         } else {
           text = 'I couldn’t log that one. Try again, or pick it from the food list.';
         }
       }
       text = dropRepeats(stripTags(parseReply(text).text));
-      // A second, tool-less answer when the first can't stand: a workout with no duration (REI must ask, not
-      // claim it's logged), only a refused re-log, or a tool call that did nothing (never just "Noted.").
-      const redo = o.askDuration
-        ? 'They told you about a workout but not how long it was, so it is NOT logged yet. React to it in one sentence, then ask how long it took (and how far, if it was a run, walk or ride). Do not say it is logged and do not guess a duration.'
-        : o.askFood
-          ? 'They said they ate but not what, so NOTHING is logged. Ask what it was and roughly how much. Do not say anything is logged and do not suggest a meal as if they had eaten it.'
-          : o.vowByRule.length
-            ? `The app has just made this change they asked for: ${o.vowByRule.join(', ')}. Confirm it in one or two sentences in your voice, with the new value. It is done: do not ask them to confirm or repeat it.`
-            : (o.mealBlocked && text.trim().length < 40) || (!text.trim() && !meal)
-          ? 'Answer their latest message in your own words. Meals mentioned earlier are already logged.'
-          : null;
+      // REI said the meal is logged but never called log_meal: get the call on its own, so what it said is true.
+      if (owesMeal(o, text, body)) {
+        const late = lateMeal(await complete({ task: 'fast', system, messages: turns, maxTokens: 1024, tools: [logMealTool], forceTool: 'log_meal' }).catch(() => null), prep, data, body);
+        logger.info('meal said logged without the call', { uid, model: final.model, recovered: !!late });
+        if (late) {
+          meal = late.meal;
+          o.mealClaimed = late.claimed;
+        }
+      }
+      // A second, tool-less answer when the first can't stand as written (see redoFor): REI has to ask instead of
+      // confirming, its numbers differ from what was logged, or it said nothing usable (never just "Noted.").
+      const redo = redoFor(o, text, meal, data, system);
       if (redo) {
         const again = await complete({ task: 'fast', system: `${system}\n\n${redo}`, messages: turns, maxTokens: 512 }).catch(() => null);
         const retry = stripTags(parseReply(textOf(again)).text);
@@ -149,8 +133,10 @@ export const chat = onRequest(
         else if (o.askFood) text = 'What did you eat, and roughly how much? Tell me and I’ll log it.';
         else if (o.vowByRule.length) text = `Done: ${o.vowByRule.join(', ')}.`;
       }
+      // Whatever the model did with its second try: no calorie or protein figure about this meal that the app didn't compute.
+      if (meal) text = groundedReply(text, meal, data, system);
       // "Peanut allergy noted" with no remember call: ask once more for just the fact, so what REI says it noted is kept.
-      if (body.mode === 'chat' && !o.memory.remember.length && saidNoted(text)) {
+      if (body.mode === 'chat' && !o.memory.remember.length && saidNoted(text) && body.text.split(/\s+/).length >= 3) {
         const facts = await complete({ task: 'fast', system: `${system}\n\n${REMEMBER_PASS}`, messages: turns, maxTokens: 300, tools: [rememberTool], forceTool: 'remember' }).catch(() => null);
         o.memory.remember.push(...rememberedIn(facts));
         logger.info('remember pass', { uid, kept: o.memory.remember.length });

@@ -1,6 +1,6 @@
 // One chat turn without the network: what REI is told (prepare) and what its answer may do (interpret).
 import { DEFAULT_DISCIPLINES, DEFAULT_PROFILE, type ContextInput, type Meal, type MemoryItem } from '@rei/shared';
-import { interpret, type Known, mealMath, prepare, rememberedIn, saidNoted, spelledCalls } from '../src/chat/brain';
+import { interpret, type Known, mealMath, parseBody, prepare, rememberedIn, saidNoted, spelledCalls } from '../src/chat/brain';
 import type { LlmResult } from '../src/llm';
 
 /** Sunday 15 November 2026, 14:05. */
@@ -175,5 +175,21 @@ describe('answers that need care', () => {
   it('remember and forget pass through checked', () => {
     const o = turn("btw I'm allergic to peanuts", reply('Got it.', ['remember', { facts: [{ text: 'Allergic to peanuts', kind: 'health' }] }], ['forget', { ids: ['m1'] }]));
     expect(o.memory).toEqual({ remember: [{ text: 'Allergic to peanuts', kind: 'health' }], forget: ['m1'] });
+  });
+});
+
+describe('the chat request', () => {
+  const ok = { text: '  had 2 roti  ', replyId: 'abc123xyz', mode: 'chat', userMessageId: 'msg000001', voice: true };
+  it('is read with its text trimmed', () => {
+    expect(parseBody(ok)).toEqual({ text: 'had 2 roti', replyId: 'abc123xyz', mode: 'chat', userMessageId: 'msg000001', voice: true });
+    // An older build sends neither mode nor voice.
+    expect(parseBody({ text: 'hi', replyId: 'abc123xyz' })).toEqual({ text: 'hi', replyId: 'abc123xyz', mode: 'chat', userMessageId: undefined, voice: false });
+    // Voice never applies to a Fuel log; a malformed message id is dropped, not fatal.
+    expect(parseBody({ ...ok, mode: 'meal', userMessageId: '../etc' })).toMatchObject({ mode: 'meal', voice: false, userMessageId: undefined });
+  });
+  it('is refused when it is not a request', () => {
+    for (const bad of [null, undefined, 'text', 42, [], [ok], {}, { ...ok, text: '   ' }, { ...ok, text: 'x'.repeat(2001) }, { ...ok, text: 5 }, { ...ok, replyId: 'short' }, { ...ok, replyId: 'has/slash1' }, { ...ok, replyId: 'UPPERCASE1' }, { ...ok, replyId: undefined }]) {
+      expect(parseBody(bad)).toBeNull();
+    }
   });
 });

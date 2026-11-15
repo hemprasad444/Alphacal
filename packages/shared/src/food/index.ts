@@ -111,6 +111,12 @@ interface Indexed {
 /** Foods whose name before the comma names them: dishes, and IFCT foods with a portion of their own. */
 const headed = (food: Food) => food.name.includes(',') && (food.src === 'dish' || (food.src === 'ifct' && food.units[0]?.n !== '100 g'));
 
+/** A dish named "Rice, cooked" is also said "cooked rice"; "Omelette, 2 eggs" has no such form. */
+const turned = (food: Food) => {
+  const parts = food.name.split(',').map(x => x.trim());
+  return food.src === 'dish' && parts.length === 2 && !/^\d/.test(parts[1]) ? [normalize(`${parts[1]} ${parts[0]}`)] : [];
+};
+
 const indexCache = new WeakMap<Food, Indexed>();
 function indexed(food: Food): Indexed {
   let x = indexCache.get(food);
@@ -121,7 +127,7 @@ function indexed(food: Food): Indexed {
       name: tokens(food.name + (food.brand ? ' ' + food.brand : '')),
       alt: alts.flatMap(tokens),
       // "Dosa, plain" is what "dosa" means; the same for the IFCT foods eaten as they are (fruit, milk, eggs, nuts).
-      phrases: [normalize(food.name), ...(headed(food) ? [normalize(food.name.split(',')[0])] : []), ...alts].map(p => p.split(' ').map(stem).join(' ')),
+      phrases: [normalize(food.name), ...(headed(food) ? [normalize(food.name.split(',')[0]), ...turned(food)] : []), ...alts].map(p => p.split(' ').map(stem).join(' ')),
     };
     indexCache.set(food, x);
   }
@@ -528,8 +534,17 @@ export function matchMealText(text: string, foods: Food[]): TextMatch {
 export function foodByName(name: string, foods: Food[]): Food | null {
   const q = normalize(name);
   if (!q) return null;
-  return exactFood(q, foods) ?? confident(searchFoods(q, foods, 3), q)?.food ?? null;
+  // "plain roti", "homemade dal", "a bowl of steamed rice": the same food once the describing words are gone.
+  const bare = q.replace(DESCRIBING, ' ').replace(/\s+/g, ' ').trim();
+  for (const x of bare && bare !== q ? [q, bare] : [q]) {
+    const exact = exactFood(x, foods);
+    if (exact) return exact;
+  }
+  return confident(searchFoods(q, foods, 3), q)?.food ?? null;
 }
+
+/** Words a model adds to a food's name that don't change which food it is. */
+const DESCRIBING = /\b(plain|simple|regular|homemade|home ?style|home ?made|home cooked|fresh|hot|small|medium|large|big|whole wheat|wheat(?= (roti|chapati|phulka))|a (bowl|cup|plate|glass|katori|piece) of|bowl of|cup of|plate of|glass of|some)\b/g;
 
 /** Foods REI may pick from for this message: the best few for each piece. */
 export function foodCandidates(text: string, foods: Food[], max = 16): Food[] {

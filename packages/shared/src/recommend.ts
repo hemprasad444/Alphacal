@@ -357,7 +357,7 @@ export function suggestionsBlock(r: Recommendation): string {
   const dietWord: Record<Diet, string> = { vegan: 'vegan', veg: 'vegetarian, no eggs', egg: 'vegetarian plus eggs', nonveg: 'eats everything' };
   const food = r.meals.length ? optionLines(r.meals) : '(no meal options)';
   const later = r.later ? `\nDINNER LATER (about ${r.later.budget} kcal, if the meal before it is about ${r.budget}):\n${optionLines(r.later.meals)}` : '';
-  return `SUGGESTIONS (worked out by the app from their numbers, the time and the food database. When they ask what to eat, or what to do next, choose from these and say it your way, keeping the portions and numbers as written. They can swap in something they have at home; then say you'd need to log it to know its numbers. Never invent macros.)
+  return `SUGGESTIONS (worked out by the app from their numbers, the time and the food database. Asked what to eat or do next, pick from these and say it your way, with these portions and numbers. Never invent macros.)
 FOOD NOW (${r.slot}; ${left}; ${dietWord[r.diet]}; this meal about ${r.budget} kcal):
 ${food}${r.foodNote ? `\n${r.foodNote}` : ''}${later}
 TRAINING NEXT: ${r.training}`;
