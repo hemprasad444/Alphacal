@@ -3,7 +3,7 @@
 import { parseIsoDate, type GameBadge } from '@rei/shared';
 import { Fragment } from 'react';
 import { TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
-import { MeterBar, MoveCardArt, RoundStamp, SpecialMoveCard, TIER_COLOR } from './fight';
+import { MeterBar, MoveCardArt, RoundStamp, SpecialMoveCard, useTierColors } from './fight';
 import { Icon, type IconKey } from './icons';
 import { Tap, Txt } from './ui';
 import { C, F, fontFamily, HIT, SP } from '../lib/theme';
@@ -79,6 +79,7 @@ const landed = (iso: string) => (parseIsoDate(iso) ?? new Date()).toLocaleDateSt
 /** One special move in full: the card, its rarity, how it is done, and when it landed or how close it is. */
 export function BadgeDetail({ b, style }: { b: GameBadge; style?: StyleProp<ViewStyle> }) {
   const accent = useStore(s => s.accent);
+  const TIER_COLOR = useTierColors();
   const pct = Math.round(b.progress * 100);
   return (
     <View accessibilityLiveRegion="polite" style={[{ backgroundColor: F.canvas, borderLeftWidth: 4, borderLeftColor: b.earned ? TIER_COLOR[b.tier] : F.rope, padding: SP.md, flexDirection: 'row', alignItems: 'center', gap: SP.md }, style]}>
@@ -109,7 +110,7 @@ export function BadgeGrid({ badges, open, onOpen, columns = 4, style }: { badges
         const shown = row.find(b => b.id === open);
         return (
           <Fragment key={r}>
-            <View style={{ flexDirection: 'row', gap: SP.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: SP.sm }}>
               {row.map(b => (
                 <Tap
                   key={b.id}
@@ -117,7 +118,7 @@ export function BadgeGrid({ badges, open, onOpen, columns = 4, style }: { badges
                   accessibilityState={{ expanded: open === b.id }}
                   accessibilityLabel={`${b.title}, ${b.earned ? `${b.tier}, unlocked ${landed(b.earned)}` : `locked, ${Math.round(b.progress * 100)} percent`}`}
                   accessibilityHint="Shows how to earn it"
-                  style={{ flex: 1, alignItems: 'center', gap: 2, minHeight: HIT }}
+                  style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', gap: 2, minHeight: HIT }}
                 >
                   <SpecialMoveCard title={b.title} tier={b.tier} earned={!!b.earned} icon={b.icon} progress={b.progress} width={48} />
                   <Txt face="label" w={600} size={12} ls={0.1} color={F.smoke}>{b.earned ? landed(b.earned) : `${Math.round(b.progress * 100)}%`}</Txt>

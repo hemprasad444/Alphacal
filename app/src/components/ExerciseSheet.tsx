@@ -4,10 +4,10 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Image } from 'expo-image';
 import { TextInput, View } from 'react-native';
-import { F, fontFamily, HIT, RADIUS, SP } from '../lib/theme';
+import { alpha, F, fontFamily, HIT, SP } from '../lib/theme';
 import { useStore } from '../state/store';
 import { Field, QuietButton } from './dojo';
-import { CutButton } from './fight';
+import { CutButton, RoundStamp } from './fight';
 import { Sheet } from './FoodSheet';
 import { IconButton, Tap, Txt } from './ui';
 
@@ -21,6 +21,24 @@ const tipsFor = (id: string): string[] => {
   return TIPS[id] ?? [];
 };
 
+/**
+ * A form photo in the Fight Night frame: cropped to a square-cornered plate, washed toward your
+ * corner colour and dimmed to sit on the arena, with a stamp saying which end of the move it is.
+ * (The library's photos are bright gym stock shots; raw, they fight the rest of the screen.)
+ */
+function FormPhoto({ uri, label, tag }: { uri: string; label: string; tag: string }) {
+  const accent = useStore(s => s.accent);
+  return (
+    <View style={{ flex: 1, aspectRatio: 1.25, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas, overflow: 'hidden' }}>
+      <Image source={{ uri }} accessibilityLabel={label} cachePolicy="memory-disk" transition={120} contentFit="cover" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }} />
+      {/* The wash: your colour over the photo's light and dark ("color" keeps the photo's shading), then a flat dim. */}
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: alpha(accent, 0.6), mixBlendMode: 'color' }} />
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: alpha(F.arena, 0.28) }} />
+      <RoundStamp label={tag} size="sm" tone="chalk" style={{ position: 'absolute', left: 6, bottom: 6 }} />
+    </View>
+  );
+}
+
 /** Photos, muscles and the first form cues. */
 export function ExerciseInfo({ ex, steps = 4 }: { ex: LibExercise; steps?: number }) {
   const tips = tipsFor(ex.id);
@@ -29,7 +47,7 @@ export function ExerciseInfo({ ex, steps = 4 }: { ex: LibExercise; steps?: numbe
       {ex.images ? (
         <View style={{ flexDirection: 'row', gap: SP.sm }}>
           {[0, 1].slice(0, ex.images).map(i => (
-            <Image key={i} source={{ uri: exerciseImage(ex.id, i) }} accessibilityLabel={`${ex.name}, ${i ? 'finish' : 'start'} position`} cachePolicy="memory-disk" transition={120} contentFit="cover" style={{ flex: 1, aspectRatio: 1.2, borderRadius: RADIUS.sm, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas }} />
+            <FormPhoto key={i} uri={exerciseImage(ex.id, i)} label={`${ex.name}, ${i ? 'finish' : 'start'} position`} tag={i ? 'Finish' : 'Start'} />
           ))}
         </View>
       ) : null}

@@ -3,7 +3,7 @@
 import { router } from 'expo-router';
 import { View } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
-import { Combo, CoachShout, CutButton, Meter, MeterBar, RoundStamp, SectionHeader, VersusHeader } from '../../components/fight';
+import { Combo, CoachShout, CutButton, Meter, MeterBar, RoundStamp, SectionHeader, useWarn, VersusHeader } from '../../components/fight';
 import { useNow } from '../../components/hooks';
 import { Icon } from '../../components/icons';
 import { PageTitle } from '../../components/PageTitle';
@@ -34,7 +34,8 @@ export default function Today() {
   const integrity = calcIntegrity(wk);
   const rows = protocol(plan, nu, profile, sessionDone, s.loggedMin, strong);
   const traj = trajectory(profile, wk.missed, now, s.weighInsOrDemo);
-  const tone = (t: 'acc' | 'warn' | 'alert') => (t === 'alert' ? C.alert : t === 'warn' ? C.warn : accent);
+  const warn = useWarn();
+  const tone = (t: 'acc' | 'warn' | 'alert') => (t === 'alert' ? C.alert : t === 'warn' ? warn : accent);
 
   const ask = (text: string) => {
     router.push('/talk');

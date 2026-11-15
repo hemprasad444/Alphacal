@@ -1,6 +1,6 @@
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Svg, { Image as SvgImage, Polygon } from 'react-native-svg';
-import { cutDx, F } from '../lib/theme';
+import { cutDx, emblemFor, F } from '../lib/theme';
 import { useStore } from '../state/store';
 
 const EMBLEM_PX = { S: 260, M: 360, L: 460 } as const;
@@ -14,7 +14,9 @@ const EMBLEM_OPACITY = { Subtle: 0.06, Medium: 0.1, Bold: 0.18 } as const;
  * "Arena lights" in Appearance (settings.fx) turns the beams off; the emblem has its own controls.
  */
 export function Backdrop({ glow = 'top' }: { glow?: 'top' | 'bottom' }) {
-  const accent = useStore(s => s.accent), emblem = useStore(s => s.emblem), settings = useStore(s => s.settings);
+  const accent = useStore(s => s.accent), world = useStore(s => s.theme.id), settings = useStore(s => s.settings);
+  // Resolved here (not from the store's `emblem`) so an emblem id saved by an older version still shows its replacement.
+  const emblem = emblemFor(world, settings.bgByTheme);
   const { width: W, height: H } = useWindowDimensions();
   const e = EMBLEM_PX[settings.emblemSize];
   const ey = settings.emblemPos === 'Top' ? 70 : settings.emblemPos === 'Bottom' ? H - 130 - e : (H - e) / 2;

@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { Animated, Easing, Modal, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { G, Polygon, Rect } from 'react-native-svg';
-import { CoachShout, CutButton, MoveCardArt, RoundStamp, TIER_COLOR } from './fight';
+import { CoachShout, CutButton, MoveCardArt, RoundStamp, useTierColors } from './fight';
 import { Tap, Txt } from './ui';
 import { C, HIT, onColor } from '../lib/theme';
 import { useStore } from '../state/store';
@@ -32,7 +32,7 @@ const BAND = 48, BAND_TILT = 6;
 const WEDGES = ['0,0 600,0 591,104', '0,0 520,300 460,386', '0,0 300,520 205,564', '0,0 0,600 -104,591', '0,0 -300,520 -386,460', '0,0 -520,300 -564,205', '0,0 -600,0 -591,-104', '0,0 -520,-300 -460,-386', '0,0 -300,-520 -205,-564', '0,0 0,-600 104,-591', '0,0 300,-520 386,-460', '0,0 520,-300 564,-205'];
 
 function Burst({ b, more, onNext, onSkip }: { b: GameBadge; more: number; onNext: () => void; onSkip: () => void }) {
-  const col = TIER_COLOR[b.tier];
+  const col = useTierColors()[b.tier];
   const accent = useStore(s => s.accent);
   const insets = useSafeAreaInsets();
   const { width: W, height: H } = useWindowDimensions();

@@ -131,9 +131,9 @@ export async function gym(page, u, when, kgs = []) {
   await sleep(800);
   await tap(page, 'Already done? Log it without the timer');
   await sleep(1000);
-  // The set ticks, not the check icon inside the Save button at the bottom.
-  const ticks = page.locator('path[d="M4.5 12.5l4.6 4.6L19.5 6.6"]');
-  const n = (await ticks.count()) - 1;
+  // The set boxes: each is a checkbox named "Set N done" (empty until ticked).
+  const ticks = page.getByRole('checkbox', { name: /^Set \d+ done$/ });
+  const n = await ticks.count();
   for (let i = 0; i < n; i++) await ticks.nth(i).click({ force: true });
   await sleep(800);
   await shot(page, `gym-${iso(when)}`);

@@ -28,21 +28,28 @@ async function check(day) {
     await go(p, '/dojo'); await sleep(1500);
     const dojo = (await text(p)).replace(/\n+/g, ' | ');
     await shot(p, `d${day}-dojo`);
+    // The Fight Night screens, as their text reads (one " | " per line break):
+    //   Today: "ROUND 1 | SUN 15 NOV | WEEK 1 | 1 | DAY | COMBO | … | YOU | ROOKIE · 22 XP | … | PROTEIN | 92 | / 170 g | …"
+    //   Fuel:  "… | SUPER METER | FULL BREAKDOWN | 1,840 | / 2,300 kcal | 460 | TO FULL | …"
+    //   Dojo:  "DOJO | WEEK 1 | SUN 15 NOV | 1 | DAY | COMBO | RANK 1 OF 8 | ROOKIE | 22 | XP | … | +22 | XP TODAY | …"
+    const combo = t => num(t.match(/\| ([\d,]+) \| DAY \| COMBO/)?.[1]);
     const seen = {
-      streak: num(today.match(/(\d+)-day streak/)?.[1] ?? (today.includes('Start a streak') ? 0 : null)),
-      xp: num(today.match(/· ([\d,]+) XP/)?.[1]),
-      rank: today.match(/\| ([A-Za-z]+) · [\d,]+ XP/)?.[1],
-      eaten: num(fuel.match(/([\d,]+) EATEN/)?.[1]),
-      protein: num(today.match(/Protein \| ([\d,]+) \/ /)?.[1]),
-      dojoXp: num(dojo.match(/\| ([\d,]+) XP \| [\d,]+ TO /)?.[1] ?? dojo.match(/\| ([\d,]+) XP \| MAX RANK/)?.[1]),
-      xpToday: num(dojo.match(/\+(\d+) \| XP TODAY/)?.[1]),
-      dojoStreak: num(dojo.match(/\| (\d+) \| DAY STREAK/)?.[1]),
+      streak: combo(today),
+      xp: num(today.match(/\| [A-Z]+ · ([\d,]+) XP/)?.[1]),
+      rank: today.match(/\| ([A-Z]+) · [\d,]+ XP/)?.[1],
+      eaten: num(fuel.match(/SUPER METER \| FULL BREAKDOWN \| ([\d,]+) \|/)?.[1]),
+      protein: num(today.match(/\| PROTEIN \| ([\d,]+) \| /)?.[1]),
+      dojoXp: num(dojo.match(/RANK \d+ OF \d+ \| [A-Z]+ \| ([\d,]+) \| XP/)?.[1]),
+      xpToday: num(dojo.match(/\+([\d,]+) \| XP TODAY/)?.[1]),
+      dojoStreak: combo(dojo),
     };
     const want = { streak: exp.streak, xp: exp.xp, rank: exp.rank, eaten: exp.kcal, protein: exp.protein, dojoXp: exp.xp, xpToday: exp.today, dojoStreak: exp.streak };
-    const bad = Object.keys(want).filter(k2 => String(seen[k2]) !== String(want[k2]));
+    // Names are set in capitals on screen ("ROOKIE"), so compare without case.
+    const bad = Object.keys(want).filter(k2 => String(seen[k2]).toLowerCase() !== String(want[k2]).toLowerCase());
     log(`CHECK D${day} ${u.name}: ${bad.length ? 'MISMATCH ' + bad.map(k2 => `${k2} screen=${seen[k2]} expected=${want[k2]}`).join('; ') : 'OK'} | xp ${exp.xp} (${exp.rank}) streak ${exp.streak} today+${exp.today} | ${exp.meals} meals ${exp.kcal} kcal P${exp.protein} | sessions today ${exp.sessionsToday} | weight ${exp.weight} | badges: ${exp.earned.join(', ') || '-'}`);
-    const goal = today.match(/YOUR GOAL \| ([^|]+) \| ([^|]+) \| [^|]+ \| ([^|]+)/);
-    log(`      ${u.name} goal: ${goal ? goal.slice(1).join(' · ') : '?'} | hero: ${today.match(/REI SAYS \| ([^|]+) \| ([^|]+)/)?.slice(1).join(' · ')}`);
+    // "YOUR GOAL | ETA MAY 27 · +12 WK | 81.6 | KG NOW · GOAL 74.0 KG | <note>"
+    const goal = today.match(/YOUR GOAL \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+)/);
+    log(`      ${u.name} goal: ${goal ? goal.slice(1).join(' · ') : '?'} | hero: ${today.match(/REI SAYS \| ([^|]+) \| REI \| ([^|]+) \| ([^|]+)/)?.slice(1).join(' · ')}`);
   }
 }
 

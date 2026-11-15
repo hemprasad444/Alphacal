@@ -11,20 +11,25 @@
 // - One CutButton per screen.
 //
 // Every part takes an optional `accent`; it defaults to the current world's.
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Svg, { Polygon, Rect } from 'react-native-svg';
 import { CutBox, cutPoints, CutShape, useSize } from './cut';
 import { Icon, type IconKey } from './icons';
 import { Tap, Txt } from './ui';
-import { cutDx, F, hard, HIT, onColor, SHADOW } from '../lib/theme';
+import { cutDx, F, hard, HIT, medalColors, onColor, SHADOW, warnColor } from '../lib/theme';
 import { useStore } from '../state/store';
 
 const useAccent = (accent?: string) => {
   const world = useStore(s => s.accent);
   return accent ?? world;
 };
+
+/** Medal colours in the current world: bronze and gold step aside where the accent would be mistaken for them. */
+export const useTierColors = (accent?: string) => medalColors(useAccent(accent));
+/** The "watch out" colour in the current world (never the accent, never the rival red). */
+export const useWarn = (accent?: string) => warnColor(useAccent(accent));
 
 const num = (n: number) => Math.round(n).toLocaleString('en-US');
 
@@ -86,6 +91,8 @@ export interface MeterBarProps {
   segments?: number;
   /** Fraction over the target (0.1 = 10% over): the far end is capped in chalk. */
   over?: number;
+  /** Colour of the over cap (chalk unless said otherwise). */
+  overColor?: string;
   accent?: string;
   /** Read by screen readers, e.g. "Protein 96 of 185 grams". */
   accessibilityLabel?: string;
@@ -93,7 +100,7 @@ export interface MeterBarProps {
 }
 
 /** Just the bar: a cut track that fills from the left in your corner colour, with a chalk leading edge. */
-export function MeterBar({ pct, height = 16, segments, over = 0, accent, accessibilityLabel, style }: MeterBarProps) {
+export function MeterBar({ pct, height = 16, segments, over = 0, overColor = F.chalk, accent, accessibilityLabel, style }: MeterBarProps) {
   const acc = useAccent(accent);
   const [size, onLayout] = useSize();
   // A missing target (a division by zero upstream) draws as empty, never as full.
@@ -120,10 +127,10 @@ export function MeterBar({ pct, height = 16, segments, over = 0, accent, accessi
       const cap = full && over > 0 ? Math.min(0.25, over) * inner : 0;
       shapes = (
         <>
-          <Polygon points={cutPoints(w, h, { inset: border / 2 })} fill={full ? acc : F.canvas} stroke={full ? F.chalk : F.rope} strokeWidth={border} />
+          <Polygon points={cutPoints(w, h, { inset: border / 2 })} fill={full ? acc : F.canvas} stroke={full ? (cap > 0 ? overColor : F.chalk) : F.rope} strokeWidth={border} />
           {!full && fillW > 0.5 ? <Polygon points={cutPoints(fillW + dx - border, h, { inset: border })} fill={acc} /> : null}
           {!full && fillW > 0.5 ? <Polygon points={cutPoints(tick + cutDx(h - border * 2), h - border * 2, { ox: fillW - tick / 2, oy: border })} fill={F.chalk} /> : null}
-          {cap > 0 ? <Polygon points={cutPoints(cap + dx, h, { ox: inner - cap, inset: border })} fill={F.chalk} /> : null}
+          {cap > 0 ? <Polygon points={cutPoints(cap + dx, h, { ox: inner - cap, inset: border })} fill={overColor} /> : null}
         </>
       );
     }
@@ -286,6 +293,8 @@ export interface LadderRow {
   you?: boolean;
   /** A quiet second line under the name (their rank, say). */
   tag?: string;
+  /** Rungs left out just above this one: drawn as a break in the ladder ("2 more"). */
+  skipped?: number;
 }
 
 /** What it takes to climb: the gap from your row to the one above, or null when you lead or aren't on the board. */
@@ -293,6 +302,17 @@ export function ladderGap(rows: LadderRow[]): { gap: number; to: LadderRow } | n
   const sorted = [...rows].sort((a, b) => a.rank - b.rank);
   const i = sorted.findIndex(r => r.you);
   return i > 0 ? { gap: Math.max(1, sorted[i - 1].score - sorted[i].score + 1), to: sorted[i - 1] } : null;
+}
+
+/** The climb in words: what it takes to pass the next rung, and (from third place down) to take the top. Empty when you aren't on it. */
+export function ladderLines(rows: LadderRow[], unit = 'XP'): { next: string; top?: string } | null {
+  const sorted = [...rows].sort((a, b) => a.rank - b.rank);
+  const i = sorted.findIndex(r => r.you);
+  if (i < 0) return null;
+  if (i === 0) return { next: 'TOP OF THE LADDER. HOLD IT.' };
+  const me = sorted[i], above = sorted[i - 1], first = sorted[0];
+  const next = `${num(Math.max(1, above.score - me.score + 1))} ${unit} TO PASS ${above.name.toUpperCase()}`;
+  return above === first && !me.skipped ? { next: `${num(Math.max(1, first.score - me.score + 1))} ${unit} TO THE TOP` } : { next, top: `${num(Math.max(1, first.score - me.score + 1))} ${unit} TO THE TOP` };
 }
 
 /**
@@ -303,8 +323,7 @@ export function Ladder({ rows, unit = 'XP', showGap = true, accent, style }: { r
   const acc = useAccent(accent);
   const sorted = [...rows].sort((a, b) => a.rank - b.rank);
   const top = Math.max(1, ...sorted.map(r => r.score));
-  const gap = ladderGap(sorted);
-  const leading = sorted[0]?.you;
+  const lines = ladderLines(sorted, unit);
   return (
     <View style={[{ gap: 6 }, style]}>
       {sorted.map(r => {
@@ -312,7 +331,14 @@ export function Ladder({ rows, unit = 'XP', showGap = true, accent, style }: { r
         // Never shorter than 62%, so the name and score always fit.
         const width = `${Math.round((0.62 + 0.38 * (r.score / top)) * 100)}%` as const;
         return (
-          <View key={r.id ?? `${r.rank}-${r.name}`} accessible accessibilityLabel={`Place ${r.rank}, ${r.name}${r.you ? ', you' : ''}${r.tag ? `, ${r.tag}` : ''}, ${num(r.score)} ${unit}`} style={{ width, paddingRight: SHADOW, paddingBottom: r.you ? SHADOW : 0 }}>
+          <Fragment key={r.id ?? `${r.rank}-${r.name}`}>
+          {r.skipped ? (
+            <View accessible accessibilityLabel={`${r.skipped} more ${r.skipped === 1 ? 'place' : 'places'} in between`} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 18, minHeight: 14 }}>
+              {[0, 1, 2].map(k => <CutShape key={k} width={7} height={9} fill={F.rope} />)}
+              <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} style={{ marginLeft: 6 }}>{`${r.skipped} MORE`}</Txt>
+            </View>
+          ) : null}
+          <View accessible accessibilityLabel={`Place ${r.rank}, ${r.name}${r.you ? ', you' : ''}${r.tag ? `, ${r.tag}` : ''}, ${num(r.score)} ${unit}`} style={{ width, paddingRight: SHADOW, paddingBottom: r.you ? SHADOW : 0 }}>
             <CutBox fill={r.you ? acc : F.canvas} stroke={r.you ? undefined : r.rank === 1 ? F.chalk : F.rope} shadow={r.you ? F.chalk : undefined} style={{ minHeight: 40, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Txt face="display" lean={false} size={22} lh={1.15} color={ink} style={{ minWidth: 18 }}>{r.rank}</Txt>
               <View style={{ flexShrink: 1, paddingVertical: r.tag ? 4 : 0 }}>
@@ -325,12 +351,14 @@ export function Ladder({ rows, unit = 'XP', showGap = true, accent, style }: { r
               <Txt face="label" w={600} size={12} ls={0.12} color={r.you ? ink : F.smoke}>{unit}</Txt>
             </CutBox>
           </View>
+          </Fragment>
         );
       })}
-      {showGap && (gap || leading) ? (
-        <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} style={{ marginTop: 2 }}>
-          {gap ? `${num(gap.gap)} ${unit} TO PASS ${gap.to.name.toUpperCase()}` : 'TOP OF THE LADDER. HOLD IT.'}
-        </Txt>
+      {showGap && lines ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, marginTop: 2 }}>
+          <Txt face="label" w={600} size={12} ls={0.12} color={acc}>{lines.next}</Txt>
+          {lines.top ? <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{lines.top}</Txt> : null}
+        </View>
       ) : null}
     </View>
   );
@@ -385,10 +413,12 @@ export function MoveRow({ index, indexWidth = 22, name, detail, pips, value, don
 /* ───────────────────────────── Special move card ───────────────────────────── */
 
 export type MoveTier = 'bronze' | 'silver' | 'gold';
+/** The usual medal colours. On screen use `useTierColors()`: it keeps them apart from the world's accent. */
 export const TIER_COLOR: Record<MoveTier, string> = { bronze: F.bronze, silver: F.silver, gold: F.gold };
 
 /** The card itself: a slanted plate in the tier colour with a hard chalk shadow; a rope outline when locked. */
 export function MoveCardArt({ tier, earned, icon, width = 48 }: { tier: MoveTier; earned: boolean; icon?: IconKey; width?: number }) {
+  const tiers = useTierColors();
   const k = width / 48, h = 56 * k;
   return (
     <View style={{ width: width + 4 * k, height: h + 4 * k }}>
@@ -396,7 +426,7 @@ export function MoveCardArt({ tier, earned, icon, width = 48 }: { tier: MoveTier
         {earned ? (
           <>
             <Polygon points="12,4 52,4 44,60 4,60" fill={F.chalk} />
-            <Polygon points="8,0 48,0 40,56 0,56" fill={TIER_COLOR[tier]} />
+            <Polygon points="8,0 48,0 40,56 0,56" fill={tiers[tier]} />
           </>
         ) : (
           <Polygon points="9,1 47,1 39,55 1,55" fill={F.canvas} stroke={F.rope} strokeWidth={2} />
@@ -431,8 +461,9 @@ export interface SpecialMoveCardProps {
 /** A badge as a special-move card: earned in its rarity colour, or locked and quiet with progress. */
 export function SpecialMoveCard({ title, tier, earned, icon, hint, progress, layout = 'stack', width = 48, onPress, accent, style }: SpecialMoveCardProps) {
   const acc = useAccent(accent);
+  const tiers = useTierColors(accent), scale = useStore(s => s.settings.textSize);
   const say = `${title}, ${earned ? `${tier}, unlocked` : `locked${progress ? `, ${Math.round(progress * 100)} percent` : ''}`}${hint ? `. ${hint}` : ''}`;
-  const rarity = <Txt face="label" w={600} size={layout === 'row' ? 12 : 11} ls={0.1} color={earned ? TIER_COLOR[tier] : F.smoke}>{earned ? tier.toUpperCase() : 'LOCKED'}</Txt>;
+  const rarity = <Txt face="label" w={600} size={layout === 'row' ? 12 : 11} ls={0.1} color={earned ? tiers[tier] : F.smoke}>{earned ? tier.toUpperCase() : 'LOCKED'}</Txt>;
   const meter = !earned && progress !== undefined && progress > 0 ? <MeterBar pct={progress} height={6} accent={acc} style={{ alignSelf: undefined, width }} /> : null;
   const body = layout === 'row' ? (
     <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: HIT }, style]}>
@@ -447,9 +478,12 @@ export function SpecialMoveCard({ title, tier, earned, icon, hint, progress, lay
   ) : (
     <View style={[{ alignItems: 'center', gap: 4, minHeight: HIT }, style]}>
       <MoveCardArt tier={tier} earned={earned} icon={icon} width={width} />
-      <Txt face="label" w={600} size={12} ls={0.04} lh={1.1} align="center" color={earned ? F.chalk : F.smoke} numberOfLines={2} style={{ marginTop: 2 }}>{title.toUpperCase()}</Txt>
+      {/* Two title lines and the meter are always given their room, so a row of cards lines up whatever each one holds. */}
+      <View style={{ minHeight: 2 * 12 * 1.1 * scale, marginTop: 2 }}>
+        <Txt face="label" w={600} size={12} ls={0.04} lh={1.1} align="center" color={earned ? F.chalk : F.smoke} numberOfLines={2}>{title.toUpperCase()}</Txt>
+      </View>
       {rarity}
-      {meter}
+      <View style={{ height: 6, width }}>{meter}</View>
     </View>
   );
   return onPress ? <Tap onPress={onPress} accessibilityLabel={say}>{body}</Tap> : <View accessible accessibilityLabel={say}>{body}</View>;
@@ -579,7 +613,7 @@ export interface CutButtonProps {
   disabled?: boolean;
   /** `lg` 56pt (the screen's one primary action), `md` 48pt. */
   size?: 'lg' | 'md';
-  /** `accent`: your colour on a chalk shadow (primary). `chalk`: chalk on your colour. `quiet`: outlined, no shadow (secondary). */
+  /** `accent`: your colour on a chalk shadow (primary). `chalk`: chalk on your colour. `quiet`: a square outlined strip, the secondary action (same shape as QuietButton). */
   tone?: 'accent' | 'chalk' | 'quiet';
   accent?: string;
   accessibilityLabel?: string;
@@ -590,9 +624,29 @@ export interface CutButtonProps {
 export function CutButton({ label, meta, icon, onPress, disabled, size = 'lg', tone = 'accent', accent, accessibilityLabel, style }: CutButtonProps) {
   const acc = useAccent(accent);
   const h = size === 'lg' ? 56 : 48;
-  const fill = disabled ? F.canvas2 : tone === 'accent' ? acc : tone === 'chalk' ? F.chalk : F.canvas;
-  const shadow = disabled || tone === 'quiet' ? undefined : tone === 'accent' ? F.chalk : acc;
-  const ink = disabled ? F.smoke : tone === 'quiet' ? F.chalk : onColor(fill);
+  if (tone === 'quiet') {
+    const ink = disabled ? F.smoke : F.chalk;
+    return (
+      <Pressable
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? (meta ? `${label}, ${meta}` : label)}
+        accessibilityState={{ disabled: !!disabled }}
+        onPress={() => {
+          Haptics.selectionAsync().catch(() => {});
+          onPress();
+        }}
+        style={({ pressed }) => [{ minHeight: h === 56 ? 52 : HIT, paddingHorizontal: 12, paddingVertical: 4, borderWidth: 2, borderColor: F.rope, backgroundColor: F.canvas, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.7 : 1 }, style]}
+      >
+        {icon ? <Icon name={icon} size={18} color={ink} tint={0} strokeWidth={2} /> : null}
+        <Txt face="label" w={600} size={14} ls={0.1} color={ink} align="center" style={{ flexShrink: 1 }}>{label.toUpperCase()}</Txt>
+        {meta ? <Txt face="label" w={600} size={12} ls={0.11} color={F.smoke} numberOfLines={1}>{meta.toUpperCase()}</Txt> : null}
+      </Pressable>
+    );
+  }
+  const fill = disabled ? F.canvas2 : tone === 'accent' ? acc : F.chalk;
+  const shadow = disabled ? undefined : tone === 'accent' ? F.chalk : acc;
+  const ink = disabled ? F.smoke : onColor(fill);
   return (
     <Pressable
       disabled={disabled}
@@ -608,7 +662,7 @@ export function CutButton({ label, meta, icon, onPress, disabled, size = 'lg', t
       {({ pressed }) => (
         <CutBox
           fill={fill}
-          stroke={tone === 'quiet' || disabled ? F.rope : undefined}
+          stroke={disabled ? F.rope : undefined}
           shadow={pressed ? undefined : shadow}
           style={{ minHeight: h, paddingHorizontal: h * 0.42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, transform: pressed && shadow ? [{ translateX: SHADOW / 2 }, { translateY: SHADOW / 2 }] : undefined }}
         >
