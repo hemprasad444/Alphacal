@@ -13,6 +13,8 @@ export const activate = onCall({ invoker: 'public' }, async req => {
   if (req.auth.token.tester === true) return { tester: true };
   // New access needs a verified email, so nobody can claim an allowlisted address they don't own.
   if (req.auth.token.email_verified !== true) throw new HttpsError('failed-precondition', 'Verify your email first.');
+  // An address with a slash would be read as a nested document path (and throw); it can't be on the list.
+  if (email.includes('/') || email.length > 320) throw new HttpsError('permission-denied', 'This email is not on the REI tester list.');
   const entry = await db.doc(`allowlist/${email}`).get();
   if (!entry.exists) throw new HttpsError('permission-denied', 'This email is not on the REI tester list.');
   await auth.setCustomUserClaims(req.auth.uid, { tester: true });

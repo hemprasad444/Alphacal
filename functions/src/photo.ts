@@ -1,47 +1,30 @@
-import { hhmm, reiContext, systemContext, systemRules, type Meal } from '@rei/shared';
+import { catalog, hhmm, MAX_MEALS, nutrition, reiContext, systemContext, systemRules } from '@rei/shared';
+import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { db } from './admin';
 import { save } from './chat';
-import { loadUser } from './chat/load';
-import { mealEstimates, parseMeal } from './chat/tools';
-
-const withN = (n: ReturnType<typeof mealEstimates>) => (n ? { n } : {});
+import { loadUser, usageToday } from './chat/load';
 import { complete, jsonText, LlmError, OPENROUTER_API_KEY } from './llm';
+import { PHOTO_PROMPT, PHOTO_SCHEMA, photoInput, photoMeal, photoNumbers } from './photoMeal';
 
-/** About 1.5 MB of JPEG; the app sends ~150 KB (1024 px, quality 0.7). */
-const MAX_BASE64 = 2_000_000;
-
-const PHOTO_SCHEMA = {
-  type: 'object',
-  properties: {
-    name: { type: 'string', description: 'Short name for the meal' },
-    kcal: { type: 'integer' },
-    p: { type: 'integer', description: 'Protein, grams' },
-    c: { type: 'integer', description: 'Carbohydrates, grams' },
-    f: { type: 'integer', description: 'Fat, grams' },
-    fib: { type: 'number', description: 'Fibre, grams' },
-    sug: { type: 'number', description: 'Total sugars, grams' },
-    sfa: { type: 'number', description: 'Saturated fat, grams' },
-    na: { type: 'integer', description: 'Sodium, mg (count salt in cooking)' },
-    confidence: { type: 'number', description: '0 to 1: how sure you are of the portion and contents' },
-    verdict: { type: 'string', description: 'REI’s reaction in one or two sentences, using the numbers left after this meal. If unsure, one short question about what is in it or how much.' },
-  },
-  required: ['name', 'kcal', 'p', 'c', 'f', 'fib', 'sug', 'sfa', 'na', 'confidence', 'verdict'],
-  additionalProperties: false,
-} as const;
+/** Photos a user may send per day: each one is a vision call. */
+const PHOTOS_PER_DAY = 40;
 
 /**
- * A meal photo from the Fuel screen: the model reads the plate, estimates macros, and REI
- * reacts. Confident estimates are logged like a typed meal; unsure ones only ask.
+ * A meal photo from the Fuel screen: the model reads the plate item by item, the food list supplies
+ * the numbers for what it has, and REI reacts. Confident reads are logged like a typed meal; unsure ones only ask.
  */
 export const mealFromPhoto = onCall({ secrets: [OPENROUTER_API_KEY], timeoutSeconds: 120, memory: '512MiB' }, async req => {
   if (!req.auth || req.auth.token.tester !== true) throw new HttpsError('permission-denied', 'Not on the tester list.');
-  const image = req.data?.image;
+  const image = photoInput(req.data?.image);
   const note = typeof req.data?.note === 'string' ? req.data.note.trim().slice(0, 200) : '';
-  if (typeof image !== 'string' || image.length < 100 || image.length > MAX_BASE64) throw new HttpsError('invalid-argument', 'Send one JPEG under 1.5 MB.');
+  if (!image) throw new HttpsError('invalid-argument', 'Send one JPEG under 1.5 MB.');
   const uid = req.auth.uid;
   const t0 = Date.now();
+  const { ref: usage, data: counts } = await usageToday(uid);
+  if (Number(counts.photos ?? 0) >= PHOTOS_PER_DAY) throw new HttpsError('resource-exhausted', 'That’s enough photos for today. Type the meal instead.');
+  usage.set({ photos: FieldValue.increment(1) }, { merge: true }).catch(e => logger.warn('usage write failed', e));
   const data = await loadUser(uid);
   const ctx = reiContext(data.input);
 
@@ -49,7 +32,7 @@ export const mealFromPhoto = onCall({ secrets: [OPENROUTER_API_KEY], timeoutSeco
   try {
     res = await complete({
       task: 'photo',
-      system: `${systemRules({ tough: ctx.tough, bro: ctx.bro, nudge: ctx.nudge, tools: false })}\n\n${systemContext(ctx)}\nThe user sent a photo of what they are eating. Estimate it like a nutrition coach: identify each item, judge portion sizes from plate and cutlery scale, and count oil and sauces.`,
+      system: `${systemRules({ tough: ctx.tough, bro: ctx.bro, nudge: ctx.nudge, tools: false })}\n\n${systemContext(ctx)}\n${PHOTO_PROMPT}`,
       messages: [{ role: 'user', content: note ? `What I'm eating: ${note}` : 'What I’m eating.' }],
       image,
       maxTokens: 4000,
@@ -66,15 +49,19 @@ export const mealFromPhoto = onCall({ secrets: [OPENROUTER_API_KEY], timeoutSeco
   } catch {
     throw new HttpsError('internal', 'REI could not read the photo. Try again.');
   }
-  const est = parseMeal(out);
-  const confidence = Number((out as { confidence?: unknown }).confidence ?? 0);
-  const verdict = est?.verdict || 'Couldn’t read that plate. Tell me what it is and roughly how much.';
-  const logged = !!est && confidence >= 0.5;
-  const meal: Meal | null = logged && est ? { time: hhmm(data.input.now), name: est.name.charAt(0).toUpperCase() + est.name.slice(1), kcal: est.kcal, p: est.p, c: est.c, f: est.f, src: 'photo', ...withN(mealEstimates(out)) } : null;
+  const time = hhmm(data.input.now);
+  const read = photoMeal(out, [...data.foods, ...catalog()], time);
+  // A full day's log takes no more: say so instead of numbers for a meal that isn't stored.
+  const full = data.input.meals.length >= MAX_MEALS;
+  const meal = full ? null : read.meal;
+  // REI's words, then the numbers as logged: the model never states a total the app didn't compute.
+  const text = meal
+    ? `${read.verdict.trimEnd()} ${photoNumbers(meal, data.input.profile, nutrition(data.input.meals, data.input.activity))}`
+    : read.meal ? `${read.verdict.trimEnd()} Not logged: today already holds ${MAX_MEALS} meals. Edit one of them instead.` : read.verdict;
 
   const replyId = `ph${Date.now().toString(36)}`;
-  await db.doc(`users/${uid}/messages/${replyId}u`).set({ role: 'user', text: note ? `Photo: ${note}` : 'Photo of my meal', time: hhmm(data.input.now), createdAt: Date.now() - 1 });
-  const notes = await save(uid, data, replyId, verdict, meal, null, null);
-  logger.info('photo', { uid, ms: Date.now() - t0, confidence, logged, model: res.model, inTokens: res.usage.input_tokens });
-  return { text: verdict, logged, notes };
+  await db.doc(`users/${uid}/messages/${replyId}u`).set({ role: 'user', text: note ? `Photo: ${note}` : 'Photo of my meal', time, createdAt: Date.now() - 1 });
+  const notes = await save(uid, data, replyId, text, meal, null, null);
+  logger.info('photo', { uid, ms: Date.now() - t0, confidence: read.confidence, logged: !!meal, listed: read.listed, estimated: read.estimated, model: res.model, inTokens: res.usage.input_tokens });
+  return { text, logged: !!meal, notes };
 });

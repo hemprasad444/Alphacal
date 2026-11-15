@@ -2,7 +2,7 @@
 // users/{uid}/reports/{week} and posted in the chat. Sunday 20:30, before next week's
 // program is written, or on demand from the Progress screen.
 import {
-  addDays, DEFAULT_PROFILE, memorySummary, readMemory, DEFAULT_SETTINGS, fallbackReport, isoDate, isoWeek, MODELS, mondayOf, normalizeReport, type Profile, REPORT_SCHEMA, reportPrompt,
+  addDays, DEFAULT_PROFILE, memorySummary, readMemory, DEFAULT_SETTINGS, fallbackReport, isoDate, isoWeek, MODELS, mondayOf, normalizeReport, type Profile, REPORT_SCHEMA, reportMoment, reportPrompt,
   type SessionLog, type Settings, type WeeklyReport, weekStats, type WeekProgram, type WeighIn, zonedNow,
 } from '@rei/shared';
 import { FieldPath, FieldValue } from 'firebase-admin/firestore';
@@ -12,15 +12,17 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { db } from './admin';
 import { complete, jsonText, OPENROUTER_API_KEY } from './llm';
 import { usageToday } from './chat/load';
+import { pool } from './pool';
 
 /** On-demand reports per user per day. */
 const REPORTS_PER_DAY = 5;
 
-export async function buildReport(uid: string, opts: { at?: Date } = {}): Promise<WeeklyReport> {
+export async function buildReport(uid: string, opts: { at?: Date; scheduled?: boolean } = {}): Promise<WeeklyReport> {
   const user = db.doc(`users/${uid}`);
   const u = (await user.get()).data() ?? {};
   const timeZone = typeof u.timezone === 'string' ? u.timezone : 'Asia/Kolkata';
-  const now = opts.at ?? zonedNow(timeZone);
+  // The Sunday-evening run is about the week ending, even where it is already Monday (see reportMoment).
+  const now = opts.at ?? (opts.scheduled ? reportMoment(zonedNow(timeZone)) : zonedNow(timeZone));
   const today = isoDate(now), monday = mondayOf(today), week = isoWeek(now);
   const profile: Profile = { ...DEFAULT_PROFILE, ...(u.profile as Partial<Profile> | undefined) };
   const settings: Settings = { ...DEFAULT_SETTINGS, ...(u.settings as Partial<Settings> | undefined) };
@@ -68,14 +70,11 @@ export async function buildReport(uid: string, opts: { at?: Date } = {}): Promis
 export const weeklyReports = onSchedule(
   { schedule: 'every sunday 20:30', timeZone: 'Asia/Kolkata', secrets: [OPENROUTER_API_KEY], timeoutSeconds: 540, memory: '512MiB' },
   async () => {
-    const users = await db.collection('users').select().get();
-    for (const u of users.docs) {
-      try {
-        await buildReport(u.id);
-      } catch (e) {
-        logger.error('weekly report failed', { uid: u.id, error: e instanceof Error ? e.message : String(e) });
-      }
-    }
+    // Not for someone who never finished onboarding: there is no week to report on.
+    const users = (await db.collection('users').select('onboarded').get()).docs.filter(u => u.get('onboarded') !== false);
+    // Four at a time, and no new one after 8 minutes: the function is cut off at 9.
+    const r = await pool(users, 4, u => buildReport(u.id, { scheduled: true }), { budgetMs: 480_000, onError: (u, e) => logger.error('weekly report failed', { uid: u.id, error: e instanceof Error ? e.message : String(e) }) });
+    logger[r.skipped || r.failed ? 'error' : 'info']('weekly reports', { users: users.length, ...r });
   },
 );
 

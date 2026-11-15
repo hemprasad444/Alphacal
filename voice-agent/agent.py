@@ -16,7 +16,9 @@ import logging
 import os
 import re
 import unicodedata
+from datetime import datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from livekit import rtc
@@ -319,6 +321,23 @@ def merge_pending_turns(chat_ctx: lkllm.ChatContext) -> lkllm.ChatContext:
     return lkllm.ChatContext(items=[*items[:start], merged, *rest])
 
 
+def local_time_note(tz: str | None, now: datetime | None = None) -> str | None:
+    """The user's clock, told to REI on every turn: the prompt's facts were computed when the call was set up, and a
+    call can run ten minutes past them (or be answered from a session prepared a while before). None without a zone."""
+    if not tz:
+        return None
+    try:
+        t = (now or datetime.now(timezone.utc)).astimezone(ZoneInfo(tz))
+    except Exception:  # an unknown zone, or no zone data on this machine: say nothing rather than the wrong time
+        return None
+    # The same parts of the day as the app's facts (packages/shared/src/facts.ts).
+    part = "late night" if t.hour < 5 else "early morning" if t.hour < 8 else "morning" if t.hour < 12 else "afternoon" if t.hour < 17 else "evening" if t.hour < 21 else "night"
+    return (
+        f"Their clock right now: {t.strftime('%A')} {t.day} {t.strftime('%B %Y')}, {t.strftime('%H:%M')} ({part}). "
+        "For the time, or how long until or since something, count from this; the times in FACTS were worked out when the call started."
+    )
+
+
 def last_user_text(chat_ctx) -> str:
     for item in reversed(chat_ctx.items):
         if getattr(item, "type", "") == "message" and item.role == "user":
@@ -329,6 +348,8 @@ def last_user_text(chat_ctx) -> str:
 class Rei(Agent):
     # The call's language so far: a short line in another script (a misheard word, "amma") doesn't switch it.
     language: str | None = None
+    # The user's IANA time zone, from the session (None from a server that doesn't send it yet).
+    time_zone: str | None = None
 
     async def llm_node(self, chat_ctx, tools, model_settings):
         cleaner = TextCleaner()
@@ -341,8 +362,12 @@ class Rei(Agent):
             self.language = heard
         elif spoken_language(said) is None and len(said.split()) >= 3:
             self.language = None  # a real English (or Hinglish) line
-        if self.language:
+        clock = local_time_note(self.time_zone)
+        if self.language or clock:
             chat_ctx = chat_ctx.copy()
+        if clock:
+            chat_ctx.add_message(role="system", content=clock)
+        if self.language:
             chat_ctx.add_message(role="system", content=f"They are speaking {self.language}: reply in {self.language}, in its own script, unless they ask for another language. Keep [tags] in English.")
         async for chunk in Agent.default.llm_node(self, chat_ctx, tools, model_settings):
             if isinstance(chunk, str):
@@ -463,7 +488,9 @@ async def entry(ctx: JobContext) -> None:
         history.add_message(role="system", content="The call starts now. Everything above happened before it and was already handled: never call a tool for it again. Act only on what they ask during this call.")
 
     tools = [rpc_tool(ctx.room, user.identity, s) for s in meta.get("tools", [])]
-    await session.start(room=ctx.room, agent=Rei(instructions=meta.get("prompt", "You are REI, a fitness coach."), tools=tools, chat_ctx=history))
+    rei = Rei(instructions=meta.get("prompt", "You are REI, a fitness coach."), tools=tools, chat_ctx=history)
+    rei.time_zone = meta.get("timeZone")
+    await session.start(room=ctx.room, agent=rei)
     session.say(meta.get("greeting") or "Yo, what's good?")
 
     # Hard cap per call (maxSeconds from the session).

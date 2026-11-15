@@ -108,6 +108,15 @@ interface Indexed {
   phrases: string[];
 }
 
+/** Foods whose name before the comma names them: dishes, and IFCT foods with a portion of their own. */
+const headed = (food: Food) => food.name.includes(',') && (food.src === 'dish' || (food.src === 'ifct' && food.units[0]?.n !== '100 g'));
+
+/** A dish named "Rice, cooked" is also said "cooked rice"; "Omelette, 2 eggs" has no such form. */
+const turned = (food: Food) => {
+  const parts = food.name.split(',').map(x => x.trim());
+  return food.src === 'dish' && parts.length === 2 && !/^\d/.test(parts[1]) ? [normalize(`${parts[1]} ${parts[0]}`)] : [];
+};
+
 const indexCache = new WeakMap<Food, Indexed>();
 function indexed(food: Food): Indexed {
   let x = indexCache.get(food);
@@ -117,7 +126,8 @@ function indexed(food: Food): Indexed {
       food,
       name: tokens(food.name + (food.brand ? ' ' + food.brand : '')),
       alt: alts.flatMap(tokens),
-      phrases: [normalize(food.name), ...alts].map(p => p.split(' ').map(stem).join(' ')),
+      // "Dosa, plain" is what "dosa" means; the same for the IFCT foods eaten as they are (fruit, milk, eggs, nuts).
+      phrases: [normalize(food.name), ...(headed(food) ? [normalize(food.name.split(',')[0]), ...turned(food)] : []), ...alts].map(p => p.split(' ').map(stem).join(' ')),
     };
     indexCache.set(food, x);
   }
@@ -266,12 +276,23 @@ const UNIT_ALIAS: Record<string, string> = {
 const GENERIC: Record<string, number> = { katori: 150, cup: 160, plate: 250, glass: 250, tbsp: 15, tsp: 5, scoop: 30, handful: 30, slice: 25, can: 330 };
 const GRAMS: Record<string, number> = { g: 1, gm: 1, gms: 1, gram: 1, grams: 1, ml: 1, kg: 1000, l: 1000 };
 
+/** How many pieces a portion named like "6 puris" or "10 almonds" holds; 0 for any other portion ("katori", "100 g"). */
+export function piecesIn(u: Unit): number {
+  const m = /^(\d+)\s+(?!g\b|gm\b|ml\b|inch\b)[a-z]/i.exec(u.n);
+  return m && +m[1] > 1 ? +m[1] : 0;
+}
+
 /** The portion `name` means for this food, or the default portion. */
 export function unitFor(food: Food, name?: string): Unit {
   const raw = name?.toLowerCase() ?? '';
   const n = UNIT_ALIAS[raw] ?? raw;
   if (n && !food.serving && GRAMS[n]) return { n: 'g', g: GRAMS[n] };
-  const own = food.units.find(u => u.n.toLowerCase() === raw || u.n.toLowerCase() === n) ?? (n === 'piece' || n === 'serving' ? food.units[0] : undefined);
+  const named = food.units.find(u => u.n.toLowerCase() === raw || u.n.toLowerCase() === n);
+  if (named) return named;
+  // One piece of a portion that is several ("6 puris", "2 slices", "10 almonds"): a puri, a slice, an almond.
+  const many = n ? food.units.find(u => piecesIn(u) && (n === 'piece' || stem(u.n.replace(/^\d+\s+/, '').toLowerCase()) === stem(n))) : undefined;
+  if (many) return { n, g: many.g / piecesIn(many) };
+  const own = n === 'piece' || n === 'serving' ? food.units[0] : undefined;
   if (own) return own;
   if (n && !food.serving && GENERIC[n]) return { n, g: GENERIC[n] };
   return food.units[0] ?? { n: 'g', g: 1 };
@@ -317,9 +338,32 @@ export function withTotals(meal: Meal, t: { kcal: number; p: number; c: number; 
 
 // ---- Free text ----------------------------------------------------------------
 
-const WORD_QTY: Record<string, number> = { a: 1, an: 1, one: 1, half: 0.5, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, couple: 2 };
-const UNIT_RE = `(${[...Object.keys(GRAMS), ...Object.keys(GENERIC), ...Object.keys(UNIT_ALIAS), 'piece', 'serving', 'pack', 'katori'].sort((a, b) => b.length - a.length).join('|')})`;
-const PIECE_RE = new RegExp(`^(?:(\\d+(?:\\.\\d+)?|\\d+/\\d+)\\s*|(${Object.keys(WORD_QTY).join('|')})\\s+)?(?:${UNIT_RE}\\b\\.?\\s*(?:of\\s+)?)?(.*)$`);
+const WORD_QTY: Record<string, number> = { a: 1, an: 1, one: 1, half: 0.5, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, couple: 2, ek: 1, teen: 3, chaar: 4, paanch: 5, aadha: 0.5 };
+const UNIT_WORDS = [...Object.keys(GRAMS), ...Object.keys(GENERIC), ...Object.keys(UNIT_ALIAS), 'piece', 'serving', 'pack', 'katori'].sort((a, b) => b.length - a.length);
+const UNIT_RE = `(${UNIT_WORDS.join('|')})`;
+const NUM = String.raw`\d+(?:\.\d+)?|\d+/\d+`;
+const PIECE_RE = new RegExp(`^(?:(${NUM})\\s*|(${Object.keys(WORD_QTY).join('|')})\\s+)?(?:${UNIT_RE}\\b\\.?\\s*(?:of\\s+)?)?(.*)$`);
+/** "samosa 2", "paneer 100g", "pani puri 6 pieces", "ghee 1 tsp": the amount after the food. */
+const TRAILING_AMOUNT = new RegExp(`^(.*?[a-z])\\s+(${NUM})\\s*${UNIT_RE}?$`);
+/** "chicken biryani plate", "buttermilk glass": the portion after the food. */
+const TRAILING_UNIT = new RegExp(`^(.+?)\\s+${UNIT_RE}$`);
+const IS_UNIT = new RegExp(`^${UNIT_RE}$`);
+const IS_AMOUNT = new RegExp(`^(?:${NUM})(?:g|gm|gms|ml|kg)?$`);
+
+/**
+ * Words around the food in what people type or say ("I just had … for breakfast"), in English and in
+ * romanised Hindi, Telugu and Tamil ("maine abhi … khaya", "… tinnanu"). None of them names a food.
+ */
+const AROUND = new RegExp(
+  String.raw`\b(?:i|ive|im|we|just|had|have|having|ate|eaten|eating|drank|drinking|finished|grabbed|took|then|also|today|tonight|right now|` +
+    String.raw`this (?:morning|afternoon|evening)|in the (?:morning|afternoon|evening)|at (?:night|home|work|office)|` +
+    String.raw`for (?:my )?(?:breakfast|brunch|lunch|dinner|supper|snacks?)|(?:pre|post|after|before)[- ]?(?:workout|gym)|` +
+    String.raw`bro|yo|bhai|yaar|um|uh|okay|ok|maine|mene|abhi|aaj|subah|dopahar|shaam ko|shaam|raat ko|raat|nashte (?:mein|me)|khaya|khayi|khaye|khaa|kha|liya|liye|piya|piyi|tha|thi|hai|hoon|` +
+    String.raw`tinnanu|thinnanu|tinna|thinna|tagaanu|saptaen|sapten|saapten)\b`,
+  'g',
+);
+/** What separates two foods: "and", "with", a comma, and the same in romanised Hindi and Telugu. */
+const BETWEEN = /\s*(,|\+|&|;|\n|\band\b|\bwith\b|\bplus\b|\balong with\b|\baur\b|\bke saath\b|\bsaath\b|\bmariyu\b)\s*/;
 
 export interface ParsedPiece {
   text: string;
@@ -328,26 +372,77 @@ export interface ParsedPiece {
   query: string;
   /** They typed an amount ("2", "two", "a"); otherwise qty is the 1 we assumed. */
   counted?: boolean;
+  /**
+   * The words before an amount or portion was read off their end ("chicken 65", "burrito bowl"): when
+   * that is itself a food's name, it is the food, and the number or portion word belongs to the name.
+   */
+  whole?: string;
+  /** The word that joined this piece to the one before ("with", "and"), when there was one. */
+  sep?: string;
 }
 
 /** With no amount typed, a dish means a helping of it ("paneer tikka" is a plate, not one piece). */
 const MEAL_UNIT = /^(plate|bowl|katori|serving|glass|cup|thali)$/i;
-const defaultUnit = (food: Food, p: ParsedPiece) => p.unit ?? (p.counted ? undefined : food.units.find(u => MEAL_UNIT.test(u.n))?.n);
+const defaultUnit = (food: Food, p: ParsedPiece) =>
+  // "6 pani puri" is six puris, not six plates of six.
+  p.unit ?? (p.counted ? (food.units[0] && piecesIn(food.units[0]) ? 'piece' : undefined) : food.units.find(u => MEAL_UNIT.test(u.n))?.n);
+
+const amount = (num: string | undefined, word: string | undefined) => (num ? (num.includes('/') ? +num.split('/')[0] / +num.split('/')[1] : parseFloat(num)) : word ? WORD_QTY[word] : 1);
+
+/** "1 bowl dal 2 roti 1 bowl rice": a new food starts at each amount that has a food after it. */
+function splitAtAmounts(piece: string): string[] {
+  const words = piece.split(' ');
+  const out: string[] = [];
+  let cur: string[] = [];
+  words.forEach((w, k) => {
+    if (IS_AMOUNT.test(w) && cur.some(x => !IS_AMOUNT.test(x) && !IS_UNIT.test(x) && x !== 'of')) {
+      let rest = words.slice(k + 1);
+      if (IS_UNIT.test(rest[0] ?? '')) rest = rest.slice(1);
+      if (rest[0] === 'of') rest = rest.slice(1);
+      // Nothing after it but a portion word: the amount trails the food before it ("samosa 2", "ghee 1 tsp").
+      if (rest.length) {
+        out.push(cur.join(' '));
+        cur = [];
+      }
+    }
+    cur.push(w);
+  });
+  out.push(cur.join(' '));
+  return out;
+}
+
+function parsePiece(text: string, sep?: string): ParsedPiece {
+  const [, num, word, unit, rest0] = PIECE_RE.exec(text)!;
+  const rest = (rest0 ?? '').trim();
+  const lead = amount(num, word);
+  const base = { text, ...(sep ? { sep } : {}) };
+  // The amount after the food, when none came before it.
+  const after = !num && !word && !unit ? TRAILING_AMOUNT.exec(rest) : null;
+  if (after) {
+    const qty = amount(after[2], undefined);
+    return { ...base, qty: qty > 0 ? qty : 1, unit: after[3] || undefined, query: after[1].trim(), counted: true, whole: rest };
+  }
+  const tail = !unit ? TRAILING_UNIT.exec(rest) : null;
+  if (tail) return { ...base, qty: lead > 0 ? lead : 1, unit: tail[2], query: tail[1].trim(), counted: !!(num || word), whole: rest };
+  return { ...base, qty: lead > 0 ? lead : 1, unit: unit || undefined, query: rest, counted: !!(num || word) };
+}
 
 /** "2 rotis and a katori of dal, 200g chicken" → pieces with amounts. */
 export function splitMealText(text: string): ParsedPiece[] {
-  const s = text.toLowerCase().replace(/^\s*(just\s+)?(i\s+)?(had|ate|eaten|having)\s*:?\s*/, '').replace(/\bfor (breakfast|lunch|dinner|snack)\b/g, '');
-  return s
-    .split(/\s*(?:,|\+|&|;|\n|\band\b|\bwith\b|\bplus\b)\s*/)
-    .map(p => p.trim())
-    .filter(Boolean)
-    .map(p => {
-      const m = PIECE_RE.exec(p)!;
-      const [, num, word, unit, rest] = m;
-      const qty = num ? (num.includes('/') ? +num.split('/')[0] / +num.split('/')[1] : parseFloat(num)) : word ? WORD_QTY[word] : 1;
-      return { text: p, qty: qty > 0 ? qty : 1, unit: unit || undefined, query: (rest ?? '').trim(), counted: !!(num || word) };
-    })
-    .filter(p => p.query);
+  const s = text.toLowerCase().replace(/[’']/g, '').replace(/[.!?]+(\s|$)/g, ' ').replace(AROUND, ' ').replace(/^\s*:\s*/, '').replace(/[ \t]+/g, ' ');
+  const parts = s.split(BETWEEN);
+  const out: ParsedPiece[] = [];
+  // split() with a capture group: foods at even positions, what joined them at odd ones.
+  for (let i = 0; i < parts.length; i += 2) {
+    const sep = i > 0 ? parts[i - 1].trim() : '';
+    const piece = parts[i].trim().replace(/^(?:my|the|some)\s+/, '');
+    if (!piece) continue;
+    splitAtAmounts(piece).forEach((p, k) => {
+      const parsed = parsePiece(p.trim(), k === 0 && /^[a-z ]+$/.test(sep) ? sep : undefined);
+      if (parsed.query) out.push(parsed);
+    });
+  }
+  return out;
 }
 
 export interface TextMatch {
@@ -356,46 +451,105 @@ export interface TextMatch {
   unmatched: string[];
 }
 
+const isExact = (m: Match, query: string) => indexed(m.food).phrases.includes(tokens(query).join(' '));
+
 /** A confident match: every word found, and clearly ahead of the runner-up or an exact name. */
 function confident(ms: Match[], query: string): Match | null {
   const [a, b] = ms;
   if (!a || a.coverage < 1) return null;
-  const exact = indexed(a.food).phrases.includes(tokens(query).join(' '));
+  const exact = isExact(a, query);
   // Varieties of one ingredient ("Banana, ripe, robusta" and "…, poovam") are close enough.
   const variant = !!b && a.food.src === 'ifct' && b.food.src === 'ifct' && a.food.name.split(',')[0] === b.food.name.split(',')[0];
   return exact || variant || !b || a.score - b.score >= 1 ? a : null;
 }
 
-/** "idli sambar": two foods with no "and" between them. The amount goes with the first. */
-function splitPair(p: ParsedPiece, foods: Food[]): MealItem[] | null {
-  const words = p.query.split(' ');
-  for (let i = 1; i < words.length; i++) {
+/** The food whose name (or one of its other names) is exactly these words. */
+function exactFood(query: string, foods: Food[]): Food | null {
+  const a = searchFoods(query, foods, 3)[0];
+  return a && a.coverage >= 1 && isExact(a, query) ? a.food : null;
+}
+
+/**
+ * "idli sambar", "2 roti dal sabzi": several foods with no "and" between them, longest names first.
+ * The amount goes with the first. Each part has to be a food's own name (or one of its other names),
+ * so a stray word never turns into a food.
+ */
+function splitRun(words: string[], foods: Food[], depth = 0): Food[] | null {
+  if (depth > 4) return null;
+  for (let i = words.length - 1; i >= 1; i--) {
     const left = words.slice(0, i).join(' '), right = words.slice(i).join(' ');
-    const a = confident(searchFoods(left, foods, 3), left), b = a && confident(searchFoods(right, foods, 3), right);
-    // "whey protein shake": both halves name the same food, so it's one serving of it, not two.
-    if (a && b && a.food.id === b.food.id) return [itemFor(a.food, p.qty, defaultUnit(a.food, p))];
-    if (a && b) return [itemFor(a.food, p.qty, defaultUnit(a.food, p)), itemFor(b.food, 1, defaultUnit(b.food, { ...p, unit: undefined, counted: false }))];
+    const a = exactFood(left, foods);
+    if (!a) continue;
+    const whole = exactFood(right, foods);
+    const rest = whole ? [whole] : splitRun(words.slice(i), foods, depth + 1);
+    if (rest) return [a, ...rest];
   }
   return null;
+}
+
+function runItems(p: ParsedPiece, foods: Food[]): MealItem[] | null {
+  const run = splitRun(p.query.split(' '), foods);
+  if (!run) return null;
+  // "whey protein shake": both halves name the same food, so it's one serving of it, not two.
+  const distinct = run.filter((f, i) => run.findIndex(x => x.id === f.id) === i);
+  return distinct.map((f, i) => (i === 0 ? itemFor(f, p.qty, defaultUnit(f, p)) : itemFor(f, 1, defaultUnit(f, { ...p, unit: undefined, counted: false }))));
 }
 
 /** Match typed food to the list, on the device. Unmatched pieces go to REI to estimate. */
 export function matchMealText(text: string, foods: Food[]): TextMatch {
   const items: MealItem[] = [], unmatched: string[] = [];
-  for (const p of splitMealText(text)) {
+  const pieces = splitMealText(text);
+  for (let i = 0; i < pieces.length; i++) {
+    const p = pieces[i];
+    // "oats with milk", "bread and butter": a dish whose own name has the joining word in it.
+    const next = pieces[i + 1];
+    const joined = next?.sep && !next.counted && !next.unit && !p.whole && !p.unit && p.qty === 1 ? exactFood(`${p.query} ${next.sep} ${next.query}`, foods) : null;
+    if (joined) {
+      items.push(itemFor(joined, p.qty, defaultUnit(joined, p)));
+      i++;
+      continue;
+    }
+    // "chicken 65", "burrito bowl": the whole thing is a food's name.
+    const named = p.whole ? exactFood(p.whole, foods) : null;
+    if (named) {
+      const lead = PIECE_RE.exec(p.text)!;
+      const q = lead[1] || lead[2] ? amount(lead[1], lead[2]) : 1;
+      const asTyped: ParsedPiece = { text: p.text, qty: q > 0 ? q : 1, query: p.whole!, counted: !!(lead[1] || lead[2]) };
+      items.push(itemFor(named, asTyped.qty, defaultUnit(named, asTyped)));
+      continue;
+    }
     const m = confident(searchFoods(p.query, foods, 3), p.query);
-    const pair = m ? null : splitPair(p, foods);
+    const run = m ? null : runItems(p, foods);
     if (m) items.push(itemFor(m.food, p.qty, defaultUnit(m.food, p)));
-    else if (pair) items.push(...pair);
+    else if (run) items.push(...run);
     else unmatched.push(p.text);
   }
   return { items, unmatched };
 }
 
+/**
+ * The food a name means, when the list has it for sure ("roti", "paneer butter masala"): for foods
+ * REI names itself instead of picking from the list (on calls, from photos, or in another language).
+ */
+export function foodByName(name: string, foods: Food[]): Food | null {
+  const q = normalize(name);
+  if (!q) return null;
+  // "plain roti", "homemade dal", "a bowl of steamed rice": the same food once the describing words are gone.
+  const bare = q.replace(DESCRIBING, ' ').replace(/\s+/g, ' ').trim();
+  for (const x of bare && bare !== q ? [q, bare] : [q]) {
+    const exact = exactFood(x, foods);
+    if (exact) return exact;
+  }
+  return confident(searchFoods(q, foods, 3), q)?.food ?? null;
+}
+
+/** Words a model adds to a food's name that don't change which food it is. */
+const DESCRIBING = /\b(plain|simple|regular|homemade|home ?style|home ?made|home cooked|fresh|hot|small|medium|large|big|whole wheat|wheat(?= (roti|chapati|phulka))|a (bowl|cup|plate|glass|katori|piece) of|bowl of|cup of|plate of|glass of|some)\b/g;
+
 /** Foods REI may pick from for this message: the best few for each piece. */
 export function foodCandidates(text: string, foods: Food[], max = 16): Food[] {
   const seen = new Map<string, Food>();
-  for (const p of splitMealText(text)) for (const m of searchFoods(p.query, foods, 4)) if (m.coverage >= 1) seen.set(m.food.id, m.food);
+  for (const p of splitMealText(text)) for (const q of p.whole ? [p.whole, p.query] : [p.query]) for (const m of searchFoods(q, foods, 4)) if (m.coverage >= 1) seen.set(m.food.id, m.food);
   return [...seen.values()].slice(0, max);
 }
 
@@ -427,7 +581,9 @@ export interface AiItem {
 export function resolveAiItems(items: AiItem[], foods: Food[]): MealItem[] {
   const byId = new Map(foods.map(f => [f.id, f]));
   return items.map(i => {
-    const food = byId.get(i.food_id);
+    const picked = byId.get(i.food_id);
+    // Not picked from the list (or a made-up id): the list may still have it under the name REI gave.
+    const food = picked ?? foodByName(i.name, foods) ?? undefined;
     const n = cleanNutrients({ fib: i.fib, sug: i.sug, sfa: i.sfa, na: i.na });
     if (food && i.qty > 0) {
       const listed = itemFor(food, i.qty, i.unit);
@@ -437,12 +593,15 @@ export function resolveAiItems(items: AiItem[], foods: Food[]): MealItem[] {
       const off = (k: number) => Math.abs(Math.log((k + 10) / (i.kcal + 10)));
       /** Up to 2 kg and 2,000 kcal of one food: anything more is a mix-up, not a meal. */
       const believable = (x: MealItem) => x.kcal <= 2000 && (food.serving || x.g <= 2000);
-      const readings = (unitFor(food, i.unit).n === 'g' ? [listed] : [listed, itemFor(food, i.qty, 'g')]).filter(believable);
+      // "6" of a "6 puris" portion usually means six puris, not six plates.
+      const perPiece = piecesIn(unitFor(food, i.unit)) ? [itemFor(food, i.qty, 'piece')] : [];
+      const readings = (unitFor(food, i.unit).n === 'g' ? [listed] : [listed, ...perPiece, itemFor(food, i.qty, 'g')]).filter(believable);
       const best = readings.length ? readings.reduce((x, y) => (off(y.kcal) < off(x.kcal) ? y : x)) : null;
       if (best && off(best.kcal) <= Math.log(2.5)) return best;
-      // Nothing agrees: the list wins while its amount is believable (REI's guess may be the wrong one);
-      // otherwise REI's own estimate is kept.
-      if (believable(listed)) return listed;
+      // Nothing agrees: a food REI picked from the list wins while its amount is believable (REI's guess
+      // may be the wrong one). A food matched by its name alone has to agree with REI's numbers to
+      // replace them; otherwise REI's own estimate is kept.
+      if (picked && believable(listed)) return listed;
     }
     return { food: '', name: i.name, qty: i.qty > 0 ? i.qty : 1, unit: i.unit || 'serving', g: 0, kcal: Math.round(i.kcal), p: r1(i.p), c: r1(i.c), f: r1(i.f), ...(n ? { n } : {}) };
   });

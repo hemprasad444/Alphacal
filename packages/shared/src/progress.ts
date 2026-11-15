@@ -2,7 +2,7 @@
 // weekly report. Pure functions, shared by the app and the report function.
 import { WEEK_PLAN, type WeekProgram } from './data';
 import { pace, prTimeline, sessionOrder } from './strength';
-import { isoDate, parseIsoDate, weekdayIndex } from './time';
+import { daysBetween, isoDate, parseIsoDate, weekdayIndex } from './time';
 import type { DayDoc, Profile, SessionLog, WeighIn } from './types';
 
 export const MEASURES = ['waist', 'chest', 'hips', 'arms', 'thighs', 'neck'] as const;
@@ -326,8 +326,27 @@ export function statsLines(s: WeekStats): string {
 export function reportPrompt(stats: WeekStats, profile: Profile, tough: boolean, memory = ''): { system: string; user: string } {
   return {
     system: `You are REI, a personal fitness coach writing one person's weekly report. Intensity ${tough ? '10/10, blunt' : '6/10, firm but warm'}. Use only the numbers given; never invent any. Praise real wins briefly, name the main problem plainly, and give one focus that would move their goal most. No em dashes, no emojis, no exclamation marks, never comment negatively on their body.`,
-    user: `Goal (their words): "${profile.goal}". Deadline ${profile.deadline}. Weight target ${profile.targetWeight} kg.${memory ? `\nWhat you know about them: ${memory}` : ''}\n${statsLines(stats)}`,
+    user: `Goal (their words): "${profile.goal}". Deadline ${profile.deadline}. Weight target ${profile.targetWeight} kg.${reportDates(stats, profile)}${memory ? `\nWhat you know about them: ${memory}` : ''}\n${statsLines(stats)}`,
   };
+}
+
+/**
+ * The calendar sums the report would otherwise leave to the model: days from the report's last day to
+ * the deadline, and the weight still to go. Empty where a value isn't known.
+ */
+export function reportDates(stats: WeekStats, profile: Profile): string {
+  const to = parseIsoDate(stats.to), deadline = parseIsoDate(profile.deadline);
+  const out: string[] = [];
+  if (to && deadline) {
+    const days = daysBetween(to, deadline);
+    out.push(days > 0 ? `From ${stats.to} the deadline is ${days} days away (${Math.floor(days / 7)} full weeks).` : days === 0 ? `The deadline is ${stats.to}, the last day of this report.` : `The deadline passed ${-days} days before ${stats.to}.`);
+  }
+  const target = num(profile.targetWeight);
+  if (stats.weight.end != null && target) {
+    const gap = Math.round((stats.weight.end - target) * 10) / 10;
+    out.push(gap === 0 ? 'They are at the target weight.' : `${Math.abs(gap)} kg ${gap > 0 ? 'above' : 'below'} the target weight.`);
+  }
+  return out.length ? `\n${out.join(' ')} (Computed: use these, don't recalculate.)` : '';
 }
 
 const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().replace(/\s*[—–]\s*/g, '. ').slice(0, max) : '');

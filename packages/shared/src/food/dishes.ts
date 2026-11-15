@@ -4,6 +4,12 @@
 // [id, name, other names, units [name, grams][], kcal, protein, carbs, fat, nutrients?] for the FIRST unit.
 // Nutrients follow nutrients.ts order (fibre, sugar, sat fat, sodium, minerals, vitamins) and are model
 // estimates (scripts/estimate-dish-nutrients.mts, scripts/estimate-dish-micros.mts).
+// Rows marked "composed" are worked out from this list's own IFCT/USDA values for a stated recipe:
+//   Ragi malt (250 ml glass): 30 g ragi flour (IFCT A010) + 100 ml toned milk + 5 g jaggery (IFCT I001) = 176 kcal, P5.5 C29 F3.6.
+//   Fruit bowl (150 g katori): 50 g each banana (IFCT E012), apple (IFCT E001), papaya (IFCT D059) = 98 kcal, P1 C20.6 F0.5.
+//   Chicken fry (120 g katori): 100 g cooked chicken breast (165 kcal, P31 F3.6) + 10 g oil or ghee (IFCT T013) + onion and spices = 270 kcal, P31 C3 F14.
+//   Sugar (5 g teaspoon): USDA "Sugars, granulated", 387 kcal and 100 g carbohydrate per 100 g = 19 kcal, C5.
+//   Water: nothing.
 export const DISHES: ([string, string, string, [string, number][], number, number, number, number] | [string, string, string, [string, number][], number, number, number, number, number[]])[] = [
   // Breads
   ['roti', 'Roti', 'chapati, chapathi, phulka, fulka, rotli', [['roti', 40]], 110, 3.5, 19, 2.5, [2.5, 0.3, 0.5, 120, 100, 12, 1, 38, 0.7, 0, 0, 0, 0.1, 0.1, 0.04, 1.3, 0.07, 12]],
@@ -15,11 +21,11 @@ export const DISHES: ([string, string, string, [string, number][], number, numbe
   ['puri', 'Puri', 'poori', [['puri', 25]], 100, 2, 12, 5, [1.2, 0.3, 2, 60, 40, 6, 0.5, 16, 0.3, 0, 0, 0, 0.6, 0.05, 0.02, 0.7, 0.03, 6]],
   ['bhatura', 'Bhatura', 'bhature', [['bhatura', 80]], 300, 6, 36, 15, [2, 2.5, 3.5, 330, 110, 25, 1.6, 28, 0.6, 0, 0, 0, 1.5, 0.25, 0.15, 2.5, 0.05, 40]],
   ['thepla', 'Thepla', 'methi thepla', [['thepla', 40]], 130, 3.5, 18, 5, [2.5, 1, 1, 230, 110, 20, 1.2, 30, 0.5, 40, 1, 0, 0.5, 0.1, 0.07, 1.2, 0.06, 18]],
-  ['bread', 'Bread, white', 'white bread, toast, slice', [['slice', 25]], 67, 2.2, 12.5, 0.8, [0.9, 1.5, 0.2, 140, 35, 35, 0.9, 6, 0.2, 0, 0, 0, 0.1, 0.13, 0.09, 1.5, 0.02, 28]],
+  ['bread', 'Bread, white', 'white bread, toast, slice, bread', [['slice', 25]], 67, 2.2, 12.5, 0.8, [0.9, 1.5, 0.2, 140, 35, 35, 0.9, 6, 0.2, 0, 0, 0, 0.1, 0.13, 0.09, 1.5, 0.02, 28]],
   ['brown-bread', 'Bread, brown', 'brown bread, whole wheat bread, multigrain', [['slice', 28]], 70, 3, 12, 1, [2, 2, 0.2, 150, 70, 35, 0.9, 22, 0.4, 0, 0, 0, 0.2, 0.12, 0.07, 1.6, 0.05, 20]],
   ['pav', 'Pav', 'bun, ladi pav', [['pav', 40]], 110, 3.5, 20, 1.5, [1.2, 2.5, 0.4, 200, 55, 40, 1.3, 10, 0.3, 0, 0, 0, 0.1, 0.2, 0.12, 2, 0.03, 45]],
   // Rice
-  ['rice', 'Rice, cooked', 'rice, chawal, white rice, steamed rice, sadam, bhaat, plain rice', [['katori', 150], ['plate', 250], ['cup', 160]], 195, 4, 43, 0.4, [0.5, 0.1, 0.1, 3, 35, 8, 0.3, 12, 0.6, 0, 0, 0, 0.03, 0.03, 0.01, 0.8, 0.05, 5]],
+  ['rice', 'Rice, cooked', 'rice, chawal, white rice, steamed rice, sadam, bhaat, plain rice, annam', [['katori', 150], ['plate', 250], ['cup', 160]], 195, 4, 43, 0.4, [0.5, 0.1, 0.1, 3, 35, 8, 0.3, 12, 0.6, 0, 0, 0, 0.03, 0.03, 0.01, 0.8, 0.05, 5]],
   ['brown-rice', 'Brown rice, cooked', '', [['katori', 150]], 170, 4, 35, 1.4, [2.5, 0.4, 0.3, 5, 110, 8, 0.6, 50, 1, 0, 0, 0, 0.1, 0.15, 0.03, 2.6, 0.2, 12]],
   ['jeera-rice', 'Jeera rice', 'cumin rice', [['katori', 150]], 230, 4, 42, 5, [1, 0.3, 2, 220, 50, 12, 0.6, 15, 0.7, 10, 0, 0, 0.3, 0.04, 0.02, 0.9, 0.06, 6]],
   ['veg-pulao', 'Veg pulao', 'pulav, vegetable pulao', [['katori', 150]], 240, 5, 40, 7, [3, 2.5, 2.5, 380, 110, 22, 0.9, 22, 0.8, 40, 3, 0, 0.7, 0.08, 0.04, 1.2, 0.1, 18]],
@@ -27,7 +33,7 @@ export const DISHES: ([string, string, string, [string, number][], number, numbe
   ['mutton-biryani', 'Mutton biryani', 'biriyani', [['plate', 300]], 560, 26, 58, 24, [3, 3, 9.5, 950, 450, 55, 3, 55, 4, 40, 3, 0.3, 1.5, 0.15, 0.25, 7, 0.35, 30]],
   ['veg-biryani', 'Veg biryani', 'vegetable biryani', [['plate', 300]], 420, 9, 65, 14, [5, 5, 5, 780, 330, 60, 2, 50, 1.5, 120, 6, 0, 1.5, 0.15, 0.08, 2.5, 0.2, 40]],
   ['egg-fried-rice', 'Egg fried rice', 'fried rice', [['plate', 300]], 480, 14, 70, 15, [3, 3, 3.5, 1000, 280, 50, 2.2, 40, 1.6, 90, 4, 0.8, 1.5, 0.15, 0.25, 3, 0.15, 40]],
-  ['curd-rice', 'Curd rice', 'thayir sadam, dahi chawal, mosaranna', [['katori', 200]], 260, 7, 38, 8, [1, 4.5, 4, 350, 200, 120, 0.4, 22, 0.9, 25, 0, 0.1, 0.2, 0.05, 0.2, 0.9, 0.07, 12]],
+  ['curd-rice', 'Curd rice', 'thayir sadam, dahi chawal, mosaranna, perugu annam, perugannam, daddojanam', [['katori', 200]], 260, 7, 38, 8, [1, 4.5, 4, 350, 200, 120, 0.4, 22, 0.9, 25, 0, 0.1, 0.2, 0.05, 0.2, 0.9, 0.07, 12]],
   ['lemon-rice', 'Lemon rice', 'chitranna, elumichai sadam', [['katori', 150]], 230, 4, 38, 7, [2.5, 1, 1.5, 380, 90, 20, 1, 25, 0.7, 5, 5, 0, 1, 0.07, 0.03, 1.3, 0.08, 15]],
   ['khichdi', 'Khichdi', 'khichri, kichdi', [['katori', 200]], 240, 8, 38, 6, [4.5, 1.5, 2.5, 350, 250, 30, 1.8, 50, 1.2, 15, 1, 0, 0.5, 0.2, 0.07, 1.5, 0.12, 50]],
   ['pongal', 'Pongal', 'ven pongal', [['katori', 150]], 230, 6, 30, 9, [2, 0.8, 4.5, 330, 150, 25, 1.2, 40, 1, 25, 0, 0, 0.5, 0.15, 0.05, 1.2, 0.08, 35]],
@@ -41,12 +47,12 @@ export const DISHES: ([string, string, string, [string, number][], number, numbe
   ['kadhi', 'Kadhi', 'kadhi pakora, kadi', [['katori', 150]], 160, 5, 13, 10, [1, 5, 5, 420, 190, 110, 0.6, 20, 0.7, 50, 1, 0.1, 0.8, 0.05, 0.18, 0.5, 0.06, 15]],
   ['paneer-butter-masala', 'Paneer butter masala', 'paneer makhani, shahi paneer', [['katori', 150]], 350, 14, 12, 28, [2.5, 7, 14, 520, 230, 260, 0.8, 25, 1.5, 170, 5, 0.2, 1.5, 0.04, 0.25, 0.4, 0.07, 20]],
   ['palak-paneer', 'Palak paneer', 'saag paneer', [['katori', 150]], 260, 13, 9, 19, [3.5, 3, 10, 450, 480, 300, 2.5, 60, 1.8, 300, 8, 0.1, 2, 0.08, 0.3, 0.6, 0.15, 90]],
-  ['kadai-paneer', 'Kadai paneer', 'karahi paneer, paneer masala', [['katori', 150]], 300, 14, 11, 22, [3, 5, 11, 500, 330, 260, 1.2, 30, 1.5, 120, 18, 0.1, 1.8, 0.06, 0.25, 0.7, 0.12, 30]],
+  ['kadai-paneer', 'Kadai paneer', 'karahi paneer, paneer masala, paneer sabzi, paneer curry, paneer ki sabzi', [['katori', 150]], 300, 14, 11, 22, [3, 5, 11, 500, 330, 260, 1.2, 30, 1.5, 120, 18, 0.1, 1.8, 0.06, 0.25, 0.7, 0.12, 30]],
   ['matar-paneer', 'Matar paneer', 'mutter paneer', [['katori', 150]], 260, 12, 14, 17, [4, 5, 8.5, 450, 320, 240, 1.5, 35, 1.5, 110, 8, 0.1, 1.2, 0.12, 0.22, 1, 0.12, 45]],
   ['paneer-bhurji', 'Paneer bhurji', '', [['katori', 100]], 250, 15, 5, 19, [1.5, 3, 10, 380, 220, 250, 0.9, 25, 1.5, 110, 6, 0.1, 1.2, 0.05, 0.25, 0.4, 0.08, 25]],
   ['paneer-tikka', 'Paneer tikka', '', [['piece', 30], ['plate', 180]], 80, 5, 2, 6, [0.4, 0.8, 3.5, 120, 50, 90, 0.3, 8, 0.6, 40, 1, 0.1, 0.4, 0.01, 0.08, 0.1, 0.02, 6]],
   ['butter-chicken', 'Butter chicken', 'murgh makhani, chicken makhani', [['katori', 150]], 330, 22, 8, 23, [1.5, 5, 12, 600, 330, 40, 1.2, 30, 1.8, 120, 5, 0.2, 1.5, 0.06, 0.15, 6.5, 0.4, 15]],
-  ['chicken-curry', 'Chicken curry', 'chicken masala, chicken gravy, kozhi curry', [['katori', 150]], 240, 22, 6, 14, [1.5, 3, 4.5, 550, 340, 35, 1.4, 30, 1.8, 50, 4, 0.2, 1.8, 0.07, 0.15, 7, 0.45, 15]],
+  ['chicken-curry', 'Chicken curry', 'chicken masala, chicken gravy, kozhi curry, kodi kura, kodi koora, murgh curry', [['katori', 150]], 240, 22, 6, 14, [1.5, 3, 4.5, 550, 340, 35, 1.4, 30, 1.8, 50, 4, 0.2, 1.8, 0.07, 0.15, 7, 0.45, 15]],
   ['chicken-tikka-masala', 'Chicken tikka masala', '', [['katori', 150]], 300, 24, 9, 19, [2, 5, 9, 620, 360, 50, 1.3, 32, 2, 100, 5, 0.2, 1.5, 0.06, 0.18, 7.5, 0.45, 18]],
   ['tandoori-chicken', 'Tandoori chicken', '', [['piece', 120], ['half', 300]], 200, 30, 3, 7.5, [0.8, 1, 2, 520, 330, 22, 1.3, 30, 2.3, 25, 1, 0.2, 0.8, 0.08, 0.18, 9, 0.5, 8]],
   ['chicken-tikka', 'Chicken tikka', '', [['piece', 30], ['plate', 180]], 45, 7.5, 1, 1.5, [0.2, 0.4, 0.5, 130, 85, 6, 0.3, 8, 0.6, 8, 0.3, 0.1, 0.3, 0.02, 0.05, 2.8, 0.15, 2]],
@@ -58,19 +64,19 @@ export const DISHES: ([string, string, string, [string, number][], number, numbe
   ['prawn-curry', 'Prawn curry', 'shrimp curry, jhinga', [['katori', 150]], 220, 20, 6, 13, [1.5, 2.5, 2.5, 620, 300, 100, 1.8, 45, 1.5, 30, 4, 0.1, 1.8, 0.05, 0.06, 2.8, 0.12, 20]],
   ['egg-curry', 'Egg curry', 'anda curry, egg masala', [['katori', 200]], 280, 14, 8, 21, [2, 4, 6, 600, 330, 75, 2.2, 22, 1.6, 130, 5, 1.6, 2, 0.07, 0.35, 0.9, 0.25, 45]],
   // Eggs
-  ['boiled-egg', 'Egg, boiled', 'eggs, anda, hard boiled egg', [['egg', 50]], 78, 6.3, 0.6, 5.3, [0, 0.4, 1.6, 62, 63, 25, 0.8, 5, 0.55, 75, 0, 1, 0.5, 0.03, 0.25, 0.04, 0.06, 22]],
+  ['boiled-egg', 'Egg, boiled', 'eggs, anda, hard boiled egg, guddu, kodi guddu, egg', [['egg', 50]], 78, 6.3, 0.6, 5.3, [0, 0.4, 1.6, 62, 63, 25, 0.8, 5, 0.55, 75, 0, 1, 0.5, 0.03, 0.25, 0.04, 0.06, 22]],
   ['egg-white', 'Egg white, boiled', 'egg whites', [['white', 33]], 17, 3.6, 0.2, 0.1, [0, 0.2, 0, 55, 48, 2, 0.03, 4, 0.01, 0, 0, 0, 0, 0.002, 0.12, 0.03, 0.001, 1]],
   ['omelette', 'Omelette, 2 eggs', 'omelet, masala omelette, anda omelette', [['omelette', 120]], 200, 13, 2, 15, [0.1, 1, 4.5, 330, 190, 60, 1.9, 14, 1.3, 150, 0.5, 1.8, 1.5, 0.06, 0.45, 0.1, 0.13, 45]],
   ['egg-bhurji', 'Egg bhurji', 'scrambled eggs, anda bhurji', [['katori', 120]], 220, 13, 4, 17, [0.8, 2.2, 5, 360, 230, 60, 1.8, 16, 1.3, 130, 5, 1.6, 1.8, 0.07, 0.38, 0.2, 0.15, 40]],
   // Vegetables
   ['aloo-gobi', 'Aloo gobi', 'potato cauliflower', [['katori', 150]], 170, 4, 18, 10, [3.5, 2.5, 1.5, 320, 480, 35, 1, 26, 0.5, 15, 30, 0, 1.5, 0.1, 0.06, 1.7, 0.3, 40]],
   ['bhindi', 'Bhindi masala', 'okra, bhindi fry, vendakkai', [['katori', 150]], 160, 3, 14, 10, [4.2, 3.5, 1.6, 300, 370, 90, 1, 50, 0.7, 40, 18, 0, 1.8, 0.1, 0.08, 1, 0.2, 55]],
-  ['mixed-veg', 'Mixed veg sabzi', 'sabji, subzi, vegetable curry, poriyal, thoran, palya', [['katori', 150]], 150, 4, 15, 8, [3.8, 4, 1.3, 320, 400, 40, 1.1, 25, 0.6, 200, 15, 0, 1.5, 0.1, 0.07, 1.2, 0.2, 45]],
+  ['mixed-veg', 'Mixed veg sabzi', 'sabji, subzi, vegetable curry, poriyal, thoran, palya, sabzi, veg sabzi, koora, kura, curry', [['katori', 150]], 150, 4, 15, 8, [3.8, 4, 1.3, 320, 400, 40, 1.1, 25, 0.6, 200, 15, 0, 1.5, 0.1, 0.07, 1.2, 0.2, 45]],
   ['aloo-sabzi', 'Aloo sabzi', 'potato curry, aloo bhaji, batata bhaji', [['katori', 150]], 190, 3, 26, 9, [3, 2, 1.4, 330, 600, 20, 1.2, 28, 0.6, 10, 20, 0, 1.4, 0.12, 0.05, 1.8, 0.4, 25]],
   ['baingan-bharta', 'Baingan bharta', 'brinjal, eggplant', [['katori', 150]], 140, 3, 12, 9, [4.5, 5, 1.4, 300, 380, 25, 0.8, 20, 0.4, 25, 8, 0, 1.6, 0.07, 0.05, 0.9, 0.15, 30]],
   ['palak', 'Palak sabzi', 'spinach, saag', [['katori', 150]], 120, 5, 9, 8, [3.5, 1.5, 2, 340, 600, 130, 3, 70, 0.8, 450, 15, 0, 3, 0.08, 0.18, 1, 0.2, 110]],
   ['salad', 'Salad', 'kachumber, cucumber tomato onion', [['katori', 100]], 25, 1, 5, 0.2, [1.5, 3, 0.1, 150, 200, 20, 0.5, 12, 0.2, 30, 10, 0, 0.2, 0.04, 0.03, 0.5, 0.08, 20]],
-  ['sprouts', 'Sprouts salad', 'moong sprouts, sprouted moong', [['katori', 100]], 110, 8, 17, 1, [4.5, 3, 0.2, 200, 330, 30, 1.8, 45, 1, 10, 12, 0, 0.2, 0.2, 0.1, 1.5, 0.15, 100]],
+  ['sprouts', 'Sprouts salad', 'moong sprouts, sprouted moong, sprouts', [['katori', 100]], 110, 8, 17, 1, [4.5, 3, 0.2, 200, 330, 30, 1.8, 45, 1, 10, 12, 0, 0.2, 0.2, 0.1, 1.5, 0.15, 100]],
   ['soya-chunks', 'Soya chunks, cooked', 'soya, nutrela, meal maker', [['katori', 100]], 140, 17, 11, 3, [4, 1, 0.6, 250, 400, 120, 3.5, 85, 1.2, 0, 0, 0, 0.3, 0.15, 0.08, 1, 0.15, 60]],
   // South Indian and breakfast
   ['idli', 'Idli', 'idly', [['idli', 40]], 58, 2, 12, 0.2, [0.8, 0.3, 0, 95, 40, 6, 0.5, 10, 0.3, 0, 0, 0, 0.02, 0.04, 0.02, 0.4, 0.03, 8]],
@@ -81,7 +87,7 @@ export const DISHES: ([string, string, string, [string, number][], number, numbe
   ['upma', 'Upma', 'uppittu, rava upma', [['katori', 150]], 200, 5, 30, 7, [2, 2, 1.5, 420, 120, 18, 1, 20, 0.5, 15, 2, 0, 1, 0.12, 0.05, 1, 0.07, 15]],
   ['poha', 'Poha', 'aval, avalakki, chivda poha', [['katori', 150]], 240, 4, 40, 7, [2, 2.5, 1.2, 380, 130, 15, 4, 22, 0.7, 10, 3, 0, 1, 0.1, 0.05, 1.5, 0.1, 15]],
   ['coconut-chutney', 'Coconut chutney', 'chutney', [['tbsp', 30]], 60, 1, 3, 5, [1.5, 1, 4, 90, 90, 6, 0.5, 12, 0.3, 0, 0.5, 0, 0.1, 0.02, 0.01, 0.2, 0.02, 5]],
-  ['oats', 'Oats with milk', 'oatmeal, porridge', [['bowl', 240]], 270, 13, 35, 9, [3.5, 10.5, 4.5, 110, 380, 230, 1.8, 55, 1.5, 75, 1, 1.5, 0.3, 0.2, 0.35, 0.7, 0.1, 15]],
+  ['oats', 'Oats with milk', 'oatmeal, porridge, oats, oats porridge, bowl of oats', [['bowl', 240]], 270, 13, 35, 9, [3.5, 10.5, 4.5, 110, 380, 230, 1.8, 55, 1.5, 75, 1, 1.5, 0.3, 0.2, 0.35, 0.7, 0.1, 15]],
   ['cornflakes', 'Cornflakes with milk', 'cereal, muesli', [['bowl', 230]], 250, 9, 40, 6, [1.5, 14, 3.5, 320, 300, 250, 3, 30, 1, 120, 1, 1.5, 0.1, 0.35, 0.45, 4, 0.4, 90]],
   ['dhokla', 'Dhokla', 'khaman', [['piece', 30]], 50, 2, 7.5, 1.3, [0.7, 2, 0.3, 190, 55, 12, 0.5, 10, 0.3, 5, 0.2, 0, 0.1, 0.03, 0.03, 0.3, 0.04, 10]],
   // Street food and snacks
@@ -109,16 +115,16 @@ export const DISHES: ([string, string, string, [string, number][], number, numbe
   ['sandwich', 'Veg sandwich', 'sandwich, grilled sandwich', [['sandwich', 150]], 300, 9, 40, 12, [3.5, 5, 3, 600, 260, 60, 1.5, 25, 0.8, 40, 8, 0, 1.2, 0.2, 0.14, 2.5, 0.12, 40]],
   ['wrap-chicken', 'Chicken roll', 'kathi roll, wrap, frankie, shawarma', [['roll', 200]], 450, 24, 45, 19, [3, 3.5, 5, 850, 380, 50, 2.5, 35, 1.6, 40, 5, 0.2, 1.8, 0.3, 0.25, 8, 0.35, 50]],
   // Dairy and drinks
-  ['milk', 'Milk, toned', 'doodh, milk', [['glass', 250]], 145, 8, 12, 7.5, [0, 12, 4.5, 130, 380, 300, 0.1, 30, 1, 60, 2, 1, 0.1, 0.1, 0.45, 0.2, 0.1, 12]],
-  ['curd', 'Curd', 'dahi, yogurt, yoghurt, thayir, mosaru', [['katori', 150]], 90, 5, 7, 4.5, [0, 6, 3, 70, 210, 150, 0.1, 15, 0.6, 35, 1, 0.1, 0.1, 0.05, 0.25, 0.1, 0.06, 10]],
+  ['milk', 'Milk, toned', 'doodh, milk, paalu, palu, paal', [['glass', 250]], 145, 8, 12, 7.5, [0, 12, 4.5, 130, 380, 300, 0.1, 30, 1, 60, 2, 1, 0.1, 0.1, 0.45, 0.2, 0.1, 12]],
+  ['curd', 'Curd', 'dahi, yogurt, yoghurt, thayir, mosaru, perugu', [['katori', 150]], 90, 5, 7, 4.5, [0, 6, 3, 70, 210, 150, 0.1, 15, 0.6, 35, 1, 0.1, 0.1, 0.05, 0.25, 0.1, 0.06, 10]],
   ['greek-yogurt', 'Greek yogurt', 'hung curd', [['cup', 150]], 130, 15, 6, 5, [0, 5, 3.2, 70, 220, 130, 0.1, 17, 0.8, 15, 0, 0, 0.1, 0.05, 0.25, 0.2, 0.08, 12]],
   ['raita', 'Raita', 'boondi raita, cucumber raita', [['katori', 150]], 90, 4, 8, 4, [0.8, 6, 2.5, 300, 220, 140, 0.3, 16, 0.5, 30, 3, 0.1, 0.1, 0.05, 0.22, 0.2, 0.07, 14]],
   ['lassi', 'Lassi, sweet', 'lassi', [['glass', 250]], 220, 7, 34, 6, [0, 32, 3.8, 100, 350, 230, 0.2, 25, 0.9, 45, 2, 0.2, 0.1, 0.08, 0.35, 0.2, 0.09, 15]],
-  ['chaas', 'Buttermilk', 'chaas, chhaas, majjige, mor', [['glass', 250]], 40, 2, 4, 1.5, [0.1, 3.5, 0.9, 250, 110, 80, 0.1, 9, 0.3, 10, 1, 0, 0, 0.03, 0.12, 0.1, 0.03, 6]],
+  ['chaas', 'Buttermilk', 'chaas, chhaas, majjige, mor, majjiga, chach', [['glass', 250]], 40, 2, 4, 1.5, [0.1, 3.5, 0.9, 250, 110, 80, 0.1, 9, 0.3, 10, 1, 0, 0, 0.03, 0.12, 0.1, 0.03, 6]],
   ['chai', 'Chai', 'tea, masala chai, milk tea', [['cup', 150]], 90, 2.5, 13, 3, [0, 10.5, 1.9, 35, 110, 80, 0.2, 9, 0.3, 25, 0.5, 0.3, 0.05, 0.03, 0.12, 0.2, 0.03, 5]],
   ['coffee', 'Coffee with milk', 'filter coffee, kaapi, cappuccino, latte', [['cup', 150]], 90, 3, 12, 3.5, [0, 10, 2.2, 40, 150, 85, 0.1, 12, 0.3, 25, 0.5, 0.3, 0.05, 0.03, 0.14, 0.5, 0.03, 5]],
   ['black-coffee', 'Black coffee', 'americano, espresso', [['cup', 200]], 5, 0.3, 0, 0, [0, 0, 0, 5, 115, 5, 0.1, 10, 0.05, 0, 0, 0, 0, 0, 0.15, 0.9, 0, 5]],
-  ['whey', 'Whey protein', 'protein shake, whey, protein powder', [['scoop', 30]], 120, 24, 3, 1.5, [0, 2, 0.8, 160, 150, 100, 0.3, 30, 0.6, 20, 0, 0, 0.1, 0.15, 0.2, 0.3, 0.15, 15]],
+  ['whey', 'Whey protein', 'protein shake, whey, protein powder, whey shake, protein shake with water, whey protein shake', [['scoop', 30]], 120, 24, 3, 1.5, [0, 2, 0.8, 160, 150, 100, 0.3, 30, 0.6, 20, 0, 0, 0.1, 0.15, 0.2, 0.3, 0.15, 15]],
   ['protein-shake-milk', 'Protein shake with milk', 'whey with milk', [['shake', 280]], 265, 32, 15, 9, [0.5, 12, 4.5, 230, 550, 380, 0.4, 55, 1.6, 70, 2, 1, 0.2, 0.2, 0.65, 0.5, 0.25, 25]],
   ['peanut-butter', 'Peanut butter', 'pb', [['tbsp', 16]], 95, 4, 3, 8, [1, 1.5, 1.6, 60, 110, 8, 0.3, 28, 0.4, 0, 0, 0, 1.5, 0.02, 0.02, 2.2, 0.07, 12]],
   ['juice', 'Fruit juice', 'orange juice, mosambi juice, sweet lime juice', [['glass', 250]], 115, 1.5, 26, 0.5, [0.5, 22, 0.1, 10, 400, 25, 0.6, 25, 0.2, 5, 60, 0, 0.2, 0.08, 0.05, 0.5, 0.08, 30]],
@@ -168,7 +174,7 @@ export const DISHES: ([string, string, string, [string, number][], number, numbe
   ['paneer-roll', 'Paneer roll', 'paneer kathi roll, paneer frankie', [['roll', 200]], 425, 16, 45, 20, [2.5, 4, 9, 680, 300, 250, 2, 40, 1.8, 130, 8, 0.2, 2, 0.3, 0.3, 3.5, 0.15, 50]],
   ['chole-kulche', 'Chole kulche', 'matar kulcha', [['plate', 300]], 525, 16, 70, 20, [9.5, 6, 5, 820, 600, 100, 5, 80, 2.5, 20, 6, 0, 2, 0.4, 0.18, 3.5, 0.3, 170]],
   ['rajma-chawal', 'Rajma chawal', 'rajma rice', [['plate', 350]], 450, 15, 75, 10, [11, 3.5, 3, 480, 750, 80, 4, 90, 2.2, 20, 4, 0, 1.5, 0.25, 0.1, 2.5, 0.25, 150]],
-  ['dal-chawal', 'Dal chawal', 'dal rice', [['plate', 350]], 425, 13, 75, 8, [8, 2.5, 2, 460, 500, 50, 2.8, 60, 1.8, 20, 3, 0, 1.2, 0.2, 0.08, 2.5, 0.15, 110]],
+  ['dal-chawal', 'Dal chawal', 'dal rice, pappu annam, dal bhat, dal bhaat, varan bhaat', [['plate', 350]], 425, 13, 75, 8, [8, 2.5, 2, 460, 500, 50, 2.8, 60, 1.8, 20, 3, 0, 1.2, 0.2, 0.08, 2.5, 0.15, 110]],
   ['kadhi-chawal', 'Kadhi chawal', 'kadhi rice', [['plate', 350]], 425, 9, 70, 12, [3.5, 7, 4.5, 620, 400, 110, 1.5, 45, 1.3, 40, 2, 0.1, 1.5, 0.15, 0.2, 2, 0.1, 40]],
   ['chole-chawal', 'Chole chawal', 'chole rice', [['plate', 350]], 465, 14, 75, 12, [10.5, 4.5, 2.5, 560, 600, 80, 3.8, 80, 2.3, 15, 4, 0, 1.8, 0.25, 0.1, 2, 0.2, 150]],
   ['thali-veg', 'Veg thali', 'north indian thali, thali', [['thali', 600]], 805, 25, 120, 25, [13, 12, 8, 1300, 1300, 250, 7, 170, 4, 300, 30, 0.3, 4, 0.6, 0.4, 6, 0.6, 250]],
@@ -296,7 +302,7 @@ export const DISHES: ([string, string, string, [string, number][], number, numbe
   // Breakfast and everyday
   ['bread-butter', 'Bread and butter', 'toast butter, butter toast', [['2 slices', 60]], 205, 5, 26, 9, [1.8, 3, 5, 380, 70, 70, 0.9, 10, 0.4, 70, 0, 0, 0.3, 0.12, 0.09, 1.5, 0.03, 28]],
   ['bread-omelette', 'Bread omelette', '', [['plate', 200]], 335, 17, 28, 17, [1.8, 4, 5.5, 620, 230, 110, 2.3, 20, 1.5, 150, 0.5, 1.2, 1.2, 0.2, 0.4, 2.2, 0.15, 70]],
-  ['pb-toast', 'Peanut butter toast', '', [['slice', 41]], 165, 6, 15, 9, [2.5, 3, 2, 230, 160, 35, 0.9, 35, 0.7, 0, 0, 0, 1.6, 0.12, 0.06, 2.8, 0.1, 28]],
+  ['pb-toast', 'Peanut butter toast', 'peanut butter sandwich', [['slice', 41]], 165, 6, 15, 9, [2.5, 3, 2, 230, 160, 35, 0.9, 35, 0.7, 0, 0, 0, 1.6, 0.12, 0.06, 2.8, 0.1, 28]],
   ['avocado-toast', 'Avocado toast', '', [['slice', 100]], 175, 4, 15, 11, [5, 1.5, 2, 230, 370, 20, 0.9, 25, 0.6, 6, 7, 0, 1.5, 0.08, 0.1, 1.7, 0.2, 70]],
   ['pancakes', 'Pancakes', '', [['2 pancakes', 150]], 320, 8, 45, 12, [1.5, 8, 3.5, 520, 170, 150, 1.5, 15, 0.6, 60, 0.3, 0.4, 0.5, 0.2, 0.25, 1.6, 0.06, 45]],
   ['french-toast', 'French toast', '', [['2 slices', 130]], 315, 12, 35, 14, [1.5, 9, 4.5, 430, 190, 120, 1.8, 18, 1.1, 110, 0.2, 1, 0.8, 0.2, 0.35, 2, 0.1, 50]],
@@ -377,7 +383,7 @@ export const DISHES: ([string, string, string, [string, number][], number, numbe
   ['fish-biryani', 'Fish biryani', '', [['plate', 300]], 460, 24, 60, 14, [3, 3, 3.5, 820, 560, 70, 2.2, 60, 2, 40, 4, 2, 1.5, 0.2, 0.12, 7, 0.5, 30]],
   ['mutton-keema-pav', 'Keema pav', '', [['plate', 300]], 510, 24, 50, 24, [4, 6, 9, 950, 550, 80, 4, 50, 4.5, 40, 6, 0.1, 1.5, 0.3, 0.3, 6.5, 0.3, 50]],
   ['nihari', 'Nihari', '', [['katori', 200]], 370, 26, 8, 26, [1.5, 2, 10, 780, 480, 40, 3.2, 35, 5.5, 30, 3, 0.2, 1.2, 0.08, 0.25, 6, 0.3, 15]],
-  ['goan-fish-curry', 'Goan fish curry', 'fish curry rice', [['katori', 150]], 220, 18, 6, 14, [1.5, 2.5, 6.5, 480, 420, 50, 1.5, 45, 0.9, 40, 5, 2, 1.5, 0.06, 0.1, 3.5, 0.3, 20]],
+  ['goan-fish-curry', 'Goan fish curry', 'goan curry', [['katori', 150]], 220, 18, 6, 14, [1.5, 2.5, 6.5, 480, 420, 50, 1.5, 45, 0.9, 40, 5, 2, 1.5, 0.06, 0.1, 3.5, 0.3, 20]],
   ['chicken-xacuti', 'Chicken xacuti', 'xacuti', [['katori', 150]], 280, 21, 8, 18, [2.5, 2.5, 8.5, 520, 380, 60, 2.2, 50, 2, 40, 3, 0.2, 1.8, 0.1, 0.15, 7, 0.45, 20]],
   ['pork-vindaloo', 'Pork vindaloo', 'vindaloo', [['katori', 150]], 300, 20, 6, 22, [1.5, 2, 8, 560, 380, 30, 1.5, 28, 2.3, 10, 4, 0.5, 1.2, 0.6, 0.25, 5, 0.4, 10]],
   ['chicken-cafreal', 'Chicken cafreal', '', [['100 g', 100]], 190, 22, 3, 10, [1, 1, 2, 320, 330, 40, 2, 32, 1.4, 60, 8, 0.1, 1.2, 0.07, 0.15, 7.5, 0.5, 25]],
@@ -432,4 +438,10 @@ export const DISHES: ([string, string, string, [string, number][], number, numbe
   ['butter', 'Butter', 'makhan, amul butter', [['tbsp', 14], ['tsp', 5]], 105, 0.1, 0, 11.5, [0, 0, 7.3, 82, 3.4, 2.7, 0, 0.3, 0.01, 97, 0, 0.2, 0.3, 0, 0.005, 0.01, 0, 0.4]],
   ['cheese-slice', 'Cheese slice', 'processed cheese, cheese', [['slice', 20]], 70, 4, 1, 5.5, [0, 0.5, 3.4, 310, 28, 130, 0.1, 5, 0.6, 45, 0, 0.1, 0.1, 0.005, 0.07, 0.02, 0.01, 2]],
   ['oat-milk', 'Oat milk', '', [['glass', 250]], 110, 2.5, 16, 3.75, [1, 7, 0.4, 100, 390, 350, 1, 12, 0.3, 150, 0, 3, 0.1, 0.1, 0.5, 0.6, 0.1, 12]],
+  // Composed from IFCT/USDA values (see the note at the top).
+  ['ragi-malt', 'Ragi malt', 'ragi java, ragi ambali, ragi porridge, ragi kanji, ragi malt with milk', [['glass', 250]], 176, 5.5, 29, 3.6],
+  ['fruit-bowl', 'Fruit bowl', 'fruit, fruits, mixed fruit, fruit salad, cut fruits, fruit plate', [['katori', 150]], 98, 1, 20.6, 0.5],
+  ['chicken-fry', 'Chicken fry', 'kodi vepudu, chicken roast, chicken sukka, chicken dry fry, chicken varuval, chicken fry dry', [['katori', 120]], 270, 31, 3, 14],
+  ['sugar', 'Sugar', 'cheeni, shakkar, white sugar, chini', [['tsp', 5]], 19, 0, 5, 0],
+  ['water', 'Water', 'paani, pani, plain water, neellu', [['glass', 250]], 0, 0, 0, 0],
 ];

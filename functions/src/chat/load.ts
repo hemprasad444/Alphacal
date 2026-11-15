@@ -73,6 +73,7 @@ export async function loadUser(uid: string): Promise<Loaded> {
   const settings: Settings = { ...DEFAULT_SETTINGS, ...(u.settings as Partial<Settings> | undefined) };
   const clearedAt = typeof u.chatClearedAt === 'number' ? u.chatClearedAt : 0;
   const memory = readMemory(u.memory);
+  const recentSessions = sessionSnaps.docs.map(d => d.data() as SessionLog).filter(s => typeof s.date === 'string' && s.date <= today);
   const messages = msgSnaps.docs
     .map(d => ({ ...(d.data() as Message), id: d.id }))
     .filter(m => (m.createdAt ?? 0) > clearedAt)
@@ -82,7 +83,7 @@ export async function loadUser(uid: string): Promise<Loaded> {
     input: {
       profile: { ...DEFAULT_PROFILE, ...(u.profile as Partial<Profile> | undefined) },
       disc: (u.disc as Record<string, boolean> | undefined) ?? DEFAULT_DISCIPLINES,
-      meals: dayMeals(t.meals ?? []),
+      meals: dayMeals(Array.isArray(t.meals) ? t.meals : []),
       sessionDone: !!t.sessionDone,
       history: { kind: 'real', startedOn: typeof u.startedOn === 'string' ? u.startedOn : today, sessions },
       activity: activityFromDay(t.steps, t.sleepMin),
@@ -93,11 +94,15 @@ export async function loadUser(uid: string): Promise<Loaded> {
       now,
       program: (programSnaps.find(p => p.id === isoWeek(now) && p.exists)?.data() as WeekProgram | undefined) ?? null,
       memory,
+      // For the computed facts: their zone, the week's logged sessions and the days before today.
+      timeZone,
+      sessions: recentSessions,
+      days: Object.fromEntries(Object.entries(days).filter(([d]) => d < today).map(([d, v]) => [d, { meals: dayMeals(Array.isArray(v.meals) ? v.meals : []), sessionDone: !!v.sessionDone }])),
     },
     memory,
     settings,
     messages: messages.slice(-HISTORY),
-    todaySessions: sessionSnaps.docs.map(d => d.data() as SessionLog).filter(s => s.date === today),
+    todaySessions: recentSessions.filter(s => s.date === today),
     today,
     timeZone,
     usedToday: Number(usage.find(d => d.id === today)?.data()?.chat ?? 0),

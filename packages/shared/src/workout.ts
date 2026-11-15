@@ -54,3 +54,64 @@ export function workoutNote(log: SessionLog): string {
   const kcal = log.cardio?.kcal ?? log.activity?.kcal;
   return `WORKOUT LOGGED · ${(log.title ?? 'SESSION').toUpperCase()}${km} · ${min} MIN${kcal ? ` · ~${kcal} KCAL` : ''}`;
 }
+
+// ---- How long it took: only ever what they said ---------------------------------
+
+const NUMBER = String.raw`(\d+(?:\.\d+)?)`;
+const HOUR = String.raw`(?:h|hr|hrs|hours?|ghant[ae]|ganta\w*)`;
+const MINUTE = String.raw`(?:min|mins|minutes?|minat|nimish\w*)`;
+const WORD_HOURS: Record<string, number> = { a: 1, an: 1, one: 1, ek: 1, two: 2, three: 3, teen: 3, couple: 2, half: 0.5, aadha: 0.5, adha: 0.5, dedh: 1.5, dhai: 2.5 };
+/** Hindi, Telugu, Tamil and Kannada words for minutes and hours, in their own scripts. */
+const OTHER_SCRIPT = /मिनट|घंट|నిమిష|గంట|நிமிட|மணி|ನಿಮಿಷ|ಗಂಟೆ/;
+
+const UNITS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const TENS = ['twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+const SPELLED = new RegExp(String.raw`\b(?:(${TENS.join('|')})(?:[- ](${UNITS.slice(1, 10).join('|')}))?|(${UNITS.slice(2).join('|')}))\b`, 'g');
+
+/** "forty five minutes" → "45 minutes": speech-to-text doesn't always write digits. "one" stays a word ("one more"). */
+function spelledNumbers(s: string): string {
+  return s.replace(SPELLED, (_, tens: string | undefined, unit: string | undefined, small: string | undefined) =>
+    String(tens ? (TENS.indexOf(tens) + 2) * 10 + (unit ? UNITS.indexOf(unit) : 0) : UNITS.indexOf(small!)));
+}
+
+/**
+ * The durations someone gave, in minutes: "40 min", "1.5 hrs", "an hour", "half an hour", "an hour and
+ * a half", "1h 20m", "28:30" (a run's time), "ek ghanta". `said` is also true for a duration we can't
+ * turn into a number (one written in another script). A distance ("5k") is not a duration.
+ */
+export function durationSaid(message: string): { said: boolean; minutes: number[] } {
+  let rest = spelledNumbers(message.toLowerCase().replace(/[’']/g, ''));
+  const minutes: number[] = [];
+  const take = (re: RegExp, toMin: (m: string[]) => number) => {
+    rest = rest.replace(new RegExp(re.source, 'g'), (...args) => {
+      const v = toMin(args.slice(0, -2) as string[]);
+      if (v > 0) minutes.push(v);
+      return ' ';
+    });
+  };
+  // Longest forms first, so "1 hour 20 minutes" is one duration, not two.
+  take(new RegExp(String.raw`\b${NUMBER}\s*${HOUR}\s*(?:and\s*)?${NUMBER}\s*(?:m|${MINUTE})\b`), m => +m[1] * 60 + +m[2]);
+  take(/\b(?:(?:an?|one) )?hour and a half\b/, () => 90);
+  take(/\b(\d+) and a half hours?\b/, m => +m[1] * 60 + 30);
+  take(/\bhalf(?: an| a)?[- ]hour\b/, () => 30);
+  take(/\bquarter of an hour\b/, () => 15);
+  take(new RegExp(String.raw`\b${NUMBER}\s*-?\s*${HOUR}\b`), m => +m[1] * 60);
+  take(new RegExp(String.raw`\b${NUMBER}\s*-?\s*${MINUTE}\b`), m => +m[1]);
+  take(new RegExp(String.raw`\b(${Object.keys(WORD_HOURS).join('|')})\s+(?:of\s+)?${HOUR}\b`), m => WORD_HOURS[m[1]] * 60);
+  // "5k in 28:30": minutes and seconds. Only after "in": "at 6:30" is a time of day.
+  take(/\bin (\d{1,3}):([0-5]\d)\b/, m => +m[1] + +m[2] / 60);
+  return { said: minutes.length > 0 || OTHER_SCRIPT.test(message), minutes };
+}
+
+/**
+ * A workout REI wants to log, held to what they actually said. No duration in their message: it isn't
+ * logged and REI asks (a call once logged "a long walk" as 60 minutes it made up). Exactly one
+ * duration: that is the one stored, whatever the model wrote.
+ */
+export function groundWorkout(w: Workout, message: string): { workout: Workout } | { ask: string } {
+  const d = durationSaid(message);
+  const cardio = w.kind === 'run' || w.kind === 'walk' || w.kind === 'cycle';
+  if (!d.said) return { ask: `Not logged: they didn't say how long the ${w.name || w.kind} was. Don't guess a duration: ask how long it took${cardio ? ' (and how far, if they know)' : ''}, then log it with their answer.` };
+  const only = d.minutes.length === 1 ? Math.round(d.minutes[0]) : 0;
+  return { workout: only >= 1 && only <= 600 ? { ...w, minutes: only } : w };
+}

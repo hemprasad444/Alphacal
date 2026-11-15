@@ -154,14 +154,20 @@ export const stt = onRequest({ secrets: [TTS_API_KEY], timeoutSeconds: 60, memor
   const t0 = Date.now();
   const form = new FormData();
   form.append('model_id', 'scribe_v1');
-  form.append('file', new Blob([new Uint8Array(audio)], { type: req.get('content-type') || 'audio/mp4' }), 'clip.m4a');
-  const upstream = await fetch(`${BASE()}/v1/speech-to-text`, { method: 'POST', headers: { 'xi-api-key': k }, body: form });
-  if (!upstream.ok) {
-    logger.error('stt upstream failed', { status: upstream.status, detail: (await upstream.text().catch(() => '')).slice(0, 300) });
+  // Only an audio type goes upstream; anything else is sent as the m4a the app records.
+  const type = /^audio\/[a-z0-9.+-]+$/i.test(req.get('content-type') ?? '') ? req.get('content-type')! : 'audio/mp4';
+  form.append('file', new Blob([new Uint8Array(audio)], { type }), 'clip.m4a');
+  // A network failure or a hung upstream answers 502 like any other upstream error, instead of an unhandled rejection.
+  const upstream = await fetch(`${BASE()}/v1/speech-to-text`, { method: 'POST', headers: { 'xi-api-key': k }, body: form, signal: AbortSignal.timeout(45_000) }).catch(e => {
+    logger.error('stt upstream unreachable', { detail: e instanceof Error ? e.message : String(e) });
+    return null;
+  });
+  if (!upstream?.ok) {
+    if (upstream) logger.error('stt upstream failed', { status: upstream.status, detail: (await upstream.text().catch(() => '')).slice(0, 300) });
     res.status(502).json({ error: 'Transcription unavailable.' });
     return;
   }
-  const out = (await upstream.json()) as { text?: unknown };
+  const out = (await upstream.json().catch(() => ({}))) as { text?: unknown };
   const text = typeof out.text === 'string' ? out.text.trim() : '';
   logger.info('stt', { uid: who.uid, bytes: audio.length, ms: Date.now() - t0 });
   res.json({ text });

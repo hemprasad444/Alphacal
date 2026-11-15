@@ -77,6 +77,8 @@ vary from run to run. Run from `e2e/`. Trials that import TypeScript run with `n
 | Users can't reach each other's data | `npm run isolation` | all PASS |
 | Two people, one phone | `npm run same-phone` | clean for the second person |
 | Models side by side | `cd ../functions && npx tsx ../e2e/bench-models.mts` | correctness, speed, cost |
+| REI's brain: 27 chat messages with one right outcome each | `cd ../functions && npx tsx ../e2e/eval-brain.mts` (`OPENROUTER_API_KEY` in the environment) | every case right every time; see `docs/brain-eval.md` |
+| The live call's model on the same checks | `cd ../functions && npx tsx ../e2e/eval-live.mts` | 8/8 cases |
 
 ## A real live call
 

@@ -1,13 +1,14 @@
-import { addMemory, applyUpdate, catalog, dropRepeats, MAX_MEALS, saysNumber, SWEARING, swearOnlyBack, shouldLogMeal, weighInFrom, shouldLogWorkout, continuityNote, thread, warmFoodSearch, forgetMemory, foodCandidates, foodListPrompt, fuelLine, hhmm, mealFromItems, nutrition, parseReply, reiContext, resolveAiItems, route, stripTags, systemContext, type SessionLog, todaysPlan, parseWorkout, workoutLog, workoutNote, systemRules, type Meal, type Message, type Tier, toTurns } from '@rei/shared';
+import { addMemory, applyUpdate, dropRepeats, forgetMemory, fuelLine, hhmm, MAX_MEALS, type Meal, type Message, nutrition, parseReply, type SessionLog, stripTags, SWEARING, swearOnlyBack, warmFoodSearch, workoutNote } from '@rei/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineInt } from 'firebase-functions/params';
 import { onRequest } from 'firebase-functions/v2/https';
 import { db } from '../admin';
-import { complete, LlmError, modelsFor, OPENROUTER_API_KEY, type Msg } from '../llm';
+import { complete, LlmError, modelsFor, OPENROUTER_API_KEY } from '../llm';
 import { verify } from '../http';
+import { groundedReply, interpret, lateMeal, mealFrom, owesMeal, parseBody, prepare, redoFor, REMEMBER_PASS, rememberedIn, saidNoted } from './brain';
 import { DAILY_LIMIT, loadUser } from './load';
-import { forgetTool, logMealTool, logWorkoutTool, logMealWithVerdictTool, parseForget, parseMealItems, parseRemember, parseVow, rebuildProgramTool, rememberTool, updateVowTool } from './tools';
+import { logMealTool, type parseRemember, type parseVow, rememberTool } from './tools';
 
 // Index the food list when the instance starts, not on the first message.
 warmFoodSearch();
@@ -15,30 +16,7 @@ warmFoodSearch();
 /** Warm instances kept running so the first reply never waits on a cold start. */
 const MIN_INSTANCES = defineInt('CHAT_MIN_INSTANCES', { default: 1 });
 
-type Mode = 'chat' | 'meal';
-
-interface Body {
-  text: string;
-  mode: Mode;
-  /** Client-generated id for REI's reply, so the app can match its streamed bubble to the stored message. */
-  replyId: string;
-  /** The user's message, already written by the app; excluded from history and sent as the last turn. */
-  userMessageId?: string;
-  /** Spoken aloud: REI writes for the ear and may add audio tags. */
-  voice: boolean;
-}
-
-const ID = /^[a-z0-9]{6,40}$/;
-
-function parseBody(raw: unknown): Body | null {
-  const b = (raw ?? {}) as Record<string, unknown>;
-  const text = typeof b.text === 'string' ? b.text.trim() : '';
-  if (!text || text.length > 2000) return null;
-  if (typeof b.replyId !== 'string' || !ID.test(b.replyId)) return null;
-  const mode: Mode = b.mode === 'meal' ? 'meal' : 'chat';
-  const userMessageId = typeof b.userMessageId === 'string' && ID.test(b.userMessageId) ? b.userMessageId : undefined;
-  return { text, mode, replyId: b.replyId, userMessageId, voice: b.voice === true && mode === 'chat' };
-}
+const textOf = (res: { content: { type: string; text?: string }[] } | null) => (res ? res.content.map(b => (b.type === 'text' ? (b.text ?? '') : '')).join('') : '');
 
 /**
  * POST /chat → Server-Sent Events.
@@ -66,7 +44,15 @@ export const chat = onRequest(
       return;
     }
     const { uid } = who;
-    const data = await loadUser(uid);
+    let data: Awaited<ReturnType<typeof loadUser>>;
+    try {
+      data = await loadUser(uid);
+    } catch (e) {
+      // A database hiccup: a clean error the app can show, not a hung request.
+      logger.error('chat load failed', { uid, error: e instanceof Error ? e.message : String(e) });
+      res.status(503).json({ error: 'REI could not load your day. Try again in a moment.' });
+      return;
+    }
     const loadMs = Date.now() - t0;
     if (data.usedToday >= DAILY_LIMIT) {
       res.status(429).json({ error: 'Daily message limit reached.' });
@@ -78,135 +64,95 @@ export const chat = onRequest(
     res.flushHeaders();
     const send = (event: object) => res.write(`data: ${JSON.stringify(event)}\n\n`);
 
-    const ctx = reiContext(data.input);
-    // The foods this message might mean, so REI logs the list's numbers instead of guessing.
-    const foods = [...data.foods, ...catalog()];
-    const candidates = foodCandidates(body.text, foods);
-    const history = data.messages.filter(m => m.id !== body.userMessageId);
-    // Where the conversation stands, so REI picks the thread up instead of greeting every time.
-    const flow = body.mode === 'chat' ? [continuityNote(thread(history, Date.now(), data.timeZone))] : [];
-    const system = [systemRules({ tough: ctx.tough, bro: ctx.bro, nudge: ctx.nudge, tools: true, voice: body.voice }), systemContext(ctx), ...flow, ...(candidates.length ? [foodListPrompt(candidates)] : [])].join('\n\n');
-    const userText = body.mode === 'meal' ? `Just ate: ${body.text}` : body.text;
-    const turns = toTurns([...history, { role: 'user', text: userText, time: '' }]);
-    // Voice can't wait on the slow model: always the quick one, which can still queue a rebuild.
-    const tier: Tier = body.mode === 'meal' || body.voice ? 'fast' : route(body.text);
-    const canRebuild = tier === 'deep' || body.voice;
-
     let ttft = 0;
-    let text = '';
-    let meal: Meal | null = null;
-    let vow: ReturnType<typeof parseVow> = null;
-    let rebuild: string | null = null;
-    const workouts: SessionLog[] = [];
-    const memory: Memory = { remember: [], forget: [] };
-    let mealBlocked = false;
-    // REI swears only once they have (in this message or the chat so far).
-    const swore = SWEARING.test(body.text) || history.some(m => m.role === 'user' && SWEARING.test(m.text));
-    // Streamed text holds back its last, maybe unfinished, word so a swear isn't split across two deltas.
-    let pending = '';
-    const stream = (d: string, flush = false) => {
-      pending += d;
-      const cut = flush ? pending.length : pending.search(/\S*$/);
-      if (cut <= 0) return;
-      send({ type: 'delta', text: swearOnlyBack(pending.slice(0, cut), swore) });
-      pending = pending.slice(cut);
-    };
+    let tier = 'fast';
     try {
-      const final = await (body.mode === 'meal' ? mealCall(system, turns) : chatCall(tier, canRebuild, system, turns, d => {
+      // What REI is told for this turn: persona, computed facts and suggestions, the conversation so far, the foods this message might mean.
+      const prep = prepare(data, body);
+      const { system, turns } = prep;
+      tier = prep.tier;
+      // REI swears only once they have (in this message or the chat so far).
+      const swore = SWEARING.test(body.text) || prep.history.some(m => m.role === 'user' && SWEARING.test(m.text));
+      // Streamed text holds back its last, maybe unfinished, word so a swear isn't split across two deltas.
+      let pending = '';
+      const stream = (d: string, flush = false) => {
+        pending += d;
+        const cut = flush ? pending.length : pending.search(/\S*$/);
+        if (cut <= 0) return;
+        send({ type: 'delta', text: swearOnlyBack(pending.slice(0, cut), swore) });
+        pending = pending.slice(cut);
+      };
+      // Fuel: one forced tool call returns the items and REI's verdict together. Chat: a streamed reply that may end with tool calls.
+      const onText = (d: string) => {
         if (!ttft) ttft = Date.now() - t0;
         stream(d);
-      }));
+      };
+      const final = await complete({ task: prep.tier, system, messages: turns, maxTokens: prep.maxTokens, tools: prep.tools, forceTool: prep.forceTool, ...(body.mode === 'meal' ? {} : { onText }) });
       stream('', true);
       if (!ttft) ttft = Date.now() - t0;
 
-      if (final.stop_reason === 'refusal') {
-        text = 'Let’s keep this about your training, food and sleep. What do you need?';
-      } else {
-        text = final.content.map(b => (b.type === 'text' ? b.text : '')).join('');
-        // A tool input cut off at max_tokens can still parse; never act on it.
-        const toolsUsable = final.stop_reason !== 'max_tokens';
-        for (const b of final.content) {
-          if (b.type !== 'tool_use' || !toolsUsable) continue;
-          if (b.name === 'log_meal') {
-            const m = parseMealItems(b.input);
-            if (m) {
-              const next = mealFromItems(resolveAiItems(m.items, foods), hhmm(data.input.now), 'ai', m.name);
-              // From Fuel, logging is the point. From chat, only food this message is about, and not twice.
-              const check = body.mode === 'meal' ? { ok: true } : shouldLogMeal(body.text, next, data.input.meals, hhmm(data.input.now));
-              if (check.ok) {
-                meal = next;
-                if (m.verdict) text = m.verdict;
-              } else {
-                mealBlocked = true;
-                logger.info('meal not logged', { uid, why: check.why, meal: next.name });
-              }
-            }
-          } else if (b.name === 'log_workout') {
-            const w = parseWorkout(b.input);
-            if (w) {
-              const log = workoutLog(w, { date: data.today, plan: todaysPlan(data.input.now, data.input.program), kg: parseFloat(data.input.profile.weight) || 0, now: Date.now() });
-              // Already saved in the app ("just smashed push day" after logging the sets): not twice.
-              const check = shouldLogWorkout(body.text, log, [...data.todaySessions, ...workouts]);
-              if (check.ok) workouts.push(log);
-              else logger.info('workout not logged', { uid, why: check.why, workout: log.title });
-            }
-          } else if (b.name === 'update_vow') {
-            vow = parseVow(b.input);
-          } else if (b.name === 'remember') {
-            memory.remember.push(...parseRemember(b.input));
-          } else if (b.name === 'forget') {
-            memory.forget.push(...parseForget(b.input));
-          } else if (b.name === 'rebuild_program' && canRebuild) {
-            const f = (b.input as { focus?: unknown } | null)?.focus;
-            rebuild = typeof f === 'string' ? f.slice(0, 200) : '';
-          }
-        }
-      }
+      const o = interpret(final, prep, data, body);
+      o.notes.forEach(n => logger.info(n, { uid }));
+      let text = final.stop_reason === 'refusal' ? 'Let’s keep this about your training, food and sleep. What do you need?' : o.text;
+      let meal = o.meal;
       // Fuel: logging is the point. A model that answers in words instead of calling log_meal (DeepSeek did,
       // every time, for "soya chunks curry with rice") gets one more try on the backup model; then the
       // reply says it wasn't logged rather than a verdict with no meal.
       if (body.mode === 'meal' && !meal && final.stop_reason !== 'refusal') {
         const backup = modelsFor('fast').find(m => m !== final.model) ?? modelsFor('fast')[0];
-        const again = await mealCall(system, turns, backup).catch(() => null);
-        const call = again?.stop_reason === 'max_tokens' ? undefined : again?.content.find(b => b.type === 'tool_use' && b.name === 'log_meal');
-        const m = call?.type === 'tool_use' ? parseMealItems(call.input) : null;
+        const again = await complete({ task: 'fast', system, messages: turns, maxTokens: prep.maxTokens, tools: prep.tools, forceTool: prep.forceTool, model: backup }).catch(() => null);
+        const calls = again && again.stop_reason !== 'max_tokens' ? again.content.flatMap(b => (b.type === 'tool_use' && b.name === 'log_meal' ? [b.input] : [])) : [];
+        const m = mealFrom(calls, prep, hhmm(data.input.now));
         logger.info('meal call came back without log_meal', { uid, model: final.model, backup, retried: !!m });
         if (m) {
-          meal = mealFromItems(resolveAiItems(m.items, foods), hhmm(data.input.now), 'ai', m.name);
+          meal = m.meal;
+          o.mealClaimed = m.claimed;
           text = m.verdict || text;
         } else {
           text = 'I couldn’t log that one. Try again, or pick it from the food list.';
         }
       }
-      // A weight is a weigh-in, so only one they gave in this message.
-      if (vow?.weight && !saysNumber(body.text, parseFloat(vow.weight))) {
-        logger.info('weight not recorded: not in their message', { uid, weight: vow.weight });
-        const { weight: _, ...rest } = vow;
-        vow = Object.keys(rest).length ? rest : null;
-      }
-      // "Weighed 83.5 this morning" answered without update_vow: still their weigh-in.
-      if (body.mode !== 'meal' && !vow?.weight) {
-        const kg = weighInFrom(body.text, parseFloat(data.input.profile.weight) || 0);
-        if (kg) vow = { ...vow, weight: String(kg) };
-      }
       text = dropRepeats(stripTags(parseReply(text).text));
-      // Nothing to say (only a refused re-log, or a tool call that did nothing): get a real answer instead of "Noted.".
-      if ((mealBlocked && text.trim().length < 40) || (!text.trim() && !meal)) {
-        const again = await complete({ task: 'fast', system: `${system}\n\nAnswer their latest message in your own words. Meals mentioned earlier are already logged.`, messages: turns, maxTokens: 512 }).catch(() => null);
-        const retry = again ? stripTags(parseReply(again.content.map(b => (b.type === 'text' ? b.text : '')).join('')).text) : '';
+      // REI said the meal is logged but never called log_meal: get the call on its own, so what it said is true.
+      if (owesMeal(o, text, body)) {
+        const late = lateMeal(await complete({ task: 'fast', system, messages: turns, maxTokens: 1024, tools: [logMealTool], forceTool: 'log_meal' }).catch(() => null), prep, data, body);
+        logger.info('meal said logged without the call', { uid, model: final.model, recovered: !!late });
+        if (late) {
+          meal = late.meal;
+          o.mealClaimed = late.claimed;
+        }
+      }
+      // A second, tool-less answer when the first can't stand as written (see redoFor): REI has to ask instead of
+      // confirming, its numbers differ from what was logged, or it said nothing usable (never just "Noted.").
+      const redo = redoFor(o, text, meal, data, system);
+      if (redo) {
+        const again = await complete({ task: 'fast', system: `${system}\n\n${redo}`, messages: turns, maxTokens: 512 }).catch(() => null);
+        const retry = stripTags(parseReply(textOf(again)).text);
         if (retry) text = dropRepeats(retry);
+        else if (o.askDuration) text = 'How long was it? Tell me the minutes and I’ll log it.';
+        else if (o.askFood) text = 'What did you eat, and roughly how much? Tell me and I’ll log it.';
+        else if (o.vowByRule.length) text = `Done: ${o.vowByRule.join(', ')}.`;
+      }
+      // Whatever the model did with its second try: no calorie or protein figure about this meal that the app didn't compute.
+      if (meal) text = groundedReply(text, meal, data, system);
+      // "Peanut allergy noted" with no remember call: ask once more for just the fact, so what REI says it noted is kept.
+      if (body.mode === 'chat' && !o.memory.remember.length && saidNoted(text) && body.text.split(/\s+/).length >= 3) {
+        const facts = await complete({ task: 'fast', system: `${system}\n\n${REMEMBER_PASS}`, messages: turns, maxTokens: 300, tools: [rememberTool], forceTool: 'remember' }).catch(() => null);
+        o.memory.remember.push(...rememberedIn(facts));
+        logger.info('remember pass', { uid, kept: o.memory.remember.length });
       }
       if (!text && meal) text = fuelLine(data.input.profile, nutrition([...data.input.meals, meal], data.input.activity));
       if (!text) text = 'Noted.';
       text = swearOnlyBack(text, swore);
 
-      const notes = await save(uid, data, body.replyId, text, meal, vow, rebuild, memory, workouts);
+      const notes = await save(uid, data, body.replyId, text, meal, o.vow, o.rebuild, o.memory, o.workouts);
       const total = Date.now() - t0;
       send({ type: 'done', id: body.replyId, text, notes, model: final.model, tier, ttftMs: ttft, totalMs: total });
       logger.info('chat', {
         uid, tier, voice: body.voice, loadMs, model: final.model, mode: body.mode, ttftMs: ttft, totalMs: total, stop: final.stop_reason,
         inTokens: final.usage.input_tokens, outTokens: final.usage.output_tokens, cacheRead: final.usage.cache_read_input_tokens ?? 0,
-        meal: !!meal, vow: !!vow, workouts: workouts.length, remembered: memory.remember.length, forgot: memory.forget.length, foods: candidates.length, matched: meal?.items?.filter(i => i.food).length ?? 0,
+        meal: !!meal, vow: !!o.vow, workouts: o.workouts.length, askedDuration: !!o.askDuration, askedFood: o.askFood, vowByRule: o.vowByRule.length, remembered: o.memory.remember.length, forgot: o.memory.forget.length,
+        foods: prep.candidates.length, matched: meal?.items?.filter(i => i.food).length ?? 0, estimated: meal?.items?.filter(i => !i.food).length ?? 0,
       });
     } catch (e) {
       const status = e instanceof LlmError ? e.status : undefined;
@@ -216,23 +162,6 @@ export const chat = onRequest(
     res.end();
   },
 );
-
-/** Streamed reply that may end with log_meal / update_vow. */
-function chatCall(tier: Tier, canRebuild: boolean, system: string, turns: Msg[], onText: (d: string) => void) {
-  return complete({
-    task: tier,
-    system,
-    messages: turns,
-    maxTokens: tier === 'deep' ? 16000 : 2048,
-    tools: canRebuild ? [logMealTool, logWorkoutTool, updateVowTool, rememberTool, forgetTool, rebuildProgramTool] : [logMealTool, logWorkoutTool, updateVowTool, rememberTool, forgetTool],
-    onText,
-  });
-}
-
-/** Fuel screen: one forced tool call returns the macros and REI's verdict together. */
-function mealCall(system: string, turns: Msg[], model?: string) {
-  return complete({ task: 'fast', system, messages: turns, maxTokens: 1024, tools: [logMealWithVerdictTool], forceTool: 'log_meal', model });
-}
 
 interface Memory {
   remember: ReturnType<typeof parseRemember>;
