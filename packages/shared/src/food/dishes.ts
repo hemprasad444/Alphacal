@@ -87,7 +87,7 @@ export const DISHES: ([string, string, string, [string, number][], number, numbe
   ['upma', 'Upma', 'uppittu, rava upma', [['katori', 150]], 200, 5, 30, 7, [2, 2, 1.5, 420, 120, 18, 1, 20, 0.5, 15, 2, 0, 1, 0.12, 0.05, 1, 0.07, 15]],
   ['poha', 'Poha', 'aval, avalakki, chivda poha', [['katori', 150]], 240, 4, 40, 7, [2, 2.5, 1.2, 380, 130, 15, 4, 22, 0.7, 10, 3, 0, 1, 0.1, 0.05, 1.5, 0.1, 15]],
   ['coconut-chutney', 'Coconut chutney', 'chutney', [['tbsp', 30]], 60, 1, 3, 5, [1.5, 1, 4, 90, 90, 6, 0.5, 12, 0.3, 0, 0.5, 0, 0.1, 0.02, 0.01, 0.2, 0.02, 5]],
-  ['oats', 'Oats with milk', 'oatmeal, porridge, oats, oats porridge, bowl of oats', [['bowl', 240]], 270, 13, 35, 9, [3.5, 10.5, 4.5, 110, 380, 230, 1.8, 55, 1.5, 75, 1, 1.5, 0.3, 0.2, 0.35, 0.7, 0.1, 15]],
+  ['oats', 'Oats with milk', 'oatmeal, porridge, oats porridge, oats with milk', [['bowl', 240]], 270, 13, 35, 9, [3.5, 10.5, 4.5, 110, 380, 230, 1.8, 55, 1.5, 75, 1, 1.5, 0.3, 0.2, 0.35, 0.7, 0.1, 15]],
   ['cornflakes', 'Cornflakes with milk', 'cereal, muesli', [['bowl', 230]], 250, 9, 40, 6, [1.5, 14, 3.5, 320, 300, 250, 3, 30, 1, 120, 1, 1.5, 0.1, 0.35, 0.45, 4, 0.4, 90]],
   ['dhokla', 'Dhokla', 'khaman', [['piece', 30]], 50, 2, 7.5, 1.3, [0.7, 2, 0.3, 190, 55, 12, 0.5, 10, 0.3, 5, 0.2, 0, 0.1, 0.03, 0.03, 0.3, 0.04, 10]],
   // Street food and snacks

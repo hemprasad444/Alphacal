@@ -183,7 +183,7 @@ export async function save(uid: string, data: Awaited<ReturnType<typeof loadUser
     notes.push(`NOT LOGGED · ${MAX_MEALS} MEALS IS THE DAY'S LIMIT`);
   } else if (meal) {
     // Its own id: the phone removes and edits meals one by one, and two identical meals stay two.
-    batch.set(user.collection('days').doc(data.today), { meals: FieldValue.arrayUnion({ ...meal, id: db.collection('_').doc().id.slice(0, 12) }) }, { merge: true });
+    batch.set(user.collection('days').doc(data.today), { meals: FieldValue.arrayUnion({ ...meal, id: db.collection('_').doc().id.slice(0, 12), at: now }) }, { merge: true });
     notes.push(`MEAL LOGGED · ${meal.kcal} KCAL · P ${meal.p} · C ${meal.c} · F ${meal.f}`);
   }
   const upd = applyUpdate(data.input.profile, vow);

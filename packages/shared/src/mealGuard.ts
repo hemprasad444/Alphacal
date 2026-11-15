@@ -17,8 +17,18 @@ const EATING = { test: (s: string) => EATING_EN.test(s) || EATING_ROMAN.test(s) 
 const REFERS = /\b(usual|same|again|another|leftovers?|rest of|that|those|this|these|it|them|regular|normal|wahi)\b/i;
 /** A question about food ("what did I eat yesterday?", "should I eat rice", "क्या खाऊँ?") rather than a meal eaten. */
 const ASKS = /^\s*(?:(?:hey|yo|ok|okay|so|and|but|bro|bhai|rei)[, ]+)*(?:what|whats|what's|when|how|did|should|can|could|would|is|are|am|do|does|which|why|kya|kab|kitn[aie])\b|^\s*(?:क्या|कब|कितन|ఏం|ఏమి|ఎప్పుడు|ఎంత|என்ன|எப்போது)/i;
+/** "Log", "add", "track", "note": the verbs of a request to record a meal, in English, Hinglish, Hindi and Telugu. */
+const LOG_VERB = /\b(log|add|track|note|record|count|save)\b|\b(?:log|add|note|entry|likh|darj)\s+(?:kar|karo|kardo|kar do|kar de|kar dena|lo|le|do|chey\w*|cheyyi|pettu)\b|लॉग कर|जोड़ (?:दो|दे|लो)|नोट कर|लिख (?:लो|दो)|दर्ज कर|లాగ్ చేయ|లాగ్ చెయ్|నోట్ చేయ|నోట్ చెయ్|చేర్చ|జోడించ/i;
+/** The polite or plain openings of a request ("can you log…", "please add…", "log…"). */
+const REQUEST = /^\s*(?:(?:hey|yo|ok|okay|so|bro|bhai|rei|please|pls|plz)[, ]+)*(?:(?:can|could|would|will) you (?:please |pls )?)?(?:log|add|track|note|record|count|save)\b/i;
+/**
+ * "Can you log the 2 eggs I ate?", "please add the dosa I had", "2 anda khaya, log kar do": a request to
+ * record a meal they have eaten. It is worded as a question, but it is the opposite of "should I eat rice?".
+ */
+const asksToLog = (message: string) => LOG_VERB.test(message) && (ATE.test(message) || REQUEST.test(message));
+
 /** Words that say the eating has happened. */
-const ATE = /\b(ate|had|eaten|drank|finished|grabbed|devoured|demolished|smashed|kha(?:ya|yi|ye)|kha (?:liya|li)|piya|pi (?:liya|li)|tinna\w*|thinna\w*|sapt\w+)\b|खाया|खाई|खाए|खा लि|पिया|पी लि|తిన్నా|తాగా|சாப்பிட்டே/i;
+const ATE = /\b(ate|had|eaten|drank|finished|grabbed|devoured|demolished|smashed|kha(?:ya|yi|ye)|kha (?:liya|li)|piya|pi (?:liya|li)|tinna\w*|thinna\w*|sapt\w+)\b|खाया|खाई|खाए|खा लि|पिया|पी लि|తిన్న|తాగిన|తాగా|சாப்பிட்டே/i;
 const AGAIN =/\b(another|again|more|second|2nd|one more|seconds|extra|also)\b/i;
 const STOP = new Set(['and', 'the', 'with', 'from', 'for', 'some', 'cup', 'cups', 'bowl', 'plate', 'piece', 'pieces', 'slice', 'slices', 'glass', 'serving', 'small', 'large', 'medium', 'half', 'full', 'home', 'style', 'cooked', 'fried', 'boiled', 'raw', 'office', 'canteen', 'breakfast', 'brunch', 'lunch', 'dinner', 'supper', 'snack', 'snacks', 'meal', 'food']);
 
@@ -122,7 +132,7 @@ export function shouldLogMeal(message: string, meal: Meal, today: Meal[], now: s
   if (!named && !EATING.test(message)) return { ok: false, why: 'not mentioned' };
   // "What did I eat yesterday?", "should I eat rice": a question, not a meal. REI once logged yesterday's whole day
   // as today's meal when asked what it was. A question that also says they ate ("is that ok? had 2 eggs") still logs.
-  if (ASKS.test(message) && (/[?？]\s*$/.test(message) || !ATE.test(message))) return { ok: false, why: 'a question' };
+  if (ASKS.test(message) && !asksToLog(message) && (/[?？]\s*$/.test(message) || !ATE.test(message))) return { ok: false, why: 'a question' };
   // "Log my snack please", "just had dinner": they ate, but never said what. Whatever REI would log is made
   // up (once it logged its own suggestion), so nothing is, and REI asks. Skipped when they point at a meal
   // REI can know ("the usual", "same as yesterday"), give a number ("about 800 calories out"), or write

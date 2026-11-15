@@ -62,7 +62,8 @@ export async function loadUser(uid: string): Promise<Loaded> {
   ]);
   const u = userSnap.data() ?? {};
   const timeZone: string = zoneOf(u);
-  const now = zonedNow(timeZone);
+  const nowMs = Date.now();
+  const now = zonedNow(timeZone, new Date(nowMs));
   const today = isoDate(now);
   const monday = new Date(now);
   monday.setDate(now.getDate() - weekdayIndex(now));
@@ -96,6 +97,7 @@ export async function loadUser(uid: string): Promise<Loaded> {
       memory,
       // For the computed facts: their zone, the week's logged sessions and the days before today.
       timeZone,
+      nowMs,
       sessions: recentSessions,
       days: Object.fromEntries(Object.entries(days).filter(([d]) => d < today).map(([d, v]) => [d, { meals: dayMeals(Array.isArray(v.meals) ? v.meals : []), sessionDone: !!v.sessionDone }])),
     },

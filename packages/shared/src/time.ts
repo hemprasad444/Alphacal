@@ -110,9 +110,11 @@ export function programMonday(now: Date, next = false): Date {
 }
 
 /**
- * The moment a week's report is about, for the Sunday-evening run: twelve hours back, so that someone
- * for whom it is already Monday still gets the week that just ended, not an empty new one.
+ * The moment a week's report is about, for the Sunday-evening run (one moment for every zone). Where
+ * it is already Monday, that is the end of Sunday, so the report covers the week that just ended and
+ * not an empty new one. Anywhere else it is now: Sunday morning in Los Angeles still counts Sunday's
+ * data so far (stepping back twelve hours there used to drop the whole day).
  */
 export function reportMoment(now: Date): Date {
-  return new Date(now.getTime() - 12 * 3600000);
+  return now.getDay() === 1 ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59) : now;
 }

@@ -19,6 +19,11 @@ export interface Meal {
   /** Unique per logged meal, so two identical meals stay two and one can be removed or edited alone. Older meals have none. */
   id?: string;
   time: string;
+  /**
+   * Epoch ms when it was logged. `time` is the clock on the wall, which repeats or skips an hour when
+   * the clocks change; this doesn't. Meals logged before 16 November 2026 have none.
+   */
+  at?: number;
   name: string;
   kcal: number;
   p: number;

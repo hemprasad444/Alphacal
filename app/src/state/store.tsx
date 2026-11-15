@@ -446,7 +446,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   /** A new meal for today, with its own id. Stored by adding it to the day, so meals REI logged meanwhile stay. */
   const appendMeal = useCallback((meal: Meal): Meal => {
-    const m: Meal = { ...meal, id: newId() };
+    const m: Meal = { ...meal, id: newId(), at: Date.now() };
     setMeals([...ref.current.meals, m]);
     const u = uidRef.current;
     if (u) write.addMeal(u, ref.current.day, m);

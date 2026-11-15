@@ -26,6 +26,8 @@ export interface ContextInput {
   program?: WeekProgram | null;
   /** Lasting facts REI has learned about them. */
   memory?: MemoryItem[];
+  /** The real moment `now` stands for, epoch ms (the server's `now` is a wall clock, not a moment). */
+  nowMs?: number;
   /** Their IANA time zone, when known (the server knows it; the phone's own clock is already theirs). */
   timeZone?: string;
   /** Sessions logged in the last week, today included. */
@@ -53,7 +55,7 @@ export function reiContext(i: ContextInput): ReiContext {
     today: longDate(i.now),
     memory: memoryLines(i.memory ?? []),
     // Everything REI would otherwise have to count or guess, worked out here instead.
-    facts: factsBlock({ now: i.now, timeZone: i.timeZone, profile: i.profile, meals: i.meals, sessionDone: i.sessionDone, program: i.program, startedOn: i.history.kind === 'real' ? i.history.startedOn : undefined, sessions: i.sessions, days: i.days }),
+    facts: factsBlock({ now: i.now, nowMs: i.nowMs, timeZone: i.timeZone, profile: i.profile, meals: i.meals, sessionDone: i.sessionDone, program: i.program, startedOn: i.history.kind === 'real' ? i.history.startedOn : undefined, sessions: i.sessions, days: i.days }),
     suggestions: suggestionsBlock(recommend({ now: i.now, profile: i.profile, nutrition: nu, meals: i.meals, recent: i.days?.[isoDate(yesterday)]?.meals, memory: i.memory, plan, sessionDone: i.sessionDone, program: i.program })),
   };
 }

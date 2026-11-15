@@ -48,6 +48,8 @@ export interface FactsInput {
   now: Date;
   /** Their IANA zone, when known: named in the text, and used to place logged sessions on their clock. */
   timeZone?: string;
+  /** The real moment `now` stands for, epoch ms. On the phone `now` is already real; the server passes this with a zoned `now`. */
+  nowMs?: number;
   profile: Profile;
   /** Today's meals. */
   meals: Meal[];
@@ -64,7 +66,7 @@ export interface FactsInput {
 export interface TimeFacts {
   /** Minutes until today's planned session (negative once its time has passed); null on a rest day. */
   sessionIn: number | null;
-  /** Minutes since the last meal logged today; null when none was. */
+  /** Minutes since the last meal logged today; null when none was, or when a clock change today makes it unknowable. */
   sinceMeal: number | null;
   /** Whole days from today to the deadline (negative once passed); null without a valid deadline. */
   daysToDeadline: number | null;
@@ -76,6 +78,26 @@ export interface TimeFacts {
 
 const minutesOfDay = (d: Date) => d.getHours() * 60 + d.getMinutes();
 const num = (s: string) => parseFloat(s) || 0;
+
+/** Minutes east of UTC at a real moment, in a zone (or on this device's own clock without one); null if the zone is unknown. */
+function utcOffset(epoch: number, timeZone?: string): number | null {
+  if (!timeZone) return -new Date(epoch).getTimezoneOffset();
+  try {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }).formatToParts(epoch).map(x => [x.type, x.value]));
+    return Math.round((Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute) - Math.floor(epoch / 60000) * 60000) / 60000);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether the clocks changed between `minutesBack` minutes ago and now (daylight saving starting or
+ * ending). Wall-clock subtraction is an hour out across one; false when the real moment isn't known.
+ */
+function clocksChanged(nowMs: number | undefined, minutesBack: number, timeZone?: string): boolean {
+  if (nowMs === undefined) return false;
+  return utcOffset(nowMs, timeZone) !== utcOffset(nowMs - (minutesBack + 90) * 60000, timeZone);
+}
 
 /** A logged session in a few words: "Legs, 50 min", "Run 5 km, 28 min". */
 function sessionLabel(s: SessionLog): string {
@@ -149,21 +171,41 @@ export function timeFacts(i: FactsInput): TimeFacts {
   }
 
   // --- Food ---
-  const timed = i.meals.map(m => ({ m, at: clockMinutes(m.time) })).filter((x): x is { m: Meal; at: number } => x.at !== null && x.at <= nowMin);
-  const lastMeal = timed.sort((a, b) => a.at - b.at)[timed.length - 1];
-  const sinceMeal = lastMeal ? nowMin - lastMeal.at : null;
+  // The real moment: given by the server; on the phone `now` already is one.
+  const nowMs = i.nowMs ?? (i.timeZone ? undefined : now.getTime());
+  /** A meal's own timestamp, when it has one that still agrees with its clock time (an edited time doesn't). */
+  const stamp = (m: Meal): number | null => {
+    if (typeof m.at !== 'number' || nowMs === undefined || m.at > nowMs + 60000) return null;
+    return hhmm(i.timeZone ? zonedNow(i.timeZone, new Date(m.at)) : new Date(m.at)) === m.time ? m.at : null;
+  };
+  // The clocks changed today: a wall-clock difference is an hour out, and 01:45 can be after 01:30.
+  const shifted = clocksChanged(nowMs, nowMin, i.timeZone);
+  const timed = i.meals
+    .map(m => ({ m, at: clockMinutes(m.time), real: stamp(m) }))
+    .filter((x): x is { m: Meal; at: number; real: number | null } => x.at !== null && (x.real !== null || x.at <= nowMin + (shifted ? 60 : 0)));
+  // In the order eaten: by timestamp where both have one, by the clock otherwise.
+  const lastMeal = timed.sort((x, y) => (x.real !== null && y.real !== null ? x.real - y.real : x.at - y.at))[timed.length - 1];
+  // Exact from the timestamp. From clock times alone it is exact too, unless the clocks changed in between.
+  const sinceMeal = !lastMeal ? null : lastMeal.real !== null ? Math.max(0, Math.round((nowMs! - lastMeal.real) / 60000)) : shifted ? null : nowMin - lastMeal.at;
   const earlier = Object.keys(i.days ?? {}).filter(d => d < today).sort();
   const yKey = isoDate(addDays(now, -1));
-  if (lastMeal) {
-    lines.push(`LAST MEAL: ${lastMeal.m.name} at ${lastMeal.m.time} today, ${span(sinceMeal!)} ago. ${i.meals.length} meal${i.meals.length === 1 ? '' : 's'} logged today.`);
+  const count = `${i.meals.length} meal${i.meals.length === 1 ? '' : 's'} logged today.`;
+  if (lastMeal && sinceMeal !== null) {
+    lines.push(`LAST MEAL: ${lastMeal.m.name} at ${lastMeal.m.time} today, ${span(sinceMeal)} ago. ${count}`);
+  } else if (lastMeal) {
+    lines.push(`LAST MEAL: ${lastMeal.m.name} at ${lastMeal.m.time} today. The clocks changed today, so how long ago that was isn't known exactly: don't state a number of hours or minutes. ${count}`);
   } else {
     // Nothing today: the most recent meal on an earlier day, with how long ago that was.
     const prevDay = [...earlier].reverse().find(d => (i.days![d].meals ?? []).some(m => clockMinutes(m.time) !== null));
-    const prev = prevDay ? [...i.days![prevDay].meals!].filter(m => clockMinutes(m.time) !== null).sort((a, b) => clockMinutes(a.time)! - clockMinutes(b.time)!).pop() : undefined;
+    const prev = prevDay ? [...i.days![prevDay].meals!].filter(m => clockMinutes(m.time) !== null).sort((x, y) => clockMinutes(x.time)! - clockMinutes(y.time)!).pop() : undefined;
     if (prev && prevDay) {
       const daysAgo = daysBetween(parseIsoDate(prevDay) ?? now, now);
-      const ago = daysAgo * 1440 + nowMin - clockMinutes(prev.time)!;
-      lines.push(`LAST MEAL: nothing logged today. The last logged meal was ${prev.name} at ${prev.time} ${daysAgo === 1 ? 'yesterday' : `${daysAgo} days ago`}, about ${span(ago)} ago.`);
+      const when = `${prev.name} at ${prev.time} ${daysAgo === 1 ? 'yesterday' : `${daysAgo} days ago`}`;
+      const byClock = daysAgo * 1440 + nowMin - clockMinutes(prev.time)!;
+      const real = stamp(prev);
+      if (real !== null) lines.push(`LAST MEAL: nothing logged today. The last logged meal was ${when}, about ${span((nowMs! - real) / 60000)} ago.`);
+      else if (clocksChanged(nowMs, byClock, i.timeZone)) lines.push(`LAST MEAL: nothing logged today. The last logged meal was ${when} (the clocks have changed since, so don't state the exact hours).`);
+      else lines.push(`LAST MEAL: nothing logged today. The last logged meal was ${when}, about ${span(byClock)} ago.`);
     } else {
       lines.push('LAST MEAL: nothing logged today.');
     }

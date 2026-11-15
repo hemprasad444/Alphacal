@@ -381,6 +381,22 @@ export interface ParsedPiece {
   sep?: string;
 }
 
+/**
+ * A raw ingredient that, said as a helping rather than weighed, means the dish made from it: "a bowl of
+ * oats" or just "oats" is porridge (Oats with milk), while "50 g oats" is 50 g of dry oats. Without this
+ * either the bowl was 150 g of dry oats (584 kcal) or the weighed oats were scaled from a bowl of porridge.
+ */
+const PREPARED: Record<string, string> = { 'u:10e7va0': 'd:oats' };
+/** Amounts that weigh or measure the ingredient itself. */
+const MEASURED = /^(g|gm|gms|gram|grams|kg|ml|l|tbsp|tsp|tablespoons?|teaspoons?|scoops?|handful)$/i;
+
+/** The food meant by `food` in this amount: the prepared dish for a helping of a raw ingredient, else the food itself. */
+export function asEaten(food: Food, unit: string | undefined, foods: Food[]): Food {
+  const dish = PREPARED[food.id];
+  if (!dish || (unit && MEASURED.test(unit.trim()))) return food;
+  return foods.find(f => f.id === dish) ?? catalog().find(f => f.id === dish) ?? food;
+}
+
 /** With no amount typed, a dish means a helping of it ("paneer tikka" is a plate, not one piece). */
 const MEAL_UNIT = /^(plate|bowl|katori|serving|glass|cup|thali)$/i;
 const defaultUnit = (food: Food, p: ParsedPiece) =>
@@ -520,7 +536,8 @@ export function matchMealText(text: string, foods: Food[]): TextMatch {
     }
     const m = confident(searchFoods(p.query, foods, 3), p.query);
     const run = m ? null : runItems(p, foods);
-    if (m) items.push(itemFor(m.food, p.qty, defaultUnit(m.food, p)));
+    const eaten = m ? asEaten(m.food, p.unit, foods) : null;
+    if (eaten) items.push(itemFor(eaten, p.qty, defaultUnit(eaten, p)));
     else if (run) items.push(...run);
     else unmatched.push(p.text);
   }
@@ -583,7 +600,8 @@ export function resolveAiItems(items: AiItem[], foods: Food[]): MealItem[] {
   return items.map(i => {
     const picked = byId.get(i.food_id);
     // Not picked from the list (or a made-up id): the list may still have it under the name REI gave.
-    const food = picked ?? foodByName(i.name, foods) ?? undefined;
+    const byName = picked ? null : foodByName(i.name, foods);
+    const food = picked ?? (byName ? asEaten(byName, i.unit, foods) : undefined);
     const n = cleanNutrients({ fib: i.fib, sug: i.sug, sfa: i.sfa, na: i.na });
     if (food && i.qty > 0) {
       const listed = itemFor(food, i.qty, i.unit);
