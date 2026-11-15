@@ -2,7 +2,7 @@
   "expo": {
     "name": "REI",
     "slug": "rei",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "rei",
@@ -27,7 +27,7 @@
         }
       },
       "bitcode": false,
-      "buildNumber": "4"
+      "buildNumber": "5"
     },
     "android": {
       "package": "com.alphacal.rei",
