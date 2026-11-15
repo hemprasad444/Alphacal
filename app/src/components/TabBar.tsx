@@ -28,8 +28,8 @@ const GLYPHS: Record<string, ReactNode> = {
   ),
   // Dojo: a barbell.
   dojo: <Path d="M6 7v10M3 10v4M18 7v10M21 10v4M6 12h12" />,
-  // Vow: a gate.
-  vow: <Path d="M2 6h20M5 10h14M7 6v15M17 6v15" />,
+  // Vow: the goal flag you planted.
+  vow: <Path d="M6 21V3M6 4h12l-3 4 3 4H6" />,
 };
 
 const LABELS: Record<string, string> = { index: 'Today', fuel: 'Fuel', dojo: 'Dojo', vow: 'Vow' };
