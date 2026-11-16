@@ -163,14 +163,14 @@ export function badges(i: { days: DaySummary[]; sessions: SessionLog[]; weighIns
 
   return [
     ...reach(count, [
-      { id: 'sessions-1', title: 'First Blood', desc: 'Log your first session', need: 1 },
-      { id: 'sessions-10', title: 'Ten Battles', desc: 'Log 10 sessions', need: 10 },
+      { id: 'sessions-1', title: 'First Session', desc: 'Log your first session', need: 1 },
+      { id: 'sessions-10', title: 'Ten Sessions', desc: 'Log 10 sessions', need: 10 },
       { id: 'sessions-50', title: 'Veteran', desc: 'Log 50 sessions', need: 50 },
-      { id: 'sessions-100', title: 'Hundred Battles', desc: 'Log 100 sessions', need: 100 },
+      { id: 'sessions-100', title: 'Hundred Sessions', desc: 'Log 100 sessions', need: 100 },
     ]),
     ...reach(prEvents, [
-      { id: 'pr-1', title: 'Limit Break', desc: 'Beat a personal record', need: 1 },
-      { id: 'pr-10', title: 'Ten Limit Breaks', desc: 'Set 10 personal records', need: 10 },
+      { id: 'pr-1', title: 'New Best', desc: 'Beat a personal record', need: 1 },
+      { id: 'pr-10', title: 'Ten New Bests', desc: 'Set 10 personal records', need: 10 },
     ]),
     ...reach(weeks, [{ id: 'perfect-week', title: 'Clean Sweep', desc: `Hit ${target} sessions in one week`, need: 1 }]),
     ...reach(streakEvents(i.days, d => d.meals > 0), [

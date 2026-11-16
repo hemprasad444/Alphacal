@@ -43,7 +43,7 @@ export interface Rank {
 export const RANKS: Rank[] = [
   { id: 'rookie', name: 'Rookie', min: 0, line: 'Everyone starts at zero. Most stay there.' },
   { id: 'trainee', name: 'Trainee', min: 400, line: 'You came back. That already beats most people.' },
-  { id: 'fighter', name: 'Fighter', min: 1200, line: 'Habits are forming. Protect them.' },
+  { id: 'fighter', name: 'Steady', min: 1200, line: 'Habits are forming. Protect them.' },
   { id: 'vanguard', name: 'Vanguard', min: 2500, line: 'You lead your own week now.' },
   { id: 'elite', name: 'Elite', min: 4500, line: 'Discipline shows on your body and in your log.' },
   { id: 'master', name: 'Master', min: 7500, line: 'Others ask how you do it. You just do it.' },
