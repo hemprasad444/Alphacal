@@ -1,16 +1,19 @@
 // Sumi & Hanko's three faces. The Mincho and the gothic are Latin subsets cut from the
 // @expo-google-fonts packages by scripts/subset-fonts.py (the full Japanese files are 15 MB a weight).
-import { IBMPlexMono_400Regular } from '@expo-google-fonts/ibm-plex-mono/400Regular';
-import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono/500Medium';
 import { configureExerciseImages } from '@rei/shared';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useWarmup } from '../components/hooks';
 import { StoreProvider, useStore } from '../state/store';
+
+// Straight to the two weights used, so the bundle doesn't carry every IBM Plex Mono file.
+const IBMPlexMono_400Regular = require('@expo-google-fonts/ibm-plex-mono/400Regular/IBMPlexMono_400Regular.ttf');
+const IBMPlexMono_500Medium = require('@expo-google-fonts/ibm-plex-mono/500Medium/IBMPlexMono_500Medium.ttf');
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 // Exercise thumbnails from your Firebase Hosting when set (see app/.env.example).
