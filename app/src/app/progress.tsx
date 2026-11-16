@@ -1,4 +1,4 @@
-// Progress: REI's weekly report, streaks as combos, badges as special moves, body measurements and private photos.
+// Progress: REI's weekly report, streaks, seals, body measurements and private photos.
 import { daySummary, isoDate, isoWeek, MEASURES, type Measure, measureChanges, parseIsoDate, type ProgressPhoto, streaks as calcStreaks, type WeeklyReport } from '@rei/shared';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,9 +7,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Image } from 'expo-image';
 import { Platform, ScrollView, View } from 'react-native';
 import { ConfirmSheet } from '../components/ConfirmSheet';
-import { CutShape } from '../components/cut';
 import { BadgeGrid, Field, QuietButton } from '../components/dojo';
-import { Combo, CutButton, RoundStamp, SectionHeader, useWarn } from '../components/fight';
+import { CutButton, RoundStamp, SectionHeader, useWarn } from '../components/fight';
+import { InkDot } from '../components/ink';
 import { Sheet } from '../components/FoodSheet';
 import { LineChart } from '../components/LineChart';
 import { Screen, SubHeader } from '../components/Screen';
@@ -37,7 +37,8 @@ export default function Progress() {
   const [open, setOpen] = useState<Measure | null>(null);
   const [badge, setBadge] = useState<string | null>(null);
   const { earned, locked } = g;
-  // The latest few you've landed, then the three you're closest to. The Badges page has them all.
+  const warn = useWarn();
+  // The latest few you've earned, then the three you're closest to. The Seals page has them all.
   const landed = [...earned].sort((a, b) => (a.earned! < b.earned! ? 1 : -1)).slice(0, 5);
   const closest = [...locked].sort((a, b) => b.progress - a.progress).slice(0, 3);
   const allMoves = earned.length + locked.length;
@@ -48,34 +49,38 @@ export default function Progress() {
 
       <ReportCard />
 
-      <SectionHeader title="Combos" meta="Streaks" style={{ marginTop: SP.xxl }} />
-      <View style={{ flexDirection: 'row', backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, marginTop: SP.md }}>
-        {([['Food', 'logged', st.logging, 'days'], ['Protein', 'hit', st.protein, 'days'], ['Weeks', 'on target', st.weeks, 'wks']] as const).map(([top, bottom, v, unit], i) => (
-          <View key={top} style={{ flex: 1, paddingVertical: SP.md, paddingHorizontal: SP.sm, gap: SP.xs, borderLeftWidth: i ? 2 : 0, borderLeftColor: F.arena }}>
-            <Combo count={v.current} top={top} bottom={bottom} size="sm" />
-            <Txt face="label" w={600} size={12} ls={0.1} color={F.smoke} numberOfLines={1}>{`${unit.toUpperCase()} · BEST ${v.best}`}</Txt>
+      <SectionHeader title="Streaks" style={{ marginTop: SP.huge }} />
+      <View style={{ flexDirection: 'row', backgroundColor: F.canvas, borderWidth: 1, borderColor: F.line, borderRadius: RADIUS.card, marginTop: SP.md, paddingVertical: SP.md }}>
+        {([['Food logged', st.logging, 'days'], ['Protein hit', st.protein, 'days'], ['On target', st.weeks, 'weeks']] as const).map(([name, v, unit], i) => (
+          <View key={name} accessible accessibilityLabel={`${name}: ${v.current} ${unit}, best ${v.best}`} style={{ flex: 1, paddingHorizontal: SP.lg, gap: 2, borderLeftWidth: i ? 1 : 0, borderLeftColor: C.line }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+              <Txt face="heading" size={20} lh={1.3} color={v.current ? s.accent : F.smoke}>{v.current}</Txt>
+              <Txt face="mono" size={12} lh={1.35} color={F.smoke}>{unit}</Txt>
+            </View>
+            <Txt face="label" size={12} lh={1.35} numberOfLines={1}>{name}</Txt>
+            <Txt face="mono" size={12} lh={1.35} color={F.smoke} numberOfLines={1}>{`Best ${v.best}`}</Txt>
           </View>
         ))}
       </View>
 
-      <SectionHeader title="Special moves" meta={`${earned.length} of ${allMoves} unlocked`} onMeta={() => router.push('/badges')} style={{ marginTop: SP.xxl }} />
-      <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} style={{ marginTop: SP.md }}>{earned.length ? `${earned.length > landed.length ? 'LATEST ' : ''}LANDED · NEXT ${closest.length} CLOSEST` : `YOUR ${closest.length} CLOSEST`}</Txt>
+      <SectionHeader title="Seals" meta={`${earned.length} of ${allMoves} earned`} onMeta={() => router.push('/badges')} style={{ marginTop: SP.huge }} />
+      <Txt face="mono" size={12} lh={1.4} color={F.smoke} style={{ marginTop: SP.md }}>{earned.length ? `${earned.length > landed.length ? 'Latest earned' : 'Earned'} · next ${closest.length} closest` : `Your ${closest.length} closest`}</Txt>
       <BadgeGrid badges={[...landed, ...closest]} open={badge} onOpen={setBadge} style={{ marginTop: SP.md }} />
-      <QuietButton label={`All ${allMoves} special moves`} accessibilityLabel={`See all ${allMoves} special moves`} onPress={() => router.push('/badges')} style={{ marginTop: SP.lg }} />
+      <QuietButton label={`All ${allMoves} seals`} accessibilityLabel={`See all ${allMoves} seals`} onPress={() => router.push('/badges')} style={{ marginTop: SP.lg }} />
 
-      <SectionHeader title="Body · cm" meta="+ Log" onMeta={() => setMeasuring(true)} style={{ marginTop: SP.xxl }} />
-      <View style={{ marginTop: SP.md, gap: SP.xs }}>
-        {!changes.length ? <Txt size={14} w={500} lh={1.4} color={F.smoke}>No measurements yet. Waist is the one that matters most.</Txt> : null}
+      <SectionHeader title="Body · cm" meta="+ Log" onMeta={() => setMeasuring(true)} style={{ marginTop: SP.huge }} />
+      <View style={{ marginTop: SP.md, gap: SP.sm }}>
+        {!changes.length ? <Txt size={15} lh={1.45} color={F.smoke}>No measurements yet. Waist is the one that matters most.</Txt> : null}
         {changes.map(c => {
           const good = c.change === 0 ? null : SHRINK.includes(c.measure) ? c.change < 0 : c.change > 0;
           const delta = c.change ? `${c.change > 0 ? '+' : ''}${c.change}` : '—';
           const expanded = open === c.measure;
           return (
-            <Tap key={c.measure} haptic={false} onPress={() => setOpen(o => (o === c.measure ? null : c.measure))} accessibilityState={{ expanded }} accessibilityLabel={`${cap(c.measure)} ${c.latest} centimetres${c.change ? `, change ${delta}` : ''}`} style={{ backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, paddingHorizontal: SP.md, paddingVertical: SP.sm, gap: SP.md }}>
+            <Tap key={c.measure} haptic={false} onPress={() => setOpen(o => (o === c.measure ? null : c.measure))} accessibilityState={{ expanded }} accessibilityLabel={`${cap(c.measure)} ${c.latest} centimetres${c.change ? `, change ${delta}` : ''}`} style={{ backgroundColor: F.canvas, borderWidth: 1, borderColor: F.line, borderRadius: RADIUS.card, paddingHorizontal: SP.lg, paddingVertical: SP.sm, gap: SP.md }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: HIT - SP.sm * 2 }}>
-                <Txt size={15} w={600} style={{ flex: 1 }}>{cap(c.measure)}</Txt>
-                <Txt face="label" w={600} size={14} ls={0.07} color={good == null ? F.smoke : good ? s.accent : C.alertSoft} align="right" style={{ minWidth: 48 }}>{delta}</Txt>
-                <Txt face="display" size={22} lh={1.15} align="right" style={{ minWidth: 56 }}>{`${c.latest}`}</Txt>
+                <Txt size={15} w={500} lh={1.35} style={{ flex: 1 }}>{cap(c.measure)}</Txt>
+                <Txt face="mono" size={12} lh={1.35} color={good == null ? F.smoke : good ? s.accent : warn} align="right" style={{ minWidth: 48 }}>{delta}</Txt>
+                <Txt face="num" size={17} lh={1.3} align="right" style={{ minWidth: 56 }}>{`${c.latest}`}</Txt>
               </View>
               {expanded && c.points.length > 1 ? <LineChart values={c.points.map(p => p.v)} labels={c.points.map(p => short(p.date))} color={s.accent} height={110} unit=" cm" /> : null}
             </Tap>
@@ -107,45 +112,45 @@ function ReportCard() {
   };
   const line = (tag: string, text: string, color: string, key?: number) => (
     <View key={key} style={{ flexDirection: 'row', gap: SP.sm }}>
-      <View style={{ width: 44, paddingTop: 3 }}>
-        <Txt face="label" w={600} size={12} ls={0.12} color={color}>{tag}</Txt>
+      <View style={{ width: 40, paddingTop: 3 }}>
+        <Txt face="label" w={600} size={12} lh={1.35} color={color}>{tag}</Txt>
       </View>
-      <Txt size={14} w={500} lh={1.4} style={{ flex: 1 }}>{text}</Txt>
+      <Txt size={15} lh={1.5} color={C.body} style={{ flex: 1 }}>{text}</Txt>
     </View>
   );
   return (
-    <View style={{ marginTop: SP.lg, gap: SP.md }}>
-      <SectionHeader title={report ? `Weekly report · ${report.week.split('-')[1]}` : 'Weekly report'} meta={report ? (report.ai ? 'By REI' : 'From your numbers') : undefined} />
-      <View style={{ backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${report ? s.accent : F.rope}`, padding: SP.lg, gap: SP.md }}>
+    <View style={{ marginTop: SP.xxl, gap: SP.md }}>
+      <SectionHeader title="Weekly report" tag={report ? report.week.split('-')[1] : undefined} meta={report ? (report.ai ? 'By REI' : 'From your numbers') : undefined} />
+      <View style={{ backgroundColor: F.canvas, borderWidth: 1, borderColor: F.line, borderRadius: RADIUS.card, padding: SP.xl, gap: SP.lg }}>
         {report ? (
           <>
             <View style={{ alignItems: 'flex-start' }}>
-              <Txt face="display" size={26} lh={1.2}>{report.headline.toUpperCase()}</Txt>
+              <Txt face="display" exact size={22} lh={1.3}>{report.headline}</Txt>
             </View>
-            <Txt size={14} w={500} lh={1.5} color={C.body}>{report.summary}</Txt>
-            <View style={{ gap: SP.sm }}>
+            <Txt size={15} lh={1.5} color={C.body}>{report.summary}</Txt>
+            <View style={{ gap: SP.md }}>
               {report.wins.map((w, i) => (
                 <View key={i} style={{ flexDirection: 'row', gap: SP.sm }}>
-                  <View accessible accessibilityLabel="Win" style={{ width: 44, paddingTop: 5 }}>
-                    <CutShape width={14} height={10} fill={s.accent} />
+                  <View accessible accessibilityLabel="Win" style={{ width: 40, paddingTop: 8 }}>
+                    <InkDot size={8} color={s.accent} />
                   </View>
-                  <Txt size={14} w={500} lh={1.4} style={{ flex: 1 }}>{w}</Txt>
+                  <Txt size={15} lh={1.5} color={C.body} style={{ flex: 1 }}>{w}</Txt>
                 </View>
               ))}
-              {line('FIX', report.fix, warn)}
-              {line('NEXT', report.focus, s.accent)}
+              {line('Fix', report.fix, warn)}
+              {line('Next', report.focus, s.accent)}
             </View>
             <View style={{ flexDirection: 'row', gap: SP.sm, flexWrap: 'wrap' }}>
               {[
-                `${report.stats.sessions.done}/${report.stats.sessions.planned} SESSIONS`,
-                report.stats.food.avgProtein != null ? `${report.stats.food.avgProtein} G PROTEIN AVG` : null,
-                report.stats.weight.change != null ? `${report.stats.weight.change > 0 ? '+' : ''}${report.stats.weight.change} KG` : null,
+                `${report.stats.sessions.done}/${report.stats.sessions.planned} sessions`,
+                report.stats.food.avgProtein != null ? `${report.stats.food.avgProtein} g protein avg` : null,
+                report.stats.weight.change != null ? `${report.stats.weight.change > 0 ? '+' : ''}${report.stats.weight.change} kg` : null,
                 report.stats.prs.length ? `${report.stats.prs.length} PR` : null,
               ].filter((t): t is string => !!t).map(t => <RoundStamp key={t} label={t} tone="outline" size="sm" />)}
             </View>
           </>
         ) : (
-          <Txt size={14} w={500} lh={1.45} color={C.body}>REI writes your week up every Sunday evening, before planning the next one.</Txt>
+          <Txt size={15} lh={1.5} color={C.body}>REI writes your week up every Sunday evening, before planning the next one.</Txt>
         )}
         <QuietButton lit={!busy} icon="rei" disabled={busy} onPress={write} label={busy ? 'REI is reading your week…' : report?.week === week ? 'Rewrite this week’s report' : 'Write this week so far'} />
       </View>
@@ -160,14 +165,14 @@ function MeasureSheet({ open, onClose }: { open: boolean; onClose: () => void })
   const entries = MEASURES.map(k => [k, parseFloat((v[k] ?? '').replace(',', '.'))] as const).filter(([, n]) => n > 0 && n < 300);
   return (
     <Sheet open={open} onClose={onClose}>
-      <View style={{ gap: SP.md }}>
+      <View style={{ gap: SP.lg, paddingHorizontal: SP.sm, paddingTop: SP.xs }}>
         <View accessibilityRole="header" style={{ alignItems: 'flex-start' }}>
-          <Txt face="display" size={26} lh={1.2}>MEASUREMENTS</Txt>
+          <Txt face="display" exact size={24} lh={1.25}>Measurements</Txt>
         </View>
-        <Txt size={14} w={500} lh={1.4} color={F.smoke}>Centimetres, relaxed, same time of day. Leave blank what you don’t measure.</Txt>
+        <Txt size={15} lh={1.45} color={F.smoke}>Centimetres, relaxed, same time of day. Leave blank what you don’t measure.</Txt>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.md }}>
           {MEASURES.map(k => (
-            <Field key={k} label={k} value={v[k] ?? ''} onChangeText={t => setV(cur => ({ ...cur, [k]: t }))} placeholder={last?.[k] ? String(last[k]) : '—'} accessibilityLabel={`${cap(k)} in centimetres`} keyboardType="decimal-pad" style={{ width: '30%', flexGrow: 1 }} />
+            <Field key={k} label={cap(k)} value={v[k] ?? ''} onChangeText={t => setV(cur => ({ ...cur, [k]: t }))} placeholder={last?.[k] ? String(last[k]) : '—'} accessibilityLabel={`${cap(k)} in centimetres`} keyboardType="decimal-pad" style={{ width: '30%', flexGrow: 1 }} />
           ))}
         </View>
         <View style={{ gap: SP.sm, marginTop: SP.xs }}>
@@ -198,7 +203,7 @@ function PhotoImage({ p, height, label }: { p: ProgressPhoto; height: number; la
     };
   }, [p.path]);
   // Cached on disk by Storage path, so the signed URL changing doesn't refetch the image.
-  return <Image source={uri ? { uri, cacheKey: p.path } : undefined} accessibilityLabel={label} cachePolicy="memory-disk" transition={120} contentFit="cover" style={{ width: '100%', height, borderRadius: RADIUS.sm, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas }} />;
+  return <Image source={uri ? { uri, cacheKey: p.path } : undefined} accessibilityLabel={label} cachePolicy="memory-disk" transition={120} contentFit="cover" style={{ width: '100%', height, borderRadius: RADIUS.card, borderWidth: 1, borderColor: F.line, backgroundColor: F.canvas }} />;
 }
 
 function Photos() {
@@ -236,34 +241,34 @@ function Photos() {
 
   return (
     <>
-      <SectionHeader title="Photos · private" style={{ marginTop: SP.xxl }} />
+      <SectionHeader title="Photos" meta="Private" style={{ marginTop: SP.huge }} />
       <View style={{ marginTop: SP.md, alignItems: 'flex-start' }}>
         <Segmented value={pose} options={[['front', 'Front'], ['side', 'Side'], ['back', 'Back']]} onChange={setPose} />
       </View>
       {first ? (
-        <View style={{ flexDirection: 'row', gap: SP.sm, marginTop: SP.md }}>
+        <View style={{ flexDirection: 'row', gap: SP.md, marginTop: SP.md }}>
           {[first, latest].map((p, i) =>
             p ? (
-              <View key={p.id} style={{ flex: 1, gap: SP.xs }}>
+              <View key={p.id} style={{ flex: 1, gap: SP.sm }}>
                 <PhotoImage p={p} height={220} label={say(p)} />
-                <Txt face="label" w={600} size={12} ls={0.1} color={i ? s.accent : F.smoke}>{`${i ? 'NOW' : 'FIRST'} · ${short(p.date).toUpperCase()}${p.kg ? ` · ${p.kg} KG` : ''}`}</Txt>
+                <Txt face="mono" size={12} lh={1.35} color={i ? s.accent : F.smoke} numberOfLines={1}>{`${i ? 'Now' : 'First'} · ${short(p.date)}${p.kg ? ` · ${p.kg} kg` : ''}`}</Txt>
               </View>
             ) : (
-              <View key="none" style={{ flex: 1, height: 220, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center', padding: SP.lg }}>
-                <Txt size={14} w={500} lh={1.4} color={F.smoke} align="center">Take the next one in a few weeks, same spot, same light.</Txt>
+              <View key="none" style={{ flex: 1, height: 220, borderWidth: 1, borderColor: F.line, borderRadius: RADIUS.card, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center', padding: SP.lg }}>
+                <Txt size={15} lh={1.45} color={F.smoke} align="center">Take the next one in a few weeks, same spot, same light.</Txt>
               </View>
             ),
           )}
         </View>
       ) : (
-        <Txt size={14} w={500} lh={1.45} color={F.smoke} style={{ marginTop: SP.md }}>Photos show what the scale can’t. Only you can see them.</Txt>
+        <Txt size={15} lh={1.45} color={F.smoke} style={{ marginTop: SP.md }}>Photos show what the scale can’t. Only you can see them.</Txt>
       )}
       {mine.length > 2 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: SP.md }} contentContainerStyle={{ gap: SP.sm }}>
           {mine.map(p => (
             <Tap key={p.id} onLongPress={() => setDeleting(p)} accessibilityLabel={say(p)} accessibilityHint="Hold to delete" style={{ width: 72, gap: SP.xs }}>
               <PhotoImage p={p} height={96} label={say(p)} />
-              <Txt face="label" w={600} size={12} ls={0.08} color={F.smoke}>{short(p.date).toUpperCase()}</Txt>
+              <Txt face="mono" size={12} lh={1.35} color={F.smoke} numberOfLines={1}>{short(p.date)}</Txt>
             </Tap>
           ))}
         </ScrollView>
@@ -272,10 +277,10 @@ function Photos() {
         <CutButton size="md" icon="camera" label={busy ? 'Saving…' : 'Take photo'} disabled={busy} onPress={() => add(false)} />
         <QuietButton label="From library" disabled={busy} onPress={() => add(true)} />
       </View>
-      {mine.length > 2 ? <Txt size={13} w={500} color={F.smoke} style={{ marginTop: SP.sm }}>Hold a photo to delete it.</Txt> : null}
+      {mine.length > 2 ? <Txt size={13} lh={1.4} color={F.smoke} style={{ marginTop: SP.sm }}>Hold a photo to delete it.</Txt> : null}
       {mine.length && mine.length <= 2 ? (
         <Tap onLongPress={() => setDeleting(mine[mine.length - 1])} accessibilityLabel="Delete the latest photo" accessibilityHint="Hold to delete" style={{ minHeight: HIT, justifyContent: 'center', marginTop: SP.xs }}>
-          <Txt size={13} w={500} color={F.smoke}>Hold here to delete the latest photo.</Txt>
+          <Txt size={13} lh={1.4} color={F.smoke}>Hold here to delete the latest photo.</Txt>
         </Tap>
       ) : null}
 

@@ -1,15 +1,14 @@
-// REI: personality, whose voice REI speaks with (the corner team), and how conversations work.
+// REI: personality, whose voice REI speaks with, and how conversations work.
 import { CHARACTERS, characterOf, hasVoice, type Tone } from '@rei/shared';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { LevelBars, readable } from '../components/corner';
-import { CutShape } from '../components/cut';
 import { RoundStamp, SectionHeader, useWarn } from '../components/fight';
 import { Icon } from '../components/icons';
 import { Screen, SubHeader } from '../components/Screen';
 import { Card, Row, Segmented, Tap, Toggle, Txt } from '../components/ui';
-import { C, onColor, SP } from '../lib/theme';
+import { C, HIT, RADIUS, SP } from '../lib/theme';
 import { playGreeting, prefetchGreetings } from '../lib/greetings';
 import { useStore } from '../state/store';
 
@@ -29,7 +28,7 @@ export default function ReiSettings() {
   /** Each tap gets a number; a preview that finishes loading after a newer tap is dropped. */
   const seq = useRef(0);
   useEffect(() => () => preview.current?.stop(), []);
-  // Each partner's hello with your name, ready before you tap.
+  // Each voice's hello with your name, ready before you tap.
   const name = s.profile.name.trim();
   useEffect(() => {
     void prefetchGreetings(name);
@@ -72,17 +71,17 @@ export default function ReiSettings() {
     <Screen tabs={false}>
       <SubHeader title="REI" onBack={() => router.back()} />
 
-      <SectionHeader title="Personality" meta="How hard REI pushes" style={{ marginTop: SP.xl }} />
-      <View accessibilityRole="radiogroup" style={{ gap: SP.sm, marginTop: SP.md, paddingRight: 4 }}>
+      <SectionHeader title="Personality" meta="How hard REI pushes" style={{ marginTop: SP.xxl }} />
+      <View accessibilityRole="radiogroup" style={{ gap: SP.sm, marginTop: SP.md }}>
         {TONES.map(t => {
           const on = settings.tone === t.id;
           return (
             <Tap key={t.id} onPress={() => s.setOpt('tone', t.id)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={`${t.title}. ${t.sub}`}>
-              <View style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: on ? 3 : 2, borderColor: on ? C.chalk : C.smoke, boxShadow: on ? `4px 4px 0px ${accent}` : undefined }}>
-                <Txt face="display" lean={false} size={20} lh={1.2} color={on ? accent : C.smoke} style={{ minWidth: 48 }}>{t.level.toUpperCase()}</Txt>
-                <View style={{ flex: 1, alignItems: 'flex-start' }}>
-                  <Txt face="display" size={22} lh={1.2}>{t.title.toUpperCase()}</Txt>
-                  <Txt size={13} w={500} color={C.smoke}>{t.sub}</Txt>
+              <View style={{ minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.lg, paddingVertical: SP.md, backgroundColor: C.canvas, borderWidth: 1, borderColor: on ? accent : C.line2, borderRadius: RADIUS.card }}>
+                <Txt face="num" raw size={14} lh={1.3} color={on ? accent : C.smoke} style={{ minWidth: 48 }}>{t.level}</Txt>
+                <View style={{ flex: 1, gap: 2, alignItems: 'flex-start' }}>
+                  <Txt face="heading" size={17} lh={1.4}>{t.title}</Txt>
+                  <Txt size={13} lh={1.4} color={C.smoke}>{t.sub}</Txt>
                 </View>
                 {on ? <RoundStamp label="On" tone="accent" size="sm" /> : null}
               </View>
@@ -91,25 +90,24 @@ export default function ReiSettings() {
         })}
       </View>
 
-      <SectionHeader title="Voice" meta={playing ? 'Playing…' : 'Corner team'} style={{ marginTop: SP.huge }} />
-      <Txt size={13} w={500} lh={1.4} color={C.smoke} style={{ marginTop: SP.sm }}>Who REI sounds like, on calls and spoken replies. Separate from your world.</Txt>
-      <View accessibilityRole="radiogroup" style={{ gap: SP.sm, marginTop: SP.md, paddingRight: 4 }}>
+      <SectionHeader title="Voice" meta={playing ? 'Playing…' : `${CHARACTERS.length} voices`} style={{ marginTop: SP.huge }} />
+      <Txt size={15} w={500} lh={1.5} color={C.smoke} style={{ marginTop: SP.md }}>Who REI sounds like, on calls and in spoken replies. Separate from your world.</Txt>
+      <View accessibilityRole="radiogroup" style={{ gap: SP.sm, marginTop: SP.md }}>
         {CHARACTERS.map(c => {
           const on = (settings.character || 'rei') === c.id;
           const voiced = hasVoice(c);
           return (
             <Tap key={c.id} onPress={() => void pick(c.id)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={`${c.name}, ${c.series}. ${c.line}${voiced ? '' : ' Voice coming soon.'}${playing === c.id ? ' Playing.' : ''}`}>
-              <View style={{ minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: on ? 3 : 2, borderColor: on ? C.chalk : C.smoke, boxShadow: on ? `4px 4px 0px ${accent}` : undefined }}>
-                <View style={{ width: 52, height: 40, alignItems: 'center', justifyContent: 'center' }}>
-                  <CutShape width={52} height={40} fill={c.acc} style={{ position: 'absolute', left: 0, top: 0 }} />
-                  <View><Icon name={c.icon} size={24} color={onColor(c.acc)} tint={0.2} strokeWidth={2} /></View>
+              <View style={{ minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.lg, paddingVertical: SP.md, backgroundColor: C.canvas, borderWidth: 1, borderColor: on ? accent : C.line2, borderRadius: RADIUS.card }}>
+                <View style={{ width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center', backgroundColor: C.arena, borderWidth: 1, borderColor: C.rule, borderRadius: RADIUS.sm }}>
+                  <Icon name={c.icon} size={22} color={readable(c.acc, C.arena)} tint={0} strokeWidth={1.7} />
                 </View>
-                <View style={{ flex: 1, alignItems: 'flex-start' }}>
+                <View style={{ flex: 1, gap: 2, alignItems: 'flex-start' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: SP.sm }}>
-                    <Txt face="display" size={22} lh={1.2}>{c.name.toUpperCase()}</Txt>
-                    <Txt face="label" w={600} size={12} ls={0.12} color={readable(c.acc)} numberOfLines={1} style={{ flexShrink: 1 }}>{c.series.toUpperCase()}</Txt>
+                    <Txt face="heading" raw size={17} lh={1.4}>{c.name}</Txt>
+                    <Txt face="mono" raw size={12} lh={1.35} color={C.smoke} numberOfLines={1} style={{ flexShrink: 1 }}>{c.series}</Txt>
                   </View>
-                  <Txt size={13} w={500} lh={1.35} color={C.smoke} numberOfLines={2}>{c.line}</Txt>
+                  <Txt size={13} lh={1.4} color={C.smoke} numberOfLines={2}>{c.line}</Txt>
                 </View>
                 {playing === c.id ? <LevelBars active color={readable(c.acc)} height={24} /> : !voiced ? <RoundStamp label="Soon" tone="outline" size="sm" /> : on ? <RoundStamp label="On" tone="accent" size="sm" /> : null}
               </View>
@@ -118,14 +116,14 @@ export default function ReiSettings() {
         })}
       </View>
       <View accessibilityLiveRegion="polite">
-        <Txt size={13} w={500} lh={1.4} color={note ? warn : C.smoke} style={{ marginTop: SP.sm }}>{note || 'Tap a partner to hear them say hello; tap again to stop.'}</Txt>
+        <Txt size={13} lh={1.4} color={note ? warn : C.smoke} style={{ marginTop: SP.md }}>{note || 'Tap a voice to hear it say hello. Tap again to stop.'}</Txt>
       </View>
 
       <SectionHeader title="Conversation" style={{ marginTop: SP.huge }} />
       <Card style={{ marginTop: SP.md, paddingHorizontal: SP.lg }}>
         <Row title="Speak replies aloud" sub="In voice mode" right={<Toggle on={settings.speak} onPress={() => s.setOpt('speak', !settings.speak)} accessibilityLabel="Speak replies aloud" />} />
-        <Row title="In the chat header" sub="Your character crest or REI’s core" right={<Segmented value={settings.avatar} options={[['Character in chat', 'Crest'], ['Core only', 'Core']]} onChange={v => s.setOpt('avatar', v)} />} />
-        <Row title="Check-ins" sub="REI messages you when you slip" right={<Toggle on={settings.nudge} onPress={() => s.setOpt('nudge', !settings.nudge)} accessibilityLabel="Check-ins" />} last />
+        <Row title="In the chat header" sub="The voice’s crest or REI’s seal" right={<Segmented value={settings.avatar} options={[['Character in chat', 'Crest'], ['Core only', 'Seal']]} onChange={v => s.setOpt('avatar', v)} />} />
+        <Row title="Check-ins" sub="REI messages you when a day slips" right={<Toggle on={settings.nudge} onPress={() => s.setOpt('nudge', !settings.nudge)} accessibilityLabel="Check-ins" />} last />
       </Card>
     </Screen>
   );

@@ -8,7 +8,7 @@ import { Field, QuietButton, StatStrip } from '../components/dojo';
 import { CutButton, MoveRow, RoundStamp } from '../components/fight';
 import { Screen, SubHeader } from '../components/Screen';
 import { Segmented, Tap, Txt } from '../components/ui';
-import { F, HIT, SP } from '../lib/theme';
+import { F, RADIUS, SP } from '../lib/theme';
 import { useStore } from '../state/store';
 
 type Kind = 'run' | 'walk' | 'cycle' | 'sport';
@@ -65,10 +65,11 @@ export default function LogTraining() {
   if (saved !== null) {
     return (
       <Screen tabs={false}>
-        <View accessibilityLiveRegion="polite" style={{ height: 560, alignItems: 'center', justifyContent: 'center', gap: SP.lg }}>
-          <Txt face="display" size={56} lh={1.1} align="center">HIT LANDED</Txt>
-          <Txt face="label" w={600} size={14} ls={0.12} color={F.smoke}>LOGGED</Txt>
-          <RoundStamp label={`+${saved} XP`} tone="accent" style={{ alignSelf: 'center' }} />
+        <View accessibilityLiveRegion="polite" style={{ height: 560, alignItems: 'center', justifyContent: 'center', gap: SP.md }}>
+          <RoundStamp label="Done" style={{ alignSelf: 'center' }} />
+          <Txt face="display" exact size={34} lh={1.2} align="center">Logged</Txt>
+          <Txt size={15} lh={1.45} color={F.smoke} align="center">Saved to your training log.</Txt>
+          <Txt face="num" size={17} lh={1.3} color={accent} align="center" style={{ marginTop: SP.xs }}>{`+${saved} XP`}</Txt>
         </View>
       </Screen>
     );
@@ -76,20 +77,20 @@ export default function LogTraining() {
 
   return (
     <Screen tabs={false}>
-      <SubHeader title={fixed ? `Log a ${meta.label}` : 'Log training'} onBack={() => router.back()} />
+      <SubHeader title={fixed ? `Log a ${meta.label.toLowerCase()}` : 'Log training'} onBack={() => router.back()} />
 
       {fixed ? (
-        <View style={{ marginTop: SP.lg, alignItems: 'flex-start', gap: SP.xs }}>
-          <Txt face="display" size={36} lh={1.15}>{(kind === 'sport' ? 'Sport or activity' : meta.label).toUpperCase()}</Txt>
-          <Txt size={14} w={500} lh={1.4} color={F.smoke}>{kind === 'sport' ? 'Pick it, then how long.' : 'Distance and time. Pace and burn work themselves out.'}</Txt>
+        <View style={{ marginTop: SP.xxl, alignItems: 'flex-start', gap: SP.xs }}>
+          <Txt face="display" exact size={28} lh={1.25}>{kind === 'sport' ? 'Sport or activity' : meta.label}</Txt>
+          <Txt size={15} lh={1.45} color={F.smoke}>{kind === 'sport' ? 'Pick it, then how long.' : 'Distance and time. Pace and burn work themselves out.'}</Txt>
         </View>
       ) : (
-        <View style={{ marginTop: SP.lg, alignItems: 'flex-start' }}>
+        <View style={{ marginTop: SP.xxl, alignItems: 'flex-start' }}>
           <Segmented value={kind} options={KINDS.map(k => [k.id, k.label] as [Kind, string])} onChange={setKind} />
         </View>
       )}
 
-      <View style={{ marginTop: SP.xl, gap: SP.lg }}>
+      <View style={{ marginTop: SP.xxl, gap: SP.lg }}>
         {distance ? (
           <>
             <View style={{ flexDirection: 'row', gap: SP.md }}>
@@ -100,9 +101,9 @@ export default function LogTraining() {
           </>
         ) : sport ? (
           <>
-            <Tap onPress={() => setSport(null)} accessibilityLabel={`${sport.name}. Change`} style={{ minHeight: HIT, flexDirection: 'row', alignItems: 'center', gap: SP.md, backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${accent}`, paddingHorizontal: SP.md, paddingVertical: SP.sm }}>
-              <Txt size={17} w={600} style={{ flex: 1 }}>{sport.name}</Txt>
-              <Txt face="label" w={600} size={13} ls={0.1} color={accent}>CHANGE</Txt>
+            <Tap onPress={() => setSport(null)} accessibilityLabel={`${sport.name}. Change`} style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: SP.md, backgroundColor: F.canvas, borderWidth: 1, borderColor: F.rule, borderRadius: RADIUS.sm, paddingHorizontal: SP.lg, paddingVertical: SP.sm }}>
+              <Txt face="heading" size={17} lh={1.35} style={{ flex: 1 }}>{sport.name}</Txt>
+              <Txt face="label" size={13} color={accent}>Change</Txt>
             </Tap>
             <Field size="lg" value={minutes} onChangeText={setMinutes} placeholder="60" label="Minutes" keyboardType="decimal-pad" />
             {chips(['30', '45', '60', '90'], setMinutes, 'min')}
@@ -110,15 +111,15 @@ export default function LogTraining() {
         ) : (
           <View style={{ gap: SP.sm }}>
             <Field value={q} onChangeText={setQ} autoFocus placeholder="Football, badminton, yoga, swimming…" accessibilityLabel="Search sports and activities" />
-            <View style={{ gap: SP.xs }}>
-              {searchMovements(q, 8).map(m => <MoveRow key={m.id} name={m.name} detail={`~${movementKcal(m.met, kg, 60)} KCAL/H`} onPress={() => setSport(m)} />)}
+            <View>
+              {searchMovements(q, 8).map(m => <MoveRow key={m.id} name={m.name} detail={`~${movementKcal(m.met, kg, 60)} kcal/h`} onPress={() => setSport(m)} />)}
             </View>
           </View>
         )}
       </View>
 
       <StatStrip
-        style={{ marginTop: SP.xl }}
+        style={{ marginTop: SP.huge }}
         items={[
           { k: 'Pace', v: distance && ok && kind !== 'cycle' ? pace(dist, secs!) : '—' },
           { k: 'Burn', v: kcal ? `~${kcal} kcal` : '—' },
@@ -126,8 +127,8 @@ export default function LogTraining() {
         ]}
       />
 
-      <CutButton icon="check" label={ok ? 'Save' : 'Fill in the details'} meta={ok ? `+${xp} XP` : undefined} disabled={!ok} onPress={save} style={{ marginTop: SP.xl }} />
-      <Txt size={13} w={500} lh={1.4} color={F.smoke} align="center" style={{ marginTop: SP.md }}>Counts as today’s training. Burn estimates come from the Compendium of Physical Activities.</Txt>
+      <CutButton icon="check" label={ok ? 'Save' : 'Fill in the details'} meta={ok ? `+${xp} XP` : undefined} disabled={!ok} onPress={save} style={{ marginTop: SP.xxl }} />
+      <Txt size={13} lh={1.45} color={F.smoke} align="center" style={{ marginTop: SP.md }}>Counts as today’s training. Burn estimates come from the Compendium of Physical Activities.</Txt>
     </Screen>
   );
 }

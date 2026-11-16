@@ -4,10 +4,10 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Image } from 'expo-image';
 import { TextInput, View } from 'react-native';
-import { alpha, F, fontFamily, HIT, SP } from '../lib/theme';
+import { alpha, C, F, fontFamily, RADIUS, SP } from '../lib/theme';
 import { useStore } from '../state/store';
 import { Field, QuietButton } from './dojo';
-import { CutButton, RoundStamp } from './fight';
+import { CutButton } from './fight';
 import { Sheet } from './FoodSheet';
 import { IconButton, Tap, Txt } from './ui';
 
@@ -22,19 +22,19 @@ const tipsFor = (id: string): string[] => {
 };
 
 /**
- * A form photo as a manga panel: cropped to a square-cornered frame, tinted toward your colour
- * and dimmed to sit on the ink, with a stamp saying which end of the move it is.
- * (The library's photos are bright gym stock shots; raw, they fight the rest of the screen.)
+ * A form photo: cropped into a softly rounded frame and dimmed to sit on the night ground, with a
+ * quiet tag saying which end of the lift it is.
+ * (The library's photos are bright gym stock shots; raw, they are louder than the rest of the screen.)
  */
 function FormPhoto({ uri, label, tag }: { uri: string; label: string; tag: string }) {
-  const accent = useStore(s => s.accent);
   return (
-    <View style={{ flex: 1, aspectRatio: 1.25, borderWidth: 3, borderColor: F.chalk, backgroundColor: F.canvas, overflow: 'hidden' }}>
+    <View style={{ flex: 1, aspectRatio: 1.25, borderWidth: 1, borderColor: F.line, borderRadius: RADIUS.card, backgroundColor: F.canvas, overflow: 'hidden' }}>
       <Image source={{ uri }} accessibilityLabel={label} cachePolicy="memory-disk" transition={120} contentFit="cover" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }} />
-      {/* The wash: a flat veil of your colour, then a flat dim. Plain overlays, so it draws the same on iOS (no blend modes). */}
-      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: alpha(accent, 0.22) }} />
-      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: alpha(F.arena, 0.34) }} />
-      <RoundStamp label={tag} size="sm" tone="chalk" style={{ position: 'absolute', left: 6, bottom: 6 }} />
+      {/* A flat dim. A plain overlay, so it draws the same on iOS (no blend modes). */}
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: alpha(F.arena, 0.5) }} />
+      <View pointerEvents="none" style={{ position: 'absolute', left: SP.sm, bottom: SP.sm, paddingHorizontal: SP.sm, paddingVertical: 2, backgroundColor: alpha(F.arena, 0.82), borderWidth: 1, borderColor: F.rule, borderRadius: RADIUS.tag }}>
+        <Txt face="mono" size={12} lh={1.35} color={F.chalk}>{tag}</Txt>
+      </View>
     </View>
   );
 }
@@ -43,7 +43,7 @@ function FormPhoto({ uri, label, tag }: { uri: string; label: string; tag: strin
 export function ExerciseInfo({ ex, steps = 4 }: { ex: LibExercise; steps?: number }) {
   const tips = tipsFor(ex.id);
   return (
-    <View style={{ gap: SP.md }}>
+    <View style={{ gap: SP.lg }}>
       {ex.images ? (
         <View style={{ flexDirection: 'row', gap: SP.sm }}>
           {[0, 1].slice(0, ex.images).map(i => (
@@ -51,12 +51,12 @@ export function ExerciseInfo({ ex, steps = 4 }: { ex: LibExercise; steps?: numbe
           ))}
         </View>
       ) : null}
-      <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{[ex.primary.join(' · '), ex.equipment, ex.level].filter(Boolean).join(' · ').toUpperCase()}</Txt>
-      <View style={{ gap: SP.sm }}>
+      <Txt face="mono" size={12} lh={1.4} color={F.smoke}>{cap([ex.primary.join(' · '), ex.equipment, ex.level].filter(Boolean).join(' · '))}</Txt>
+      <View style={{ gap: SP.md }}>
         {tips.slice(0, steps).map((t, i) => (
           <View key={i} style={{ flexDirection: 'row', gap: SP.md }}>
-            <Txt face="display" lean={false} size={16} lh={1.3} color={F.smoke} style={{ width: 18 }}>{i + 1}</Txt>
-            <Txt size={14} w={500} lh={1.45} style={{ flex: 1 }}>{t}</Txt>
+            <Txt face="heading" size={15} lh={1.5} color={F.smoke} style={{ width: 20 }}>{i + 1}</Txt>
+            <Txt size={15} lh={1.5} color={C.body} style={{ flex: 1 }}>{t}</Txt>
           </View>
         ))}
       </View>
@@ -82,20 +82,20 @@ function Body({ name, onClose, onSwap }: { name: string; onClose: () => void; on
   const options = q.trim() ? searchExercises(q, 12).filter(e => e.category !== 'stretching') : ex ? alternatives(ex) : searchExercises('', 0);
 
   return (
-    <View style={{ gap: SP.lg }}>
+    <View style={{ gap: SP.xl, paddingTop: SP.xs }}>
       <View style={{ gap: SP.xs, alignItems: 'flex-start' }}>
-        <Txt face="label" w={600} size={12} ls={0.14} color={F.smoke}>{ex ? ex.name.toUpperCase() : 'EXERCISE'}</Txt>
+        <Txt face="mono" size={12} lh={1.35} color={F.smoke}>{ex && ex.name.toLowerCase() !== name.toLowerCase() ? ex.name : 'Exercise'}</Txt>
         <View accessibilityRole="header">
-          <Txt face="display" size={28} lh={1.2} numberOfLines={2}>{name.toUpperCase()}</Txt>
+          <Txt face="display" exact size={24} lh={1.25} numberOfLines={2}>{name}</Txt>
         </View>
         {best ? (
-          <Txt face="label" w={600} size={13} ls={0.1} color={s.accent}>{`YOUR BEST · ${best.kg != null ? `${best.kg} × ${best.reps}` : `${best.reps} reps`}${best.e1rm ? ` · EST. MAX ${Math.round(best.e1rm)} KG` : ''}`.toUpperCase()}</Txt>
+          <Txt face="mono" size={12} lh={1.4} color={s.accent}>{`Your best · ${best.kg != null ? `${best.kg} × ${best.reps}` : `${best.reps} reps`}${best.e1rm ? ` · est. max ${Math.round(best.e1rm)} kg` : ''}`}</Txt>
         ) : null}
       </View>
 
       {!swapping ? (
         <>
-          {ex ? <ExerciseInfo ex={ex} /> : <Txt size={14} w={500} color={F.smoke}>No form guide for this one yet.</Txt>}
+          {ex ? <ExerciseInfo ex={ex} /> : <Txt size={15} lh={1.45} color={F.smoke}>No form guide for this one yet.</Txt>}
           <View style={{ gap: SP.sm }}>
             <CutButton size="md" label="Swap exercise" onPress={() => setSwapping(true)} />
             <QuietButton
@@ -110,9 +110,9 @@ function Body({ name, onClose, onSwap }: { name: string; onClose: () => void; on
         </>
       ) : (
         <>
-          <Txt size={14} w={500} lh={1.4} color={F.smoke}>{ex ? `Same main muscle (${ex.primary[0]}). Pick one, or search.` : 'Search for a replacement.'}</Txt>
+          <Txt size={15} lh={1.45} color={F.smoke}>{ex ? `Same main muscle (${ex.primary[0]}). Pick one, or search.` : 'Search for a replacement.'}</Txt>
           <Field value={q} onChangeText={setQ} placeholder="Search exercises" autoCorrect={false} />
-          <View style={{ gap: SP.xs }}>
+          <View>
             {options.map(o => {
               const b = records(s.sessions)[liftKey(o.name)]?.best;
               return (
@@ -123,10 +123,10 @@ function Body({ name, onClose, onSwap }: { name: string; onClose: () => void; on
                     onSwap(o);
                     onClose();
                   }}
-                  style={{ minHeight: HIT, paddingVertical: SP.sm, paddingHorizontal: SP.md, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, gap: 2 }}
+                  style={{ minHeight: 56, paddingVertical: SP.sm, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: C.line, gap: 2 }}
                 >
-                  <Txt size={15} w={600} lh={1.3}>{o.name}</Txt>
-                  <Txt face="label" w={400} size={12} ls={0.08} color={F.smoke}>{`${cap(o.equipment)} · ${o.primary.join(', ')}${b?.e1rm ? ` · BEST ${b.kg} × ${b.reps}` : ''}`.toUpperCase()}</Txt>
+                  <Txt size={15} w={500} lh={1.35}>{o.name}</Txt>
+                  <Txt face="mono" size={12} lh={1.35} color={F.smoke} numberOfLines={1}>{`${cap(o.equipment)} · ${o.primary.join(', ')}${b?.e1rm ? ` · best ${b.kg} × ${b.reps}` : ''}`}</Txt>
                 </Tap>
               );
             })}
@@ -152,7 +152,7 @@ function Step({ label, value, step, onChange, suffix }: { label: string; value: 
   const [text, setText] = useState<string | null>(null);
   return (
     <View style={{ gap: SP.sm }}>
-      <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{label}</Txt>
+      <Txt face="label" size={12} color={F.smoke}>{label}</Txt>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
         <IconButton size={48} onPress={() => onChange(Math.max(0, +(value - step).toFixed(2)))} accessibilityLabel={`${cap(label.toLowerCase())}: ${step} less`}>−</IconButton>
         <TextInput
@@ -167,10 +167,10 @@ function Step({ label, value, step, onChange, suffix }: { label: string; value: 
           keyboardType="decimal-pad"
           keyboardAppearance="dark"
           selectTextOnFocus
-          style={{ width: 96, height: 48, padding: 0, textAlign: 'center', fontFamily: fontFamily('display', 400), fontSize: 34 * s.settings.textSize, color: F.chalk }}
+          style={{ width: 96, height: 48, padding: 0, textAlign: 'center', fontFamily: fontFamily('num'), fontSize: 28 * s.settings.textSize, color: F.chalk }}
         />
         <IconButton size={48} onPress={() => onChange(+(value + step).toFixed(2))} accessibilityLabel={`${cap(label.toLowerCase())}: ${step} more`}>+</IconButton>
-        {suffix ? <Txt face="label" w={600} size={14} ls={0.1} color={F.smoke}>{suffix.toUpperCase()}</Txt> : null}
+        {suffix ? <Txt face="mono" size={12} color={F.smoke}>{suffix}</Txt> : null}
       </View>
     </View>
   );
@@ -182,16 +182,16 @@ function SetBody({ edit, onClose, onSave }: { edit: { title: string; reps: numbe
   const [kg, setKg] = useState<number | null>(edit.kg);
   const est = e1rm(kg, reps);
   return (
-    <View style={{ gap: SP.lg }}>
+    <View style={{ gap: SP.xl, paddingTop: SP.xs }}>
       <View accessibilityRole="header" style={{ alignItems: 'flex-start' }}>
-        <Txt face="display" size={26} lh={1.2}>{edit.title.toUpperCase()}</Txt>
+        <Txt face="display" exact size={24} lh={1.25}>{edit.title}</Txt>
       </View>
-      <Step label="REPS" value={reps} step={1} onChange={v => setReps(Math.round(v))} />
+      <Step label="Reps" value={reps} step={1} onChange={v => setReps(Math.round(v))} />
       {kg != null ? (
-        <Step label="WEIGHT" value={kg} step={2.5} onChange={setKg} suffix="kg" />
+        <Step label="Weight" value={kg} step={2.5} onChange={setKg} suffix="kg" />
       ) : null}
       <QuietButton label={kg == null ? 'Add weight' : 'Bodyweight only'} icon={kg == null ? 'plus' : undefined} onPress={() => setKg(kg == null ? 20 : null)} style={{ alignSelf: 'flex-start' }} />
-      {est ? <Txt face="label" w={600} size={13} ls={0.1} color={s.accent}>{`EST. MAX ${Math.round(est)} KG`}</Txt> : null}
+      {est ? <Txt face="mono" size={12} lh={1.4} color={s.accent}>{`Est. max ${Math.round(est)} kg`}</Txt> : null}
       <View style={{ gap: SP.sm }}>
         <CutButton
           size="md"

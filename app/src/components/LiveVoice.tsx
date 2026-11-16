@@ -13,15 +13,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { checkLiveMeal, groundWorkout, hhmm, isoDate, type LiveTool, MAX_MEALS, mealIndex, memoryKind, saysNumber, type Message, parseWorkout, shouldLogMeal, shouldLogWorkout, splitLead, workoutLog, stripTags, todayLine, vowChange } from '@rei/shared';
 import { Backdrop } from './Backdrop';
 import { Core } from './Core';
-import { Icon } from './icons';
-import { IconButton, Label, Tap, Txt } from './ui';
+import { ReiSeal } from './ink';
+import { Tap, Txt } from './ui';
 import { takeVoiceSession, type VoiceSession } from '../lib/live';
 import { newId } from '../lib/sync';
-import { C } from '../lib/theme';
+import { C, HIT, RADIUS, SP } from '../lib/theme';
 import { type Store, useStore } from '../state/store';
-// Manga Panel parts for the call screen (the rendered view only).
-import { CoachLine, CornerLine, LevelBars } from './corner';
-import { CutButton, RoundStamp } from './fight';
+// Sumi & Hanko parts for the call screen (the rendered view only).
+import { CallHeader, CoachLine, CornerLine, LevelBars } from './corner';
+import { CutButton, useWarn } from './fight';
 
 type Params = Record<string, unknown>;
 
@@ -198,6 +198,7 @@ async function startLiveKit(session: VoiceSession, tools: Record<string, (p: Par
 export default function LiveVoice() {
   const s = useStore();
   const { accent } = s;
+  const warn = useWarn();
   const insets = useSafeAreaInsets();
   /** REI on the line, and talking right now. */
   const [{ connected, speaking: isSpeaking }, setCall] = useState({ connected: false, speaking: false });
@@ -307,39 +308,34 @@ export default function LiveVoice() {
   };
 
   const waking = !error && !connected;
-  const label = error ? 'ERROR' : connected ? (isSpeaking ? 'SPEAKING' : 'LISTENING') : 'WAKING UP';
+  const label = error ? 'Not connected' : connected ? (isSpeaking ? 'Speaking' : 'Listening') : 'Connecting';
 
   return (
     <View style={{ flex: 1 }}>
       <Backdrop glow="bottom" />
-      <View style={{ paddingTop: insets.top + 6, paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44, borderBottomWidth: 2, borderBottomColor: C.rope }}>
-        <View accessibilityRole="header" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Txt face="display" size={26} ls={0.02}>LIVE</Txt>
-          <Icon name="voice" size={18} color={accent} strokeWidth={2.2} />
-        </View>
-        <View accessibilityLiveRegion="polite" style={{ flex: 1, alignItems: 'flex-start' }}>
-          <RoundStamp label={label} tone={error ? 'rival' : connected ? 'accent' : 'outline'} size="sm" />
-        </View>
-        <IconButton size={44} onPress={() => router.back()} accessibilityLabel="End the call">✕</IconButton>
-      </View>
+      <CallHeader title="Live" status={label} live={connected} top={insets.top} onClose={() => router.back()} />
 
       <ScrollView
         ref={scroll}
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, padding: 16, gap: 20 }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: SP.xxl, paddingVertical: SP.xl, gap: SP.xl }}
         onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
       >
         {!lines.length ? (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-start', gap: 12 }}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-start', gap: SP.md }}>
             {waking ? (
-              <View style={{ marginBottom: 8 }}>
+              <View style={{ marginBottom: SP.md }}>
                 <Core size={112} speaking />
               </View>
-            ) : null}
-            <Txt face="labelItalic" w={600} size={13} ls={0.14} color={error ? C.rival : accent}>{error ? 'NO ANSWER FROM THE CORNER' : 'REI · IN YOUR CORNER'}</Txt>
-            <Txt face="display" size={40} lh={1.12}>{error ? 'LIVE VOICE DIDN’T START' : connected ? 'JUST TALK.' : 'REI IS WAKING UP…'}</Txt>
-            <Txt size={16} w={500} lh={1.45} color={C.smoke}>{error || (connected ? 'No tapping. Talk like you would to a friend, and cut in whenever you want.' : 'Getting your coach on the line.')}</Txt>
-            {error ? <CutButton label="Try again" onPress={retry} style={{ alignSelf: 'stretch', marginTop: 8 }} /> : null}
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
+                <ReiSeal size={28} ground={C.arena} />
+                <Txt face="mono" size={12} lh={1.35} color={error ? warn : C.smoke}>{error ? 'REI · no answer' : 'REI · live'}</Txt>
+              </View>
+            )}
+            <Txt face="display" exact size={30} lh={1.2}>{error ? 'The call did not start' : connected ? 'Just talk.' : 'Connecting to REI…'}</Txt>
+            <Txt face="voice" size={17} lh={1.5} color={C.smoke}>{error || (connected ? 'No tapping. Talk as you would to a friend, and cut in whenever you want.' : 'One moment. REI is joining the call.')}</Txt>
+            {error ? <CutButton label="Try again" onPress={retry} style={{ alignSelf: 'stretch', marginTop: SP.md }} /> : null}
           </View>
         ) : null}
         {lines.map(t => {
@@ -348,16 +344,17 @@ export default function LiveVoice() {
           return <CoachLine key={t.id} lead={lead} text={rest || undefined} time={t.time} maxWidth="94%" />;
         })}
         {error && lines.length ? (
-          <Tap onPress={retry} accessibilityLabel={`${error} Tap to try again`} style={{ minHeight: 44, justifyContent: 'center', borderLeftWidth: 4, borderLeftColor: C.rival, backgroundColor: C.canvas, paddingHorizontal: 12, paddingVertical: 8 }}>
-            <Label size={12} ls={0.1} color={C.chalk}>{`ERROR · ${error} · TAP TO TRY AGAIN`}</Label>
+          <Tap onPress={retry} accessibilityLabel={`${error} Tap to try again`} style={{ minHeight: HIT, justifyContent: 'center', gap: 2, borderWidth: 1, borderColor: C.rule, borderRadius: RADIUS.sm, backgroundColor: C.canvas, paddingHorizontal: SP.lg, paddingVertical: SP.sm }}>
+            <Txt size={15} w={500} lh={1.4}>{error}</Txt>
+            <Txt face="mono" size={12} lh={1.35} color={accent}>Tap to try again</Txt>
           </Tap>
         ) : null}
       </ScrollView>
 
-      <View style={{ alignItems: 'center', gap: 8, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16), borderTopWidth: 2, borderTopColor: C.line, backgroundColor: C.arena }}>
+      <View style={{ alignItems: 'center', gap: SP.sm, paddingTop: SP.md, paddingBottom: Math.max(insets.bottom, SP.lg), borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.arena }}>
         {/* While waking with nothing said yet, the core above is REI; don't show two. */}
         {waking && !lines.length ? null : <LevelBars active={connected} height={isSpeaking ? 48 : 36} />}
-        <Label size={12} color={isSpeaking ? accent : C.smoke}>{connected ? (isSpeaking ? 'TALK TO CUT IN' : 'I’M LISTENING') : label}</Label>
+        <Txt face="mono" size={12} lh={1.35} color={isSpeaking ? accent : C.smoke}>{connected ? (isSpeaking ? 'Talk to cut in' : 'Listening') : label}</Txt>
       </View>
     </View>
   );

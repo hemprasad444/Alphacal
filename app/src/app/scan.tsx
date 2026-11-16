@@ -7,9 +7,11 @@ import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Backdrop } from '../components/Backdrop';
 import { Button, FoodSheetBody } from '../components/FoodSheet';
-import { Corners, Dots, IconButton, Label, Txt } from '../components/ui';
-import { C, F, fontFamily, HIT, SHADOW, SP } from '../lib/theme';
+import { BrushRule } from '../components/ink';
+import { Corners, Dots, IconButton, Txt } from '../components/ui';
+import { C, F, fontFamily, HIT, RADIUS, SP } from '../lib/theme';
 import { useStore } from '../state/store';
 
 type State =
@@ -43,8 +45,8 @@ export default function Scan() {
   };
 
   const camera = Platform.OS !== 'web' && perm?.granted;
-  // A panel over the camera: arena, with your corner colour along the top.
-  const panel = { backgroundColor: F.arena, borderWidth: 2, borderColor: F.smoke, borderTopColor: s.accent, padding: SP.lg, paddingBottom: SP.lg + SHADOW } as const;
+  // A card over the camera.
+  const panel = { backgroundColor: F.canvas, borderWidth: 1, borderColor: F.line, borderRadius: RADIUS.card, padding: SP.xl } as const;
 
   return (
     <View style={{ flex: 1, backgroundColor: camera && state.k === 'scan' ? '#000' : F.arena }}>
@@ -55,14 +57,17 @@ export default function Scan() {
           barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
           onBarcodeScanned={({ data }) => look(data)}
         />
-      ) : null}
+      ) : <Backdrop />}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + SP.sm, paddingBottom: insets.bottom + SP.xl, paddingHorizontal: SP.lg }} keyboardShouldPersistTaps="handled">
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: HIT }}>
-            <IconButton size={40} onPress={() => router.back()} accessibilityLabel="Close">✕</IconButton>
-            <View accessibilityRole="header" style={{ flex: 1, alignItems: 'flex-start' }}>
-              <Txt face="display" size={26} ls={0.02} fit>SCAN A BARCODE</Txt>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + SP.sm, paddingBottom: insets.bottom + SP.xl, paddingHorizontal: SP.xxl }} keyboardShouldPersistTaps="handled">
+          <View style={{ paddingTop: SP.xs, gap: SP.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: HIT }}>
+              <IconButton size={HIT} onPress={() => router.back()} accessibilityLabel="Close">✕</IconButton>
+              <View accessibilityRole="header" style={{ flex: 1, alignItems: 'flex-start' }}>
+                <Txt face="display" exact size={24} lh={1.25} fit>Scan a barcode</Txt>
+              </View>
             </View>
+            <BrushRule long height={6} />
           </View>
 
           {state.k === 'scan' ? (
@@ -73,25 +78,25 @@ export default function Scan() {
                 </View>
               ) : Platform.OS !== 'web' ? (
                 <View style={{ alignItems: 'center', gap: SP.md }}>
-                  <Txt size={15} w={500} color={C.body} align="center">REI needs the camera to read barcodes.</Txt>
+                  <Txt size={15} w={500} lh={1.5} color={C.body} align="center">REI needs the camera to read barcodes.</Txt>
                   <View style={{ width: 220, flexDirection: 'row' }}>
                     <Button primary onPress={() => requestPerm()}>Allow camera</Button>
                   </View>
                 </View>
               ) : null}
-              <Txt face="label" w={600} size={13} ls={0.12} color={camera ? F.chalk : F.smoke} align="center">{(camera ? 'Hold the barcode inside the frame.' : 'Or type the number under the barcode.').toUpperCase()}</Txt>
+              <Txt size={15} w={500} lh={1.5} color={camera ? F.chalk : F.smoke} align="center">{camera ? 'Hold the barcode inside the frame.' : Platform.OS !== 'web' ? 'Or type the number under the barcode.' : 'Type the number under the barcode.'}</Txt>
             </View>
           ) : null}
 
           {state.k === 'busy' ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: SP.md }}>
               <Dots />
-              <Txt face="label" w={600} size={14} ls={0.12} color={F.chalk}>{`LOOKING UP ${state.code}…`}</Txt>
+              <Txt face="mono" raw size={12} lh={1.35} color={F.smoke}>{`Looking up ${state.code}…`}</Txt>
             </View>
           ) : null}
 
           {state.k === 'found' ? (
-            <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <View style={{ flex: 1, justifyContent: 'flex-end', marginTop: SP.xl }}>
               <View style={panel}>
                 <FoodSheetBody
                   pick={{ food: state.food, qty: 1 }}
@@ -107,19 +112,19 @@ export default function Scan() {
           {state.k === 'missing' ? <LabelForm code={state.code} why={state.why} panel={panel} onSaved={food => setState({ k: 'found', food })} onRetry={() => setState({ k: 'scan' })} /> : null}
 
           {state.k === 'scan' ? (
-            <View style={{ flexDirection: 'row', gap: SP.sm, marginTop: SP.lg }}>
+            <View style={{ flexDirection: 'row', gap: SP.sm, marginTop: SP.xl }}>
               <TextInput
                 value={typed}
                 onChangeText={t => setTyped(t.replace(/\D/g, ''))}
                 onSubmitEditing={() => typed.length >= 6 && look(typed)}
                 placeholder="Barcode number"
-                placeholderTextColor={C.dim}
+                placeholderTextColor={C.faint}
                 keyboardType="number-pad"
                 keyboardAppearance="dark"
                 accessibilityLabel="Barcode number"
-                style={{ flex: 1, minWidth: 0, height: 48, paddingHorizontal: SP.lg, backgroundColor: F.arena, borderWidth: 2, borderColor: typed ? s.accent : F.smoke, fontFamily: fontFamily(s.settings.font, 500), fontSize: 16 * s.settings.textSize, color: C.text }}
+                style={{ flex: 1, minWidth: 0, height: 48, paddingHorizontal: SP.lg, paddingVertical: 0, backgroundColor: F.canvas, borderWidth: 1, borderColor: typed ? F.smoke : F.rule, borderRadius: RADIUS.sm, fontFamily: fontFamily('num'), fontSize: 16 * s.settings.textSize, color: C.text }}
               />
-              <View style={{ width: 112, flexDirection: 'row' }}>
+              <View style={{ width: 104, flexDirection: 'row' }}>
                 <Button primary disabled={typed.length < 6} onPress={() => look(typed)}>Find</Button>
               </View>
             </View>
@@ -138,32 +143,32 @@ function LabelForm({ code, why, panel, onSaved, onRetry }: { code: string; why: 
   const ok = v.name.trim() && [v.kcal, v.p, v.c, v.f].every(x => n(x) >= 0);
   const field = (k: keyof typeof v, label: string, numeric = true) => (
     <View style={{ flex: numeric ? 1 : undefined, gap: SP.xs }}>
-      <Label size={11}>{label}</Label>
+      <Txt face="label" size={12} lh={1.35} color={F.smoke}>{label}</Txt>
       <TextInput
         value={v[k]}
         onChangeText={t => setV(cur => ({ ...cur, [k]: t }))}
         keyboardType={numeric ? 'decimal-pad' : 'default'}
         keyboardAppearance="dark"
         accessibilityLabel={label}
-        style={{ height: HIT, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas, paddingHorizontal: SP.sm, fontFamily: fontFamily(s.settings.font, 500), fontSize: 16 * s.settings.textSize, color: C.text }}
+        style={{ height: 48, borderWidth: 1, borderColor: v[k] ? F.smoke : F.rule, borderRadius: RADIUS.sm, backgroundColor: F.arena, paddingHorizontal: SP.md, paddingVertical: 0, fontFamily: fontFamily(numeric ? 'num' : 'body', 500), fontSize: 16 * s.settings.textSize, color: C.text }}
       />
     </View>
   );
   return (
     <View style={{ flex: 1, justifyContent: 'flex-end', marginTop: SP.xl }}>
       <View style={[panel, { gap: SP.md }]}>
-        <Label size={11}>{`BARCODE ${code}`}</Label>
-        <Txt size={15} color={C.body} lh={1.4}>{`${why} Copy the label once and it’s yours from then on.`}</Txt>
-        {field('name', 'NAME', false)}
-        <Label size={11} color={C.muted}>PER 100 G (OR 100 ML)</Label>
+        <Txt face="mono" raw size={12} lh={1.35} color={F.smoke}>{`Barcode ${code}`}</Txt>
+        <Txt size={15} w={500} color={C.body} lh={1.5}>{`${why} Copy the label once and it’s yours from then on.`}</Txt>
+        {field('name', 'Name', false)}
+        <Txt face="mono" raw size={12} lh={1.35} color={F.smoke} style={{ marginTop: SP.xs }}>Per 100 g (or 100 ml)</Txt>
         <View style={{ flexDirection: 'row', gap: SP.sm }}>
-          {field('kcal', 'KCAL')}
-          {field('p', 'PROTEIN')}
-          {field('c', 'CARBS')}
-          {field('f', 'FAT')}
+          {field('kcal', 'kcal')}
+          {field('p', 'Protein')}
+          {field('c', 'Carbs')}
+          {field('f', 'Fat')}
         </View>
-        {field('serving', 'SERVING SIZE, G (OPTIONAL)')}
-        <View style={{ flexDirection: 'row', gap: SP.sm }}>
+        {field('serving', 'Serving size, g (optional)')}
+        <View style={{ flexDirection: 'row', gap: SP.sm, marginTop: SP.sm }}>
           <Button onPress={onRetry}>Scan again</Button>
           <Button
             primary

@@ -3,13 +3,14 @@
 import { MEMORY_KINDS, MAX_MEMORY, type MemoryKind } from '@rei/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { TextInput, View } from 'react-native';
-import { inputType } from '../components/corner';
+import { View } from 'react-native';
+import { Chip, Field } from '../components/dojo';
 import { CutButton, SectionHeader } from '../components/fight';
 import { Icon } from '../components/icons';
+import { ReiSeal } from '../components/ink';
 import { Screen, SubHeader } from '../components/Screen';
-import { Tap, Txt } from '../components/ui';
-import { C, HIT, onColor, SP } from '../lib/theme';
+import { Card, Tap, Txt } from '../components/ui';
+import { C, HIT, SP } from '../lib/theme';
 import { useStore } from '../state/store';
 
 const KIND_LABEL: Record<MemoryKind, string> = { diet: 'Diet', health: 'Health', schedule: 'Schedule', equipment: 'Equipment', preference: 'Likes', life: 'Life' };
@@ -17,7 +18,6 @@ const EXAMPLES = ['Vegetarian, eats eggs and dairy', 'Left knee: no deep squats'
 
 export default function Memory() {
   const s = useStore();
-  const { accent } = s;
   const [text, setText] = useState('');
   const [kind, setKind] = useState<MemoryKind>('diet');
   const groups = MEMORY_KINDS.map(k => [k, s.memory.filter(m => m.kind === k)] as const).filter(([, ms]) => ms.length);
@@ -29,68 +29,61 @@ export default function Memory() {
 
   return (
     <Screen tabs={false}>
-      <SubHeader title="WHAT REI REMEMBERS" onBack={() => router.back()} />
-      <Txt size={15} w={500} lh={1.5} color={C.body} style={{ marginTop: SP.xl }}>
+      <SubHeader title="What REI remembers" onBack={() => router.back()} />
+      <Txt size={15} w={500} lh={1.5} color={C.body} style={{ marginTop: SP.xxl }}>
         REI picks these up when you mention them and uses them in every answer, check-in, weekly plan and report. Remove anything that’s wrong.
       </Txt>
 
       {!s.memory.length ? (
-        <View style={{ marginTop: SP.xl }}>
+        <View style={{ marginTop: SP.huge }}>
           <SectionHeader title="Nothing yet" meta="For example" />
-          <View style={{ marginTop: SP.md, gap: SP.xs }}>
-            {EXAMPLES.map(e => (
-              <Tap key={e} onPress={() => setText(e)} accessibilityLabel={`Use the example: ${e}`} style={{ minHeight: HIT, justifyContent: 'center', paddingHorizontal: SP.md, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk }}>
-                <Txt size={15} w={500} color={C.smoke}>{`“${e}”`}</Txt>
+          <Card style={{ marginTop: SP.md, paddingHorizontal: SP.lg }}>
+            {EXAMPLES.map((e, i) => (
+              <Tap key={e} onPress={() => setText(e)} accessibilityLabel={`Use the example: ${e}`} style={{ minHeight: 52, justifyContent: 'center', paddingVertical: SP.md, borderTopWidth: i ? 1 : 0, borderTopColor: C.line }}>
+                <Txt size={15} w={500} lh={1.4} color={C.smoke}>{`“${e}”`}</Txt>
               </Tap>
             ))}
-          </View>
+          </Card>
         </View>
       ) : null}
 
       {groups.map(([k, ms]) => (
-        <View key={k} style={{ marginTop: SP.xxl }}>
+        <View key={k} style={{ marginTop: SP.huge }}>
           <SectionHeader title={KIND_LABEL[k]} meta={`${ms.length}`} />
-          <View style={{ marginTop: SP.md, gap: SP.xs }}>
-            {ms.map(m => (
-              <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm, minHeight: 56, paddingLeft: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk }}>
-                {m.source === 'rei' ? <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: accent }} /> : null}
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Txt size={15} w={500} lh={1.35}>{m.text}</Txt>
-                  <Txt face="label" w={600} size={12} ls={0.1} color={C.smoke}>{m.source === 'rei' ? 'REI LEARNED THIS' : 'YOU ADDED THIS'}</Txt>
+          <Card style={{ marginTop: SP.md, paddingLeft: SP.lg, paddingRight: SP.xs }}>
+            {ms.map((m, i) => (
+              <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm, minHeight: 64, paddingVertical: SP.md, borderTopWidth: i ? 1 : 0, borderTopColor: C.line }}>
+                <View style={{ flex: 1, gap: SP.xs }}>
+                  <Txt size={15} w={500} lh={1.4}>{m.text}</Txt>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
+                    {m.source === 'rei' ? <ReiSeal size={16} /> : null}
+                    <Txt face="mono" raw size={12} lh={1.35} color={C.smoke}>{m.source === 'rei' ? 'REI learned this' : 'You added this'}</Txt>
+                  </View>
                 </View>
                 <Tap onPress={() => s.forget(m.id)} accessibilityLabel={`Forget: ${m.text}`} style={{ width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="close" size={18} color={C.smoke} strokeWidth={2.2} />
+                  <Icon name="close" size={18} color={C.smoke} tint={0} strokeWidth={1.7} />
                 </Tap>
               </View>
             ))}
-          </View>
+          </Card>
         </View>
       ))}
 
       <SectionHeader title="Tell REI" meta={`${s.memory.length} / ${MAX_MEMORY}`} style={{ marginTop: SP.huge }} />
       <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm, marginTop: SP.md }}>
-        {MEMORY_KINDS.map(k => {
-          const on = k === kind;
-          return (
-            <Tap key={k} onPress={() => setKind(k)} accessibilityRole="radio" accessibilityState={{ selected: on, checked: on }} accessibilityLabel={KIND_LABEL[k]} style={{ minHeight: HIT, paddingHorizontal: SP.md, justifyContent: 'center', borderWidth: 2, borderColor: on ? accent : C.smoke, backgroundColor: on ? accent : C.canvas }}>
-              <Txt face="label" w={600} size={15} ls={0.08} color={on ? onColor(accent) : C.smoke}>{KIND_LABEL[k].toUpperCase()}</Txt>
-            </Tap>
-          );
-        })}
+        {MEMORY_KINDS.map(k => <Chip key={k} label={KIND_LABEL[k]} on={k === kind} onPress={() => setKind(k)} />)}
       </View>
-      <TextInput
+      <Field
         value={text}
         onChangeText={setText}
         onSubmitEditing={add}
         placeholder="One fact, e.g. lactose intolerant"
-        placeholderTextColor={C.dim}
-        keyboardAppearance="dark"
         returnKeyType="done"
         maxLength={160}
         accessibilityLabel="Something REI should remember"
-        style={[{ marginTop: SP.md, height: 52, paddingHorizontal: SP.md, backgroundColor: C.canvas, borderWidth: 2, borderColor: text ? accent : C.smoke }, inputType(s.settings.textSize)]}
+        style={{ marginTop: SP.md }}
       />
-      <CutButton label="Remember this" disabled={!text.trim()} onPress={add} style={{ marginTop: SP.md }} />
+      <CutButton label="Remember this" disabled={!text.trim()} onPress={add} style={{ marginTop: SP.lg }} />
     </Screen>
   );
 }

@@ -1,92 +1,108 @@
-// Manga Panel: REI's design tokens. Every block is an ink panel with a paper-coloured stroke on a
-// 12pt gutter grid; hero panels get screentone, an accent drop shadow and a tilt of at most 1°.
-// Ink, paper and pop stay fixed in every world: the accent is the only colour that changes.
+// Sumi & Hanko: REI's design tokens. Night washi (a charcoal paper ground), sumi cards, dry-brush
+// lines and rice-paper text, with one vermilion seal. Headings are set in a Mincho serif, body in
+// Zen Kaku Gothic New, numbers in IBM Plex Mono, on a strict 8pt grid with generous space.
+// Ground, paper and the seal red stay fixed in every world: the accent is the second colour and
+// carries data, REI's verdict line and the active tab. Red belongs to REI and the seals only.
 import type { FontKey, IconKey, ThemeId } from '@rei/shared';
 import type { ImageSourcePropType, ViewStyle } from 'react-native';
 
-/** The palette. The names are kept from the earlier system so every screen keeps compiling. */
+/** The palette. The names are kept from the earlier systems so every screen keeps compiling. */
 export const F = {
-  /** Ink: the ground. */
-  arena: '#0E0E10',
-  /** Panel fill. */
-  canvas: '#17171B',
-  /** A panel on a panel, and pressed rows. */
-  canvas2: '#222228',
-  /** Quiet lines: tracks, dividers inside a panel, the border of a secondary control. */
-  rope: '#55535A',
-  /** Tone: second text (8.6:1 on canvas). */
-  smoke: '#B8B2A7',
-  /** Paper: text, and the stroke around every panel. */
-  chalk: '#F4F1EA',
-  /** Pop: alerts, the rival, the GET! stamp. */
-  rival: '#FF4D6D',
-  rivalDeep: '#C7244F',
-  /** Rarity frames. */
+  /** Night washi: the ground. */
+  arena: '#121110',
+  /** Sumi: card fill. */
+  canvas: '#1B1917',
+  /** A card on a card, and pressed rows. */
+  canvas2: '#24211E',
+  /** Dry brush: tracks and quiet marks. */
+  rope: '#35312C',
+  /** Ash: second text (6.7:1 on a card). */
+  smoke: '#A89F90',
+  /** Rice paper: text, and the main button. */
+  chalk: '#EDE6D8',
+  /** Vermilion ink: red where red is text (5.2:1 on a card). REI and the seals only. */
+  rival: '#E8604A',
+  /** Vermilion: the seal fill. Never small text. */
+  rivalDeep: '#D8432E',
+  seal: '#D8432E',
+  /** Carved white: the mark cut into a seal. */
+  carved: '#F4EEE2',
+  /** The border of a card. */
+  line: '#2E2A25',
+  /** A brush rule, and the border of a secondary control. */
+  rule: '#4A443C',
+  /** The tab bar. */
+  bar: '#161412',
+  /** A light sheet of washi (the seal unlock), and ink on it. */
+  washi: '#EAE2D1',
+  washiInk: '#1B1917',
+  washiSub: '#5A5248',
+  /** Tier names (text only: a seal is always red). */
   bronze: '#C77B3F',
   silver: '#C9D1D9',
   gold: '#F2C230',
   /** Locked artwork: decoration only, never text. */
-  locked: '#34343C',
-  /** The two fields behind a versus split. */
-  cornerField: '#17171B',
-  rivalField: '#1C0E15',
+  locked: '#3D3832',
+  /** Kept for old callers. */
+  cornerField: '#1B1917',
+  rivalField: '#1F1613',
 } as const;
 
 /** Colours by role. */
 export const C = {
   ...F,
   text: F.chalk,
-  textSoft: '#EDE9E0',
-  body: '#DCD7CD',
-  value: '#DCD7CD',
+  textSoft: '#E4DDCF',
+  body: '#D9D2C4',
+  value: '#D9D2C4',
   sub: F.smoke,
   muted: F.smoke,
   label: F.smoke,
-  // Text greys meet WCAG AA (4.5:1) on ink and panel down to faint; ghost is for decoration and large text only.
-  dim: '#A6A095',
-  faint: '#9A948A',
-  ghost: '#5E5B56',
+  // Text greys meet WCAG AA (4.5:1) on the ground and on a card down to faint; ghost is for decoration and large text only.
+  dim: '#A0978A',
+  faint: '#978E81',
+  ghost: '#5A544B',
   ink: F.arena,
   alert: F.rival,
-  alertSoft: '#FF7A92',
+  alertSoft: '#F08A76',
   warn: '#E8C27A',
-  carbs: '#E8C27A',
-  fat: '#B8A6FF',
-  line: '#2C2C33',
-  line2: '#38383F',
+  carbs: F.chalk,
+  fat: F.smoke,
+  /** Dividers between rows. */
+  line: '#2A2622',
+  line2: F.line,
   line3: F.rope,
   card: F.canvas,
-  card2: '#121215',
+  card2: '#161412',
 };
 
-/** The lean of a tag (degrees): section tags, the current tab, pips. The only slanted edge left. */
-export const CUT = 10;
-/** Kept for old callers: display type stands upright now. */
+/** Kept for old callers: nothing leans in this system. */
+export const CUT = 0;
 export const LEAN = 0;
-/** Hard shadow offset (pt), down and to the right, no blur. */
-export const SHADOW = 4;
+/** Kept for old callers: there are no hard shadows. */
+export const SHADOW = 0;
 /** Smallest touch target (pt). */
 export const HIT = 44;
-/** The paper stroke around a panel (pt). Controls inside a panel use 2. */
-export const STROKE = 3;
-/** The gutter between panels (pt). */
+/** The border of a card (pt). */
+export const STROKE = 1;
+/** The gap between blocks inside a section (pt). */
 export const GUTTER = 12;
-/** The most a hero panel may tilt (degrees). */
-export const TILT = 1;
+/** A seal sits a few degrees off square. Kept under this name for old callers. */
+export const TILT = 4;
 
-/** Spacing scale (pt). */
+/** Spacing scale (pt): the 8pt grid, with 4 and 12 as half steps. */
 export const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, huge: 32 } as const;
-/** Corners are square. `sm` is for the rare soft edge (photos, inputs). */
-export const RADIUS = { none: 0, sm: 2 } as const;
+/** Corners: 3 for a tag, 4 for a control, 6 for a card. */
+export const RADIUS = { none: 0, tag: 3, sm: 4, card: 6 } as const;
 
-/** How far a leaning edge travels sideways over `height` points. */
+/** Kept for old callers. */
 export const cutDx = (height: number, angle = CUT) => height * Math.tan((angle * Math.PI) / 180);
 
-/** A hard offset shadow for a rectangle: no blur, full colour. */
-export const hard = (color: string = F.chalk, d: number = SHADOW): ViewStyle => ({ boxShadow: `${d}px ${d}px 0px ${color}` });
+/** Kept for old callers: this system has no drop shadows, so it adds nothing. */
+export const hard = (_color: string = F.chalk, _d: number = SHADOW): ViewStyle => ({});
 
-/** An ink panel: panel fill inside a paper stroke. Spread it into a View's style. */
-export const panel = (stroke: string = F.chalk, width: number = STROKE): ViewStyle => ({ backgroundColor: F.canvas, borderWidth: width, borderColor: stroke });
+/** A card: sumi fill inside a quiet line, softly rounded. Spread it into a View's style. */
+export const panel = (stroke: string = F.line, width: number = STROKE): ViewStyle => ({ backgroundColor: F.canvas, borderWidth: width, borderColor: stroke, borderRadius: RADIUS.card });
 
 export type { FontKey, ThemeId };
 
@@ -106,12 +122,12 @@ export interface Theme {
 }
 
 export const THEMES: Theme[] = [
-  { id: 'zero', name: 'Zero', icon: 'rei', vibe: 'Ice cyan ink', acc: '#9BE7F2', acc2: '#3A6FF2', bg: F.arena, motto: 'ZERO EXCUSES · EVERY ROUND' },
-  { id: 'shinobi', name: 'Blaze', icon: 'flame', vibe: 'Blaze orange ink', acc: '#FF7A1A', acc2: '#2B4CC9', bg: F.arena, motto: 'LIGHT IT UP · ONE MORE ROUND' },
-  { id: 'voyager', name: 'Voyager', icon: 'star', vibe: 'Gold ink', acc: '#F5C542', acc2: '#D7263D', bg: F.arena, motto: 'LONG ROAD · STEADY PACE' },
-  { id: 'hero', name: 'Hero', icon: 'fist', vibe: 'Signal green ink', acc: '#2FE08A', acc2: '#E8463B', bg: F.arena, motto: 'SHOW UP · DO THE WORK' },
-  { id: 'cursed', name: 'Hex', icon: 'eye', vibe: 'Void blue ink', acc: '#6E8BFF', acc2: '#9B3CF5', bg: F.arena, motto: 'QUIET MIND · HEAVY HANDS' },
-  { id: 'slayer', name: 'Tide', icon: 'wave', vibe: 'Deep teal ink', acc: '#2FC4A5', acc2: '#E0303F', bg: F.arena, motto: 'SLOW BREATH · SHARP EDGE' },
+  { id: 'zero', name: 'Zero', icon: 'rei', vibe: 'Ice cyan ink', acc: '#9BE7F2', acc2: '#3A6FF2', bg: F.arena, motto: 'Zero excuses. Every day.' },
+  { id: 'shinobi', name: 'Blaze', icon: 'flame', vibe: 'Blaze orange ink', acc: '#FF7A1A', acc2: '#2B4CC9', bg: F.arena, motto: 'Light it. One more day.' },
+  { id: 'voyager', name: 'Voyager', icon: 'star', vibe: 'Gold ink', acc: '#F5C542', acc2: '#D7263D', bg: F.arena, motto: 'Long road. Steady pace.' },
+  { id: 'hero', name: 'Hero', icon: 'fist', vibe: 'Signal green ink', acc: '#2FE08A', acc2: '#E8463B', bg: F.arena, motto: 'Show up. Do the work.' },
+  { id: 'cursed', name: 'Hex', icon: 'eye', vibe: 'Void blue ink', acc: '#6E8BFF', acc2: '#9B3CF5', bg: F.arena, motto: 'Quiet mind. Heavy hands.' },
+  { id: 'slayer', name: 'Tide', icon: 'wave', vibe: 'Deep teal ink', acc: '#2FC4A5', acc2: '#E0303F', bg: F.arena, motto: 'Slow breath. Sharp edge.' },
 ];
 
 export const ACCENT_EXTRAS = ['#FF6A4D', '#B8A6FF', '#9EF2B5', '#E9E3D3'];
@@ -220,7 +236,7 @@ const MEDAL_OPTIONS: Record<MedalTier, readonly string[]> = {
   silver: [F.silver],
   gold: [F.gold, '#FFE9A3'],
 };
-const WARN_OPTIONS = ['#E8C27A', '#FF9B54', '#B8A6FF'] as const;
+const WARN_OPTIONS = ['#E8C27A', '#A9B8C8', '#B8A6FF'] as const;
 
 /** Medal colours for a world: the usual bronze, silver and gold, swapped for a stand-in where the accent would be mistaken for one. */
 export const medalColors = (accent: string): Record<MedalTier, string> => ({
@@ -229,44 +245,74 @@ export const medalColors = (accent: string): Record<MedalTier, string> => ({
   gold: apart(MEDAL_OPTIONS.gold, accent),
 });
 
-/** The "watch out" colour for a world (sand; tangerine or lilac where the accent is already sand or gold). Never the rival red. */
+/** The "watch out" colour for a world (sand; slate or lilac where the accent is already sand or gold). Never the seal red. */
 export const warnColor = (accent: string): string => apart(WARN_OPTIONS, accent);
 
 export type Weight = 300 | 400 | 500 | 600 | 700;
 
 /**
  * Typefaces:
- * - `display`: Dela Gothic One. Numbers, titles, the primary action. Wide and heavy: `Txt` sets it at
- *   `DISPLAY_SCALE` of the asked size, so sizes written for the old condensed face keep their width.
- * - `label` / `labelItalic`: Zen Maru Gothic 700 / 900. Labels and meta; the heavy one for names of things.
- * - `body`: Zen Maru Gothic 500 to 900. Everything you read.
+ * - `display`: Shippori Mincho B1 800. Titles and the big numbers. `heading` is its 700 (section
+ *   headings, buttons) and `voice` its 500 (REI's lines).
+ * - `body`: Zen Kaku Gothic New 400 to 700. Everything you read.
+ * - `label` / `labelItalic`: Zen Kaku Gothic New 500 / 700. Small labels; the bold one for names of things.
+ * - `mono` / `num`: IBM Plex Mono 400 / 500. Meta lines and numbers.
  */
-export type Face = 'display' | 'label' | 'labelItalic' | 'body';
+export type Face = 'display' | 'heading' | 'voice' | 'label' | 'labelItalic' | 'body' | 'num';
 
-/** Dela Gothic One is about 1.8 times as wide as the condensed display face it replaced. */
-export const DISPLAY_SCALE = 0.58;
+/** Sizes written for the first, condensed display face are drawn at this share in the Mincho. */
+export const DISPLAY_SCALE = 0.66;
 /** The smallest display text drawn (pt). */
-export const DISPLAY_MIN = 13;
+export const DISPLAY_MIN = 15;
 /** The smallest body or label text drawn (pt). */
 export const TEXT_MIN = 12;
 /** Display size in points for a size written in the old scale. */
 export const displaySize = (size: number) => Math.max(DISPLAY_MIN, Math.round(size * DISPLAY_SCALE * 10) / 10);
 
-const BODY: Record<Weight, string> = { 300: 'ZenMaruGothic_500Medium', 400: 'ZenMaruGothic_500Medium', 500: 'ZenMaruGothic_700Bold', 600: 'ZenMaruGothic_700Bold', 700: 'ZenMaruGothic_900Black' };
-const LABEL: Record<Weight, string> = { 300: 'ZenMaruGothic_700Bold', 400: 'ZenMaruGothic_700Bold', 500: 'ZenMaruGothic_700Bold', 600: 'ZenMaruGothic_700Bold', 700: 'ZenMaruGothic_900Black' };
-const LABEL_HEAVY = 'ZenMaruGothic_900Black';
-const DISPLAY = 'DelaGothicOne_400Regular';
+const BODY: Record<Weight, string> = { 300: 'ZenKakuGothicNew_400Regular', 400: 'ZenKakuGothicNew_400Regular', 500: 'ZenKakuGothicNew_500Medium', 600: 'ZenKakuGothicNew_700Bold', 700: 'ZenKakuGothicNew_700Bold' };
+const LABEL: Record<Weight, string> = { 300: 'ZenKakuGothicNew_500Medium', 400: 'ZenKakuGothicNew_500Medium', 500: 'ZenKakuGothicNew_500Medium', 600: 'ZenKakuGothicNew_700Bold', 700: 'ZenKakuGothicNew_700Bold' };
+const LABEL_HEAVY = 'ZenKakuGothicNew_700Bold';
+const MONO: Record<Weight, string> = { 300: 'IBMPlexMono_400Regular', 400: 'IBMPlexMono_400Regular', 500: 'IBMPlexMono_500Medium', 600: 'IBMPlexMono_500Medium', 700: 'IBMPlexMono_500Medium' };
+const DISPLAY = 'ShipporiMinchoB1_800ExtraBold';
+const HEADING = 'ShipporiMinchoB1_700Bold';
+const VOICE = 'ShipporiMinchoB1_500Medium';
 
 /**
  * Font file for a face and weight. The app has one type system, so the old faces still work and
- * land on it: any body font key (`Geist`, ...) and `jp` give Zen Maru Gothic (500 is its lightest
- * weight here), `mono` gives the label weight and `labelItalic` the heavy label (nothing is italic).
+ * land on it: any body font key (`Geist`, ...) and `jp` give Zen Kaku Gothic New, and
+ * `labelItalic` is the bold label (nothing is italic).
  */
 export function fontFamily(face: FontKey | Face | 'mono' | 'jp', weight: Weight = 400): string {
   if (face === 'display') return DISPLAY;
-  if (face === 'label' || face === 'mono') return LABEL[weight];
+  if (face === 'heading') return HEADING;
+  if (face === 'voice') return weight >= 600 ? HEADING : VOICE;
+  if (face === 'label') return LABEL[weight];
   if (face === 'labelItalic') return LABEL_HEAVY;
+  if (face === 'mono') return MONO[weight];
+  if (face === 'num') return MONO[500];
   return BODY[weight];
+}
+
+const KEEP_CAPS = new Set(['REI', 'XP', 'PR', 'PB', 'BMI', 'RPE', 'AM', 'PM', 'ID', 'OK', 'AI', 'KO', 'TDEE', 'BMR', 'FAQ', 'QR', 'DB', 'HIIT', 'RDL', 'OHP', 'UK', 'US', 'I', 'RM', 'PPL', 'BCAA', 'TV', 'GPS', 'PDF', 'URL', 'API', 'BW', 'EMOM', 'AMRAP', 'CSV', 'II', 'III', 'IV', 'VI', 'VII', 'ETA']);
+const LOWER_UNITS = new Set(['KCAL', 'KG', 'LB', 'LBS', 'KM', 'MIN', 'MINS', 'G', 'MG', 'ML', 'CM', 'HR', 'HRS', 'SEC', 'REPS', 'SETS']);
+const TITLE_WORDS = new Set(['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY', 'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']);
+
+/**
+ * Quiet a label written in capitals: "HIT LOG" becomes "Hit log", "SUN 15 NOV · 2,100 KCAL"
+ * becomes "Sun 15 Nov · 2,100 kcal". Text that already has lower-case letters is left alone, so
+ * names and sentences pass through. The system speaks in sentence case; this catches old callers.
+ */
+export function soften(text: string): string {
+  if (!text || /[a-z]/.test(text) || !/[A-Z]{2}/.test(text)) return text;
+  let first = true;
+  return text.replace(/[A-Z][A-Z']*/g, word => {
+    const lead = first;
+    first = false;
+    if (KEEP_CAPS.has(word)) return word;
+    if (LOWER_UNITS.has(word)) return word.toLowerCase();
+    if (TITLE_WORDS.has(word) || lead) return word.charAt(0) + word.slice(1).toLowerCase();
+    return word.toLowerCase();
+  }).replace(/([.!?]\s+)([a-z])/g, (_, gap: string, ch: string) => gap + ch.toUpperCase());
 }
 
 /** `#RRGGBB` + alpha (0..1) → `rgba(...)`. Stands in for CSS color-mix with transparent. */
@@ -301,5 +347,5 @@ export function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** Ink or paper, whichever reads better on `bg` (accent overrides can be pale or dark). */
+/** Ink or rice paper, whichever reads better on `bg` (accent overrides can be pale or dark). */
 export const onColor = (bg: string): string => (contrast(F.arena, bg) >= contrast(F.chalk, bg) ? F.arena : F.chalk);

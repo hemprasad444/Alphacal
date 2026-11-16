@@ -30,27 +30,26 @@ export default function Account() {
   };
   const link = (label: string, onPress: () => void) => (
     <Tap onPress={onPress} accessibilityLabel={label} hitSlop={8} style={{ minHeight: HIT, justifyContent: 'center', paddingLeft: SP.sm }}>
-      <Txt face="label" w={600} size={15} ls={0.1} color={accent}>{label.toUpperCase()}</Txt>
+      <Txt face="heading" size={15} lh={1.35} color={accent}>{label}</Txt>
     </Tap>
   );
-  const action = (label: string, sub: string, onPress: () => void, danger?: boolean) => (
+  const action = (label: string, sub: string, onPress: () => void, last?: boolean) => (
     <Tap onPress={onPress} accessibilityLabel={`${label}. ${sub}`}>
-      <View style={{ minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.chalk }}>
-        {danger ? <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: C.rival }} /> : null}
-        <View style={{ flex: 1 }}>
-          <Txt size={16} w={500}>{label}</Txt>
-          <Txt size={13} w={500} color={C.smoke}>{sub}</Txt>
+      <View style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingVertical: SP.md, borderBottomWidth: last ? 0 : 1, borderBottomColor: C.line }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Txt size={16} w={500} lh={1.375}>{label}</Txt>
+          <Txt size={13} lh={1.4} color={C.smoke}>{sub}</Txt>
         </View>
-        <Icon name="chevron" size={18} color={danger ? C.rival : accent} strokeWidth={2.2} />
+        <Icon name="chevron" size={18} color={C.smoke} tint={0} strokeWidth={1.7} />
       </View>
     </Tap>
   );
 
   return (
     <Screen tabs={false}>
-      <SubHeader title="ACCOUNT" onBack={() => router.back()} />
+      <SubHeader title="Account" onBack={() => router.back()} />
 
-      <SectionHeader title="Account" style={{ marginTop: SP.xl }} />
+      <SectionHeader title="Sync" style={{ marginTop: SP.xxl }} />
       <Card style={{ marginTop: SP.md, paddingHorizontal: SP.lg }}>
         {s.cloud ? (
           <Row title={s.account.email ?? 'Signed in'} sub={usingEmulators ? 'Synced to the local emulators' : 'Synced to your REI account'} right={link('Sign out', () => setAsk('signOut'))} last />
@@ -71,13 +70,13 @@ export default function Account() {
       )}
 
       <SectionHeader title="Data" style={{ marginTop: SP.huge }} />
-      <View style={{ gap: SP.xs, marginTop: SP.md }}>
+      <Card style={{ marginTop: SP.md, paddingHorizontal: SP.lg }}>
         {action('Clear conversation', 'REI keeps your goal and today’s log', () => setAsk('clear'))}
         {action('Reset today’s log', 'Meals, session and messages back to the start of the day', () => setAsk('reset'), true)}
-      </View>
+      </Card>
 
       <SectionHeader title="Data credits" style={{ marginTop: SP.huge }} />
-      <Txt size={13} w={500} lh={1.5} color={C.smoke} style={{ marginTop: SP.md }}>
+      <Txt size={13} lh={1.5} color={C.smoke} style={{ marginTop: SP.md }}>
         Indian Food Composition Tables 2017, National Institute of Nutrition (ICMR-NIN). Food nutrition data from TempoLife (tempolife.app), CC-BY-4.0, based on USDA FoodData Central. Packaged foods from Open Food Facts (ODbL). Exercises from free-exercise-db (public domain). Activity estimates from the Compendium of Physical Activities. Dish values are typical estimates.
       </Txt>
 

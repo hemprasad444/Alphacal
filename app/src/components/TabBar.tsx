@@ -6,17 +6,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useStore } from '../state/store';
 import { week, todaysPlan } from '@rei/shared';
-import { C, onColor, STROKE } from '../lib/theme';
-import { SkewBox } from './cut';
+import { C } from '../lib/theme';
 import { Tap, Txt } from './ui';
 
-/** Inked line glyphs for the four tabs (24×24). */
+/** Brush-thin line glyphs for the four tabs (24×24). */
 const GLYPHS: Record<string, ReactNode> = {
   // Today: the sun coming up.
   index: (
     <>
       <Circle cx={12} cy={12} r={4} />
-      <Path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" />
+      <Path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8" />
     </>
   ),
   // Fuel: a steaming bowl.
@@ -35,29 +34,26 @@ const GLYPHS: Record<string, ReactNode> = {
 const LABELS: Record<string, string> = { index: 'Today', fuel: 'Fuel', dojo: 'Dojo', vow: 'Vow' };
 
 /** Height of the row of tabs, above the bottom safe area. */
-const BAR = 58;
-/** The round REI button, and how far it rises above the bar. */
-const REI = 68, RISE = 24;
+const BAR = 56;
+/** The round REI seal, and how far it rises above the bar. */
+const REI = 64, RISE = 28;
 
 /**
- * Bottom bar: Today · Fuel · REI · Dojo · Vow, on ink under a paper rule. The current tab's
- * glyph sits in a leaning accent tag. REI is the round accent button in the middle and opens the
- * chat; it carries a pop-red flag when a session is slipping away this week.
+ * Bottom bar: Today · Fuel · REI · Dojo · Vow, a shade lighter than the page under a hairline.
+ * The current tab takes the accent with a short brush stroke under its name. REI is the round
+ * red seal in the middle and opens the chat; a small rice-paper dot sits on it when a session is
+ * slipping away this week.
  */
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const s = useStore();
   const { sessionDone } = s;
   const slipping = !!todaysPlan(new Date(), s.program) && !sessionDone && week(s.history, sessionDone, new Date(), s.program).missed > 0;
-  const ink = onColor(s.accent);
-
-  const glyph = (name: string, color: string, size: number, width: number) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round">{GLYPHS[name]}</Svg>
-  );
 
   const tab = (name: string) => {
     const i = state.routes.findIndex(r => r.name === name);
     const on = state.index === i;
+    const color = on ? s.accent : C.smoke;
     return (
       <Tap
         key={name}
@@ -69,38 +65,44 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
         }}
         style={{ flex: 1, height: BAR, alignItems: 'center', justifyContent: 'center', gap: 2 }}
       >
-        {on ? (
-          <SkewBox fill={s.accent} style={{ width: 42, height: 28, alignItems: 'center', justifyContent: 'center' }}><View>{glyph(name, ink, 20, 2.4)}</View></SkewBox>
-        ) : (
-          <View style={{ width: 42, height: 28, alignItems: 'center', justifyContent: 'center' }}>{glyph(name, C.smoke, 22, 2.2)}</View>
-        )}
-        <Txt face={on ? 'labelItalic' : 'label'} size={12} lh={1.3} color={on ? s.accent : C.smoke}>{LABELS[name]}</Txt>
+        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={on ? 1.8 : 1.5} strokeLinecap="round" strokeLinejoin="round">{GLYPHS[name]}</Svg>
+        <Txt face={on ? 'labelItalic' : 'label'} size={12} lh={1.25} ls={0.04} color={color}>{LABELS[name]}</Txt>
+        <View style={{ height: 4 }}>
+          {on ? (
+            <Svg width={20} height={4} viewBox="0 0 20 4">
+              <Path d="M0 2C5 .6 14 .8 20 2 14 3.2 5 3.4 0 2Z" fill={color} />
+            </Svg>
+          ) : null}
+        </View>
       </Tap>
     );
   };
 
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
-      {/* The bar ends above the home indicator: its ink carries on under it. */}
-      <View accessibilityRole="tablist" style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 8, paddingBottom: Math.max(insets.bottom - 6, 10), backgroundColor: C.arena, borderTopWidth: STROKE, borderTopColor: C.chalk }}>
+      {/* The bar ends above the home indicator: its colour carries on under it. */}
+      <View accessibilityRole="tablist" style={{ flexDirection: 'row', alignItems: 'flex-start', paddingTop: 8, paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom - 4, 12), backgroundColor: C.bar, borderTopWidth: 1, borderTopColor: C.line2 }}>
         {tab('index')}
         {tab('fuel')}
-        <View style={{ width: REI + 18, alignItems: 'center' }}>
+        <View style={{ width: REI + 12, alignItems: 'center' }}>
           <Tap
             onPress={() => router.push('/talk')}
             accessibilityLabel={slipping ? 'Talk to REI. A session is slipping this week.' : 'Talk to REI'}
-            style={{ marginTop: -RISE }}
+            style={{ marginTop: -RISE - 8, alignItems: 'center', gap: 2 }}
           >
-            {/* An ink ring keeps the button clear of the bar's rule. */}
-            <View style={{ width: REI + 10, height: REI + 10, borderRadius: (REI + 10) / 2, backgroundColor: C.arena, alignItems: 'center', justifyContent: 'center' }}>
-              <View style={{ width: REI, height: REI, borderRadius: REI / 2, backgroundColor: s.accent, borderWidth: STROKE, borderColor: C.chalk, alignItems: 'center', justifyContent: 'center' }}>
-                <Svg width={24} height={22} viewBox="0 0 24 24" fill="none" stroke={ink} strokeWidth={2.6} strokeLinecap="round">
-                  <Path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4" />
-                </Svg>
-                <Txt face="display" exact size={14} lh={1.2} color={ink}>REI</Txt>
+            <View style={{ width: REI, height: REI }}>
+              <Svg width={REI} height={REI} viewBox="0 0 64 64">
+                {/* A disc in the bar's colour keeps the seal clear of the hairline. */}
+                <Circle cx={32} cy={32} r={32} fill={C.bar} />
+                <Path d="M32 3.5A28.5 28.5 0 1 1 12 11.5" fill="none" stroke={s.accent} strokeWidth={1.5} strokeLinecap="round" />
+                <Path d="M32 7.5C46 7 56.6 18 56.5 31.8 56.6 46 45.8 56.6 32.2 56.5 18 56.6 7.4 46 7.5 32 7.6 18.2 18.2 7.8 32 7.5Z" fill={C.seal} />
+              </Svg>
+              <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: REI, height: REI, alignItems: 'center', justifyContent: 'center' }}>
+                <Txt face="display" exact raw size={28} lh={1.2} color={C.carved}>R</Txt>
               </View>
+              {slipping ? <View style={{ position: 'absolute', top: 6, right: 6, width: 12, height: 12, borderRadius: 6, backgroundColor: C.chalk, borderWidth: 2, borderColor: C.bar }} /> : null}
             </View>
-            {slipping ? <View style={{ position: 'absolute', top: 6, right: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: C.rival, borderWidth: 2, borderColor: C.arena }} /> : null}
+            <Txt face="labelItalic" raw size={12} lh={1.25} color={C.chalk} style={{ letterSpacing: 1.5 }}>REI</Txt>
           </Tap>
         </View>
         {tab('dojo')}

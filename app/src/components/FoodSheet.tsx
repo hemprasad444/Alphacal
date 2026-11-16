@@ -5,25 +5,24 @@ import { useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { newId } from '../lib/sync';
-import { C, F, fontFamily, HIT, onColor, SHADOW, SP } from '../lib/theme';
+import { C, F, fontFamily, HIT, RADIUS, SP } from '../lib/theme';
 import { useStore } from '../state/store';
-import { CutBox, CutShape } from './cut';
 import { Icon } from './icons';
-import { Label, Tap, Txt } from './ui';
+import { BrushRule } from './ink';
+import { Tap, Txt } from './ui';
 
-const SOURCE: Record<Food['src'], string> = { ifct: 'IFCT 2017 · INDIAN FOOD TABLES', dish: 'TYPICAL PORTION', usda: 'USDA · VIA TEMPOLIFE (CC-BY)', barcode: 'OPEN FOOD FACTS', mine: 'YOUR FOOD' };
+const SOURCE: Record<Food['src'], string> = { ifct: 'IFCT 2017 · Indian food tables', dish: 'Typical portion', usda: 'USDA · via TempoLife (CC-BY)', barcode: 'Open Food Facts', mine: 'Your food' };
 
-/** A bottom sheet: an arena panel with a line in your corner colour along the top. */
+/** A bottom sheet: a sumi sheet under a quiet line, softly rounded at the top. */
 export function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
   const insets = useSafeAreaInsets();
-  const accent = useStore(s => s.accent);
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable accessibilityLabel="Close" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={onClose} />
-        <View style={{ maxHeight: '85%', backgroundColor: F.arena, borderTopWidth: 2, borderTopColor: accent, paddingTop: SP.md, paddingBottom: insets.bottom + SP.lg }}>
-          <CutShape width={44} height={6} fill={F.rope} style={{ alignSelf: 'center', marginBottom: SP.md }} />
-          <ScrollView contentContainerStyle={{ paddingHorizontal: SP.lg, paddingBottom: SHADOW }} keyboardShouldPersistTaps="handled">{children}</ScrollView>
+        <Pressable accessibilityLabel="Close" style={{ flex: 1, backgroundColor: 'rgba(10,9,8,0.78)' }} onPress={onClose} />
+        <View style={{ maxHeight: '85%', backgroundColor: F.canvas, borderTopWidth: 1, borderTopColor: F.rule, borderTopLeftRadius: 12, borderTopRightRadius: 12, marginTop: -12, paddingTop: SP.md, paddingBottom: Math.max(insets.bottom, SP.lg) + SP.sm }}>
+          <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: F.rope, alignSelf: 'center', marginBottom: SP.lg }} />
+          <ScrollView contentContainerStyle={{ paddingHorizontal: SP.xxl }} keyboardShouldPersistTaps="handled">{children}</ScrollView>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -31,24 +30,21 @@ export function Sheet({ open, onClose, children }: { open: boolean; onClose: () 
 }
 
 function Pill({ on, children, onPress }: { on?: boolean; children: string; onPress: () => void }) {
-  const accent = useStore(s => s.accent);
   return (
-    <Tap onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected: !!on, checked: !!on }} accessibilityLabel={children} hitSlop={4}>
-      <CutBox fill={on ? accent : F.canvas} stroke={on ? undefined : F.smoke} style={{ minHeight: 36, paddingHorizontal: 16, justifyContent: 'center' }}>
-        <Txt face="label" w={600} size={14} ls={0.06} color={on ? onColor(accent) : F.chalk}>{children.toUpperCase()}</Txt>
-      </CutBox>
+    <Tap onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected: !!on, checked: !!on }} accessibilityLabel={children} style={{ minHeight: HIT, minWidth: HIT, paddingHorizontal: SP.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: on ? F.chalk : F.rule, borderRadius: RADIUS.sm, backgroundColor: on ? F.chalk : F.arena }}>
+      <Txt face="labelItalic" size={13} lh={1.35} color={on ? F.arena : F.chalk} numberOfLines={1}>{children}</Txt>
     </Tap>
   );
 }
 
 /**
- * A sheet or form button, 48pt: `primary` is a cut slab in your colour on a hard chalk shadow,
- * `danger` is outlined in the alert colour, plain is a quiet outline. It fills its row.
+ * A sheet or form button, 48pt: `primary` is the rice-paper button with ink text, `danger` and
+ * plain are quiet outlines (the words carry what it does). It fills its row.
  */
-export function Button({ children, onPress, primary, danger, disabled }: { children: string; onPress: () => void; primary?: boolean; danger?: boolean; disabled?: boolean }) {
-  const accent = useStore(s => s.accent);
+export function Button({ children, onPress, primary, disabled }: { children: string; onPress: () => void; primary?: boolean; danger?: boolean; disabled?: boolean }) {
   const solid = !!primary && !disabled;
-  const ink = disabled ? F.smoke : primary ? onColor(accent) : danger ? C.alertSoft : F.chalk;
+  const ink = disabled ? C.faint : primary ? F.arena : F.chalk;
+  const fill = solid ? F.chalk : disabled && primary ? F.canvas2 : F.arena;
   return (
     <Pressable
       disabled={disabled}
@@ -59,18 +55,9 @@ export function Button({ children, onPress, primary, danger, disabled }: { child
         Haptics.selectionAsync().catch(() => {});
         onPress();
       }}
-      style={{ flex: 1, minHeight: 48 + SHADOW, paddingRight: SHADOW, paddingBottom: SHADOW }}
+      style={({ pressed }) => ({ flex: 1, minHeight: 48, paddingHorizontal: SP.lg, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: solid ? F.chalk : primary ? F.canvas2 : disabled ? F.rope : F.rule, backgroundColor: fill, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}
     >
-      {({ pressed }) => (
-        <CutBox
-          fill={solid ? accent : disabled ? F.canvas2 : F.canvas}
-          stroke={solid ? undefined : danger && !disabled ? C.alert : F.smoke}
-          shadow={solid && !pressed ? F.chalk : undefined}
-          style={{ minHeight: 48, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center', opacity: pressed && !solid ? 0.7 : 1, transform: solid && pressed ? [{ translateX: SHADOW / 2 }, { translateY: SHADOW / 2 }] : undefined }}
-        >
-          <Txt face="display" lean={false} size={18} ls={0.03} lh={1.25} color={ink} fit>{children.toUpperCase()}</Txt>
-        </CutBox>
-      )}
+      <Txt face="heading" size={16} lh={1.25} color={ink} fit>{children}</Txt>
     </Pressable>
   );
 }
@@ -79,11 +66,11 @@ function Stepper({ value, step, onChange }: { value: number; step: number; onCha
   const textSize = useStore(s => s.settings.textSize);
   const [text, setText] = useState<string | null>(null);
   const fix = (v: number) => Math.max(step, Math.round(v / step) * step);
-  const key = { width: HIT, height: HIT, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center' } as const;
+  const key = { width: HIT, height: HIT, borderWidth: 1, borderColor: F.rule, borderRadius: RADIUS.sm, backgroundColor: F.arena, alignItems: 'center', justifyContent: 'center' } as const;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
       <Tap onPress={() => onChange(fix(value - step))} accessibilityLabel="Less" style={key}>
-        <Txt size={22} w={600}>−</Txt>
+        <View style={{ width: 12, height: 1.5, borderRadius: 1, backgroundColor: F.chalk }} />
       </Tap>
       <TextInput
         value={text ?? String(+value.toFixed(2))}
@@ -97,10 +84,10 @@ function Stepper({ value, step, onChange }: { value: number; step: number; onCha
         keyboardAppearance="dark"
         selectTextOnFocus
         accessibilityLabel="Amount"
-        style={{ width: 84, height: HIT, textAlign: 'center', fontFamily: fontFamily('display'), fontSize: 26 * textSize, color: C.text, borderBottomWidth: 2, borderBottomColor: F.rope }}
+        style={{ width: 80, height: HIT, paddingVertical: 0, textAlign: 'center', fontFamily: fontFamily('num'), fontSize: 22 * textSize, color: C.text, borderBottomWidth: 1, borderBottomColor: F.rule }}
       />
       <Tap onPress={() => onChange(fix(value + step))} accessibilityLabel="More" style={key}>
-        <Txt size={22} w={600}>+</Txt>
+        <Icon name="plus" size={18} color={F.chalk} tint={0} strokeWidth={1.7} />
       </Tap>
     </View>
   );
@@ -110,12 +97,12 @@ function Macros({ i }: { i: Pick<MealItem, 'kcal' | 'p' | 'c' | 'f'> }) {
   const accent = useStore(s => s.accent);
   return (
     <View accessible accessibilityLabel={`${Math.round(i.kcal)} kcal, protein ${Math.round(i.p)}, carbs ${Math.round(i.c)}, fat ${Math.round(i.f)} grams`} style={{ flexDirection: 'row', alignItems: 'baseline', gap: SP.md }}>
-      <Txt face="display" size={32} lh={1.15}>{`${Math.round(i.kcal)}`}</Txt>
-      <Txt face="label" w={600} size={13} ls={0.12} color={F.smoke}>KCAL</Txt>
+      <Txt face="display" exact size={28} lh={1.2}>{Math.round(i.kcal).toLocaleString('en-US')}</Txt>
+      <Txt face="mono" size={12} lh={1.35} color={F.smoke}>kcal</Txt>
       <View style={{ flex: 1 }} />
-      <Txt face="label" w={600} size={15} ls={0.07} color={accent}>{`P ${Math.round(i.p)}`}</Txt>
-      <Txt face="label" w={600} size={15} ls={0.07} color={F.smoke}>{`C ${Math.round(i.c)}`}</Txt>
-      <Txt face="label" w={600} size={15} ls={0.07} color={F.smoke}>{`F ${Math.round(i.f)}`}</Txt>
+      <Txt face="num" raw size={14} lh={1.3} color={accent}>{`P ${Math.round(i.p)}`}</Txt>
+      <Txt face="num" raw size={14} lh={1.3} color={F.smoke}>{`C ${Math.round(i.c)}`}</Txt>
+      <Txt face="num" raw size={14} lh={1.3} color={F.smoke}>{`F ${Math.round(i.f)}`}</Txt>
     </View>
   );
 }
@@ -134,7 +121,7 @@ export function Portion({ food, qty, unit, onChange }: { food: Food; qty: number
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SP.md }}>
         <Stepper value={qty} step={u.n === 'g' ? 10 : 0.5} onChange={v => onChange(v, u.n)} />
-        <Txt face="label" w={600} size={14} ls={0.07} color={F.smoke} numberOfLines={1} style={{ flexShrink: 1 }}>{(food.serving ? amountLabel(item) : `${item.g} g`).toUpperCase()}</Txt>
+        <Txt face="mono" raw size={12} lh={1.35} color={F.smoke} numberOfLines={1} style={{ flexShrink: 1 }}>{food.serving ? amountLabel(item) : `${item.g} g`}</Txt>
       </View>
       <Macros i={item} />
     </View>
@@ -157,15 +144,20 @@ export function FoodSheetBody({ pick, onDone, src = 'food', beforeLog }: { pick:
   const [unit, setUnit] = useState(unitFor(food, pick.unit).n);
   const fav = !!s.foods.find(f => f.id === food.id)?.fav;
   return (
-    <View style={{ gap: SP.lg }}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: SP.md }}>
-        <View style={{ flex: 1, gap: SP.xs, alignItems: 'flex-start' }}>
-          <Label size={11} ls={0.12}>{food.brand ? `${food.brand.toUpperCase()} · ${SOURCE[food.src]}` : SOURCE[food.src]}</Label>
-          <Txt face="display" size={26} lh={1.2}>{food.name.toUpperCase()}</Txt>
+    <View style={{ gap: SP.xl }}>
+      <View style={{ gap: SP.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: SP.md }}>
+          <View style={{ flex: 1, gap: SP.xs, alignItems: 'flex-start' }}>
+            <Txt face="mono" raw size={12} lh={1.35} color={F.smoke}>{food.brand ? `${food.brand} · ${SOURCE[food.src]}` : SOURCE[food.src]}</Txt>
+            <View accessibilityRole="header">
+              <Txt face="display" exact size={22} lh={1.3}>{food.name}</Txt>
+            </View>
+          </View>
+          <Tap onPress={() => s.toggleFav(food)} accessibilityRole="switch" accessibilityState={{ checked: fav }} accessibilityLabel="Favourite" style={{ width: HIT, height: HIT, borderWidth: 1, borderColor: fav ? s.accent : F.rule, borderRadius: RADIUS.sm, backgroundColor: F.arena, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="star" size={20} color={fav ? s.accent : F.smoke} tint={fav ? 1 : 0} strokeWidth={1.7} />
+          </Tap>
         </View>
-        <Tap onPress={() => s.toggleFav(food)} accessibilityRole="switch" accessibilityState={{ checked: fav }} accessibilityLabel="Favourite" style={{ width: HIT, height: HIT, borderWidth: 2, borderColor: fav ? s.accent : F.smoke, backgroundColor: F.canvas, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="star" size={20} color={fav ? s.accent : F.smoke} tint={fav ? 1 : 0} strokeWidth={1.8} />
-        </Tap>
+        <BrushRule />
       </View>
       <Portion food={food} qty={qty} unit={unit} onChange={(q, u) => (setQty(q), setUnit(u))} />
       <View style={{ flexDirection: 'row', gap: SP.sm }}>
@@ -190,7 +182,7 @@ function NumField({ label, value, onChange }: { label: string; value: number; on
   const [text, setText] = useState(String(Math.round(value)));
   return (
     <View style={{ flex: 1, gap: SP.xs }}>
-      <Label size={11}>{label}</Label>
+      <Txt face="label" size={12} lh={1.35} color={F.smoke}>{label}</Txt>
       <TextInput
         value={text}
         onChangeText={t => {
@@ -202,7 +194,7 @@ function NumField({ label, value, onChange }: { label: string; value: number; on
         keyboardAppearance="dark"
         selectTextOnFocus
         accessibilityLabel={label}
-        style={{ height: HIT, borderWidth: 2, borderColor: F.smoke, backgroundColor: F.canvas, paddingHorizontal: SP.sm, fontFamily: fontFamily(settings.font, 500), fontSize: 17 * settings.textSize, color: C.text }}
+        style={{ height: 48, borderWidth: 1, borderColor: F.rule, borderRadius: RADIUS.sm, backgroundColor: F.arena, paddingHorizontal: SP.md, paddingVertical: 0, fontFamily: fontFamily('num'), fontSize: 16 * settings.textSize, color: C.text }}
       />
     </View>
   );
@@ -233,8 +225,10 @@ function MealSheetBody({ meal, onDone }: { meal: Meal; onDone: () => void }) {
   return (
     <View style={{ gap: SP.lg }}>
       <View style={{ gap: SP.xs, alignItems: 'flex-start' }}>
-        <Label size={11} ls={0.12}>{`${meal.time} · ${meal.src === 'photo' ? 'FROM A PHOTO' : meal.src === 'ai' ? 'LOGGED BY REI' : meal.src === 'barcode' ? 'SCANNED' : 'LOGGED'}`}</Label>
-        <Txt face="display" size={26} lh={1.2}>{meal.name.toUpperCase()}</Txt>
+        <Txt face="mono" raw size={12} lh={1.35} color={F.smoke}>{`${meal.time} · ${meal.src === 'photo' ? 'From a photo' : meal.src === 'ai' ? 'Logged by REI' : meal.src === 'barcode' ? 'Scanned' : 'Logged'}`}</Txt>
+        <View accessibilityRole="header">
+          <Txt face="display" exact size={22} lh={1.3}>{meal.name}</Txt>
+        </View>
       </View>
 
       {items.length ? (
@@ -242,11 +236,11 @@ function MealSheetBody({ meal, onDone }: { meal: Meal; onDone: () => void }) {
           const food = foodOf(i);
           const set = (x: MealItem | null) => setItems(cur => (x ? cur.map((y, j) => (j === k ? x : y)) : cur.filter((_, j) => j !== k)));
           return (
-            <View key={`${k}-${i.food}`} style={{ gap: SP.md, paddingTop: SP.md, borderTopWidth: 2, borderTopColor: F.rope }}>
+            <View key={`${k}-${i.food}`} style={{ gap: SP.md, paddingTop: SP.lg, borderTopWidth: 1, borderTopColor: C.line }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: SP.md }}>
-                <Txt size={16} w={600} style={{ flex: 1 }}>{i.name}</Txt>
-                <Tap onPress={() => set(null)} accessibilityLabel={`Remove ${i.name}`} hitSlop={12} style={{ minHeight: 32, justifyContent: 'center' }}>
-                  <Txt face="label" w={600} size={13} ls={0.12} color={F.smoke}>REMOVE</Txt>
+                <Txt face="heading" size={17} lh={1.4} style={{ flex: 1 }}>{i.name}</Txt>
+                <Tap onPress={() => set(null)} accessibilityLabel={`Remove ${i.name}`} hitSlop={8} style={{ minHeight: HIT, justifyContent: 'center' }}>
+                  <Txt face="label" size={13} lh={1.35} color={F.smoke}>Remove</Txt>
                 </Tap>
               </View>
               {food ? (
@@ -254,10 +248,10 @@ function MealSheetBody({ meal, onDone }: { meal: Meal; onDone: () => void }) {
               ) : (
                 // REI's estimate: correct the numbers directly.
                 <View style={{ flexDirection: 'row', gap: SP.sm }}>
-                  <NumField label="KCAL" value={i.kcal} onChange={v => set({ ...i, kcal: v })} />
-                  <NumField label="P" value={i.p} onChange={v => set({ ...i, p: v })} />
-                  <NumField label="C" value={i.c} onChange={v => set({ ...i, c: v })} />
-                  <NumField label="F" value={i.f} onChange={v => set({ ...i, f: v })} />
+                  <NumField label="kcal" value={i.kcal} onChange={v => set({ ...i, kcal: v })} />
+                  <NumField label="Protein" value={i.p} onChange={v => set({ ...i, p: v })} />
+                  <NumField label="Carbs" value={i.c} onChange={v => set({ ...i, c: v })} />
+                  <NumField label="Fat" value={i.f} onChange={v => set({ ...i, f: v })} />
                 </View>
               )}
             </View>
@@ -265,15 +259,15 @@ function MealSheetBody({ meal, onDone }: { meal: Meal; onDone: () => void }) {
         })
       ) : (
         <View style={{ flexDirection: 'row', gap: SP.sm }}>
-          <NumField label="KCAL" value={total.kcal} onChange={v => setTotal(t => ({ ...t, kcal: v }))} />
-          <NumField label="P" value={total.p} onChange={v => setTotal(t => ({ ...t, p: v }))} />
-          <NumField label="C" value={total.c} onChange={v => setTotal(t => ({ ...t, c: v }))} />
-          <NumField label="F" value={total.f} onChange={v => setTotal(t => ({ ...t, f: v }))} />
+          <NumField label="kcal" value={total.kcal} onChange={v => setTotal(t => ({ ...t, kcal: v }))} />
+          <NumField label="Protein" value={total.p} onChange={v => setTotal(t => ({ ...t, p: v }))} />
+          <NumField label="Carbs" value={total.c} onChange={v => setTotal(t => ({ ...t, c: v }))} />
+          <NumField label="Fat" value={total.f} onChange={v => setTotal(t => ({ ...t, f: v }))} />
         </View>
       )}
 
-      <View style={{ paddingTop: SP.md, borderTopWidth: 2, borderTopColor: F.rope, gap: SP.sm }}>
-        <Label size={11}>TOTAL</Label>
+      <View style={{ paddingTop: SP.lg, borderTopWidth: 1, borderTopColor: C.line, gap: SP.sm }}>
+        <Txt face="label" size={12} lh={1.35} color={F.smoke}>Total</Txt>
         <Macros i={next} />
       </View>
 
@@ -286,8 +280,8 @@ function MealSheetBody({ meal, onDone }: { meal: Meal; onDone: () => void }) {
         accessibilityLabel={saved ? 'Saved to your foods' : 'Save as my food, to log it in one tap'}
         style={{ minHeight: HIT, flexDirection: 'row', alignItems: 'center', gap: SP.sm }}
       >
-        <Icon name="star" size={18} color={saved ? s.accent : F.smoke} tint={saved ? 1 : 0} strokeWidth={1.8} />
-        <Txt size={14} w={500} color={saved ? s.accent : C.body} style={{ flex: 1 }}>{saved ? 'Saved to your foods' : 'Save as my food, to log it in one tap'}</Txt>
+        <Icon name="star" size={18} color={saved ? s.accent : F.smoke} tint={saved ? 1 : 0} strokeWidth={1.7} />
+        <Txt size={15} w={500} lh={1.4} color={saved ? s.accent : C.body} style={{ flex: 1 }}>{saved ? 'Saved to your foods' : 'Save as my food, to log it in one tap'}</Txt>
       </Tap>
 
       <View style={{ flexDirection: 'row', gap: SP.sm }}>

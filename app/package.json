@@ -4,13 +4,11 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",
-    "@expo-google-fonts/dela-gothic-one": "^0.4.1",
     "@expo-google-fonts/geist": "^0.4.2",
     "@expo-google-fonts/geist-mono": "^0.4.3",
+    "@expo-google-fonts/ibm-plex-mono": "^0.4.2",
     "@expo-google-fonts/ibm-plex-sans": "^0.4.1",
     "@expo-google-fonts/space-grotesk": "^0.4.1",
-    "@expo-google-fonts/zen-kaku-gothic-new": "^0.4.1",
-    "@expo-google-fonts/zen-maru-gothic": "^0.4.2",
     "@livekit/react-native": "^2.12.0",
     "@livekit/react-native-expo-plugin": "^1.0.3",
     "@livekit/react-native-webrtc": "144.1.2",
@@ -48,6 +46,8 @@
     "react-native-web": "~0.21.0"
   },
   "devDependencies": {
+    "@expo-google-fonts/shippori-mincho-b1": "^0.4.1",
+    "@expo-google-fonts/zen-kaku-gothic-new": "^0.4.1",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.2.2",
     "eslint": "^9.39.5",

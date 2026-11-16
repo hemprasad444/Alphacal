@@ -1,20 +1,20 @@
-// Fuel: the super meter (energy filling toward full), the macro bars, REI's read, four ways to
-// log a meal, quick re-adds, and the hit log of what has landed today.
+// Fuel: the ensō (calories closing toward the day's target) with what is left beside it, the
+// macros, REI's read, four ways to log a meal, quick re-adds, and today's meals.
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Platform, TextInput, View } from 'react-native';
-import { CutBox } from '../../components/cut';
-import { CoachShout, CutButton, Meter, MeterBar, RoundStamp, SectionHeader, useWarn } from '../../components/fight';
+import { CoachShout, CutButton, Meter, RoundStamp, SectionHeader, useWarn } from '../../components/fight';
 import { FoodSheet, MealSheet } from '../../components/FoodSheet';
 import { useNow } from '../../components/hooks';
 import { Icon } from '../../components/icons';
+import { InkDot } from '../../components/ink';
 import { PageTitle } from '../../components/PageTitle';
 import { Screen } from '../../components/Screen';
 import { Dots, Tap, Txt } from '../../components/ui';
 import { amountLabel, dailyTargets, dayIntake, dayStamp, daysBetween, ENERGY_WON_AT, energyState, type Food, fuelLine, itemFor, type Meal, nutrition, parseIsoDate, searchFoods, splitMealText } from '@rei/shared';
-import { C, F, fontFamily, HIT, onColor, SP } from '../../lib/theme';
+import { C, F, fontFamily, HIT, RADIUS, soften, SP } from '../../lib/theme';
 import { useStore } from '../../state/store';
 
 const QUICK = ['200 g chicken + rice', 'Protein shake', '3 eggs on toast', '2 roti + dal'];
@@ -48,7 +48,7 @@ export default function Fuel() {
   // Shown by the time eaten, whatever order they were logged in (a breakfast added at night goes first).
   const hits = meals.map((m, i) => ({ m, i })).sort((a, b) => a.m.time.localeCompare(b.m.time) || a.i - b.i);
   const started = parseIsoDate(s.startedOn);
-  const round = started ? Math.max(1, daysBetween(started, now) + 1) : 1;
+  const day = started ? Math.max(1, daysBetween(started, now) + 1) : 1;
 
   /** Camera (or library on web): resize on the phone, then let REI read the plate. */
   const photo = async (fromLibrary = false) => {
@@ -93,62 +93,45 @@ export default function Fuel() {
     { label: 'Fat', eaten: nu.fat, target: n('fat'), cap: true },
     { label: 'Fibre', eaten: intake.totals.fib, target: fibT },
   ];
-  // One cell is about 100 kcal; the count is kept sane for very small or very large targets.
-  const cells = Math.max(10, Math.min(30, Math.round(kcalT / 100) || 10));
   const toNutrition = () => router.push('/nutrition');
-  const need = pL > 0 ? `Protein needs ${fmt(pL)} g` : kL > 0 && energy !== 'won' && energy !== 'unset' ? `${fmt(kL)} kcal to full` : undefined;
+  const need = pL > 0 ? `Protein needs ${fmt(pL)} g` : kL > 0 && energy !== 'won' && energy !== 'unset' ? `${fmt(kL)} kcal left` : undefined;
   // What the meter shows, in words: the same call as its stamp and as Today's status.
-  const energySay = energy === 'unset' ? `Energy ${fmt(nu.kcal)} kcal, no target set` : `Energy ${fmt(nu.kcal)} of ${fmt(kcalT)} kcal, ${energy === 'over' ? `${fmt(-kL)} over` : energy === 'won' ? 'round won' : `${fmt(kL)} to full`}`;
+  const energySay = energy === 'unset' ? `Energy ${fmt(nu.kcal)} kcal, no target set` : `Energy ${fmt(nu.kcal)} of ${fmt(kcalT)} kcal, ${energy === 'over' ? `${fmt(-kL)} over` : energy === 'won' ? 'kept' : `${fmt(kL)} left`}`;
 
   return (
     <Screen>
       <PageTitle
         icon="fuel"
         title="Fuel"
-        sub={`ROUND ${round} · ${dayStamp(now)}`}
-        right={<RoundStamp size="sm" label={tag === 'Nothing yet' ? 'Round open' : tag} tone={tag === 'Over' ? 'rival' : tag === 'On track' ? 'accent' : 'outline'} />}
+        sub={`Day ${day} · ${soften(dayStamp(now))}`}
+        right={<RoundStamp size="sm" label={tag === 'Nothing yet' ? 'Open' : tag} tone={tag === 'On track' ? 'accent' : 'outline'} />}
       />
 
-      <SectionHeader title="Super meter" meta="Full breakdown" onMeta={toNutrition} style={{ marginTop: SP.xl }} />
-      <Tap onPress={toNutrition} accessibilityLabel={`${energySay}. Open the full breakdown`} style={{ marginTop: SP.md }}>
-        <Meter value={nu.kcal} target={kcalT} unit="kcal" size="lg" segments={cells} past="flag" wonAt={ENERGY_WON_AT} label="Energy" />
-        {energy === 'unset' ? (
-          <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} style={{ marginTop: SP.xs }}>NO CALORIE TARGET YET. SET ONE IN VOW.</Txt>
-        ) : (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: SP.xs }}>
-            <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>0</Txt>
-            <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{`1 CELL = ${fmt(kcalT / cells)} KCAL`}</Txt>
-            <Txt face="label" w={600} size={12} ls={0.12} color={accent}>{`${fmt(kcalT)} FULL`}</Txt>
-          </View>
-        )}
+      <Tap onPress={toNutrition} accessibilityLabel={`${energySay}. Open the full breakdown`} style={{ marginTop: SP.xl }}>
+        <Meter value={nu.kcal} target={kcalT} unit="kcal" size="lg" past="flag" wonAt={ENERGY_WON_AT} label="Energy" />
+        {energy === 'unset' ? <Txt face="label" w={400} size={12} color={F.smoke} style={{ marginTop: SP.sm }}>No calorie target yet. Set one in Vow.</Txt> : null}
       </Tap>
 
-      <View style={{ marginTop: SP.lg, gap: SP.md }}>
-        {macros.map(m => {
-          const over = m.cap && m.target > 0 && m.eaten > m.target ? (m.eaten - m.target) / m.target : 0;
-          return (
-            <View key={m.label} style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
-              <Txt face="label" w={600} size={13} ls={0.12} color={F.smoke} style={{ width: 62 }}>{m.label.toUpperCase()}</Txt>
-              <MeterBar pct={m.target ? m.eaten / m.target : 0} over={over} overColor={F.rival} height={16} accessibilityLabel={`${m.label} ${fmt(m.eaten)} of ${fmt(m.target)} grams${over ? ', over' : ''}`} style={{ flex: 1, alignSelf: 'center' }} />
-              <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', gap: 6, width: 98 }}>
-                <Txt face="display" size={22} lh={1.15}>{fmt(m.eaten)}</Txt>
-                <Txt face="label" w={over ? 600 : 400} size={14} color={over ? F.rival : F.smoke} numberOfLines={1}>{over ? `/ ${fmt(m.target)} OVER` : `/ ${fmt(m.target)} g`}</Txt>
-              </View>
+      <View style={{ marginTop: SP.xl, backgroundColor: F.canvas, borderWidth: 1, borderColor: F.line, borderRadius: RADIUS.card, paddingHorizontal: SP.lg, paddingTop: SP.md, paddingBottom: SP.xs }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: SP.lg, rowGap: SP.lg, paddingBottom: SP.md }}>
+          {macros.map(m => (
+            <View key={m.label} style={{ width: '45%', flexGrow: 1 }}>
+              <Meter size="sm" label={m.label} value={m.eaten} target={m.target} unit="g" past={m.cap ? 'flag' : 'win'} />
             </View>
-          );
-        })}
+          ))}
+        </View>
+        <Tap onPress={toNutrition} accessibilityLabel="Full breakdown: vitamins, minerals, sodium, by meal" style={{ minHeight: HIT, flexDirection: 'row', alignItems: 'center', gap: SP.sm, borderTopWidth: 1, borderTopColor: C.line }}>
+          <Txt face="label" size={13} color={accent} style={{ flex: 1 }}>Full breakdown: vitamins, minerals, by meal</Txt>
+          <Icon name="chevron" size={16} color={accent} tint={0} strokeWidth={1.8} />
+        </Tap>
       </View>
-      <Tap onPress={toNutrition} accessibilityLabel="Full breakdown: vitamins, minerals, sodium, by meal" style={{ marginTop: SP.sm, minHeight: HIT, flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
-        <Txt face="label" w={600} size={13} ls={0.12} color={accent} style={{ flex: 1 }}>FULL BREAKDOWN: VITAMINS, MINERALS, SODIUM, BY MEAL</Txt>
-        <Icon name="chevron" size={16} color={accent} tint={0} strokeWidth={2.2} />
-      </Tap>
 
-      <CoachShout portrait={44} before={s.fuelBusy ? 'Reading the plate…' : s.fuelVerdict || fuelLine(profile, nu)} style={{ marginTop: SP.sm }} />
+      <CoachShout before={s.fuelBusy ? 'Reading the plate…' : s.fuelVerdict || fuelLine(profile, nu)} style={{ marginTop: SP.xl }} />
 
-      <SectionHeader title="Log a meal" style={{ marginTop: SP.xxl }} />
+      <SectionHeader title="Log a meal" style={{ marginTop: SP.huge }} />
       <CutButton label="Log a meal" icon="plus" meta={need} accessibilityLabel={`Log a meal: type it${need ? `. ${need}` : ''}`} onPress={() => input.current?.focus()} style={{ marginTop: SP.md }} />
       <View style={{ flexDirection: 'row', gap: SP.sm, marginTop: SP.md }}>
-        <View style={{ flex: 1, height: 52, backgroundColor: F.canvas, borderWidth: 2, borderColor: draft ? accent : F.smoke, justifyContent: 'center', paddingHorizontal: SP.lg }}>
+        <View style={{ flex: 1, height: 48, backgroundColor: F.canvas, borderWidth: 1, borderColor: draft ? F.smoke : F.rule, borderRadius: RADIUS.sm, justifyContent: 'center', paddingHorizontal: SP.lg }}>
           <TextInput
             ref={input}
             value={draft}
@@ -159,74 +142,77 @@ export default function Fuel() {
             returnKeyType="done"
             keyboardAppearance="dark"
             accessibilityLabel="Describe what you ate"
-            style={{ fontFamily: fontFamily(settings.font, 400), fontSize: 16 * settings.textSize, color: C.text }}
+            style={{ fontFamily: fontFamily(settings.font, 500), fontSize: 16 * settings.textSize, color: C.text }}
           />
         </View>
-        <Tap onPress={() => log(draft)} disabled={!has} accessibilityLabel={s.fuelBusy ? 'REI is working on it' : 'Log this meal'} style={{ width: 52, height: 52, backgroundColor: has ? accent : F.canvas, borderWidth: 2, borderColor: has ? accent : F.smoke, alignItems: 'center', justifyContent: 'center' }}>
-          {s.fuelBusy ? <Dots /> : <Icon name="check" size={22} color={has ? onColor(accent) : F.smoke} tint={0} strokeWidth={2.4} />}
+        <Tap onPress={() => log(draft)} disabled={!has} accessibilityLabel={s.fuelBusy ? 'REI is working on it' : 'Log this meal'} style={{ width: 48, height: 48, backgroundColor: has ? F.chalk : F.canvas, borderWidth: 1, borderColor: has ? F.chalk : F.rule, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' }}>
+          {s.fuelBusy ? <Dots /> : <Icon name="check" size={20} color={has ? F.arena : F.smoke} tint={0} strokeWidth={2} />}
         </Tap>
       </View>
       {suggestions.length ? (
-        <View style={{ marginTop: SP.sm, gap: 2 }}>
+        <View style={{ marginTop: SP.xs }}>
           {suggestions.map(({ food }) => {
             const it = itemFor(food, piece!.qty, piece!.unit);
             return (
               <Tap key={food.id} onPress={() => setPick({ food, qty: piece!.qty, unit: piece!.unit })} accessibilityLabel={`${food.name}, ${amountLabel(it)}, ${it.kcal} kcal, protein ${Math.round(it.p)} grams${food.fav ? ', favourite' : ''}`}>
-                <View style={{ minHeight: HIT, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.md, paddingVertical: SP.sm }}>
-                  {food.fav ? <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: accent }} /> : null}
+                <View style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingVertical: SP.sm, borderBottomWidth: 1, borderBottomColor: C.line }}>
+                  <InkDot color={food.fav ? accent : F.rule} />
                   <View style={{ flex: 1, gap: 2 }}>
-                    <Txt size={15} w={500} numberOfLines={1}>{food.name}</Txt>
-                    <Txt face="label" w={600} size={12} ls={0.08} color={F.smoke} numberOfLines={1}>{`${amountLabel(it)}${food.brand ? ` · ${food.brand}` : ''}`.toUpperCase()}</Txt>
+                    <Txt size={15} w={500} lh={1.35} numberOfLines={1}>{food.name}</Txt>
+                    <Txt face="label" w={400} size={12} color={F.smoke} numberOfLines={1}>{`${amountLabel(it)}${food.brand ? ` · ${food.brand}` : ''}`}</Txt>
                   </View>
-                  <Txt face="label" w={600} size={14} ls={0.07} color={F.smoke}>{`P ${Math.round(it.p)}`}</Txt>
-                  <Txt face="display" size={20} lh={1.15} color={accent}>{`+${it.kcal}`}</Txt>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Txt face="num" size={14} lh={1.3}>{`${it.kcal} kcal`}</Txt>
+                    <Txt face="mono" size={12} lh={1.35} color={F.smoke}>{`P ${Math.round(it.p)}`}</Txt>
+                  </View>
                 </View>
               </Tap>
             );
           })}
         </View>
       ) : (
-        <Txt size={13} lh={1.4} color={F.smoke} style={{ marginTop: SP.sm }}>Foods on the list log instantly. Anything else, REI estimates.</Txt>
+        <Txt size={13} lh={1.5} color={F.smoke} style={{ marginTop: SP.sm }}>Foods on the list log at once. Anything else, REI estimates.</Txt>
       )}
       <View style={{ flexDirection: 'row', gap: SP.sm, marginTop: SP.md }}>
         <CutButton label="Photo" tone="quiet" size="md" accessibilityLabel="Snap a photo of the plate" onPress={() => photo()} style={{ flex: 1 }} />
         <CutButton label="Scan" tone="quiet" size="md" accessibilityLabel="Scan a barcode on packaged food" onPress={() => router.push('/scan')} style={{ flex: 1 }} />
         <CutButton label="Tell REI" tone="quiet" size="md" accessibilityLabel="Tell REI what you ate" onPress={() => router.push({ pathname: '/talk', params: { draft: 'I just ate ' } })} style={{ flex: 1 }} />
       </View>
-      {notice ? <Txt size={13} lh={1.4} color={warn} style={{ marginTop: SP.sm }}>{notice}</Txt> : null}
+      {notice ? <Txt size={13} lh={1.5} color={warn} style={{ marginTop: SP.sm }}>{notice}</Txt> : null}
 
-      <SectionHeader title="Quick add" meta={favs.length || recent.length ? 'One tap' : 'Try one'} style={{ marginTop: SP.xxl }} />
+      <SectionHeader title="Quick add" meta={favs.length || recent.length ? 'One tap' : 'Try one'} style={{ marginTop: SP.huge }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm, marginTop: SP.md }}>
         {favs.map(f => <Chip key={f.id} label={f.name} fav accent={accent} onPress={() => setPick({ food: f, qty: 1 })} />)}
         {recent.map(m => <Chip key={`r-${m.name}`} label={m.name} accent={accent} onPress={() => s.repeatMeal(m)} />)}
         {!favs.length && !recent.length ? QUICK.map(t => <Chip key={t} label={t} accent={accent} onPress={() => log(t)} />) : null}
       </View>
 
-      <SectionHeader title="Hit log" meta={meals.length ? `${meals.length} ${meals.length === 1 ? 'meal' : 'meals'} landed · ${fmt(nu.kcal)} kcal` : 'Nothing landed'} style={{ marginTop: SP.xxl }} />
-      <View style={{ marginTop: SP.md, gap: SP.sm }}>
+      <SectionHeader title="Meals" meta={meals.length ? `${meals.length} logged · ${fmt(nu.kcal)} kcal` : 'Nothing yet'} style={{ marginTop: SP.huge }} />
+      <View style={{ marginTop: SP.xs }}>
         {meals.length === 0 ? (
-          <View style={{ padding: SP.lg, borderWidth: 2, borderColor: F.smoke, gap: SP.xs }}>
-            <Txt face="display" size={20} lh={1.2} color={F.smoke}>NOTHING ON THE PLATE YET</Txt>
-            <Txt size={14} lh={1.4} color={F.smoke}>Log your first meal for +10 XP.</Txt>
+          <View style={{ marginTop: SP.sm, padding: SP.lg, borderWidth: 1, borderColor: F.line, borderRadius: RADIUS.card, gap: SP.xs }}>
+            <Txt face="heading" size={17} lh={1.4} color={F.smoke}>Nothing on the page yet</Txt>
+            <Txt size={14} lh={1.5} color={F.smoke}>Log your first meal for +10 XP.</Txt>
           </View>
         ) : null}
         {hits.map(({ m, i }) => {
           const est = m.items?.some(it => !it.food) || m.src === 'photo' || m.src === 'ai';
-          const rest = ([['P', m.p], ['C', m.c], ['F', m.f], ['FIBRE', m.n?.fib]] as const).filter(([, v]) => typeof v === 'number').map(([k, v]) => `${k} ${Math.round(v as number)}`);
+          const rest = ([['P', m.p], ['C', m.c], ['F', m.f], ['Fibre', m.n?.fib]] as const).filter(([, v]) => typeof v === 'number').map(([k, v]) => `${k} ${Math.round(v as number)}`);
           return (
             <Tap key={m.id ?? `${m.time}-${i}`} haptic={false} onPress={() => setEditing(m)} accessibilityLabel={`${m.time}, ${m.name}, ${fmt(m.kcal)} kcal, protein ${Math.round(m.p)} grams${est ? ', estimated' : ''}. Edit`}>
-              <View style={{ minHeight: HIT, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingLeft: SP.md, paddingVertical: SP.sm }}>
-                <Txt face="label" w={600} size={14} ls={0.07} color={F.smoke} style={{ minWidth: 40 }}>{m.time}</Txt>
+              <View style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingVertical: SP.sm, borderBottomWidth: 1, borderBottomColor: C.line }}>
+                <Txt face="mono" size={13} lh={1.25} color={F.smoke} style={{ minWidth: 44 }}>{m.time}</Txt>
+                <InkDot />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Txt size={15} w={500} lh={1.3} numberOfLines={2}>{m.name}</Txt>
+                  <Txt size={15} w={500} lh={1.35} numberOfLines={2}>{m.name}</Txt>
                   {m.items && m.items.length > 1 ? (
-                    <Txt size={12} lh={1.35} color={F.smoke} numberOfLines={2}>{m.items.map(it => `${amountLabel(it)} ${it.name.toLowerCase()}`).join(' · ')}</Txt>
+                    <Txt size={12} lh={1.4} color={F.smoke} numberOfLines={2}>{m.items.map(it => `${amountLabel(it)} ${it.name.toLowerCase()}`).join(' · ')}</Txt>
                   ) : null}
-                  {rest.length || est ? <Txt face="label" w={600} size={12} ls={0.08} color={F.smoke} numberOfLines={1}>{[...rest, ...(est ? ['EST'] : [])].join(' · ')}</Txt> : null}
+                  {rest.length || est ? <Txt face="mono" raw size={12} lh={1.35} color={F.smoke} numberOfLines={1}>{[...rest, ...(est ? ['est.'] : [])].join(' · ')}</Txt> : null}
                 </View>
-                <Txt face="display" size={22} lh={1.15} color={accent} align="right">{`+${fmt(m.kcal)}`}</Txt>
-                <Tap onPress={() => void s.removeMeal(m)} accessibilityLabel={`Delete ${m.name}`} hitSlop={{ left: 8 }} style={{ width: 36, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="close" size={16} color={F.smoke} tint={0} strokeWidth={2} />
+                <Txt face="num" size={14} lh={1.3} align="right">{`${fmt(m.kcal)} kcal`}</Txt>
+                <Tap onPress={() => void s.removeMeal(m)} accessibilityLabel={`Delete ${m.name}`} hitSlop={{ left: 8 }} style={{ width: 32, height: HIT, alignItems: 'flex-end', justifyContent: 'center' }}>
+                  <Icon name="close" size={16} color={F.smoke} tint={0} strokeWidth={1.6} />
                 </Tap>
               </View>
             </Tap>
@@ -239,14 +225,12 @@ export default function Fuel() {
   );
 }
 
-/** A quick-add chip: an inked tag, 44pt tall. Favourites are outlined in your colour and carry a star. */
+/** A quick-add chip: a quiet outlined tag, 44pt tall. Favourites are outlined in your colour and carry a star. */
 function Chip({ label, fav, accent, onPress }: { label: string; fav?: boolean; accent: string; onPress: () => void }) {
   return (
-    <Tap onPress={onPress} accessibilityLabel={`${fav ? 'Favourite: ' : 'Add '}${label}`} style={{ flexShrink: 1 }}>
-      <CutBox fill={F.canvas} stroke={fav ? accent : F.smoke} style={{ minHeight: HIT, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        {fav ? <View><Icon name="star" size={14} color={accent} tint={1} strokeWidth={1.6} /></View> : <Txt face="label" w={600} size={16} color={F.smoke}>+</Txt>}
-        <Txt size={14} w={500} numberOfLines={1} style={{ flexShrink: 1 }}>{label}</Txt>
-      </CutBox>
+    <Tap onPress={onPress} accessibilityLabel={`${fav ? 'Favourite: ' : 'Add '}${label}`} style={{ flexShrink: 1, minHeight: HIT, paddingHorizontal: SP.md, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: F.canvas, borderWidth: 1, borderColor: fav ? accent : F.rule, borderRadius: RADIUS.sm }}>
+      {fav ? <View><Icon name="star" size={14} color={accent} tint={1} strokeWidth={1.6} /></View> : <Icon name="plus" size={14} color={F.smoke} tint={0} strokeWidth={1.8} />}
+      <Txt size={14} w={500} lh={1.4} numberOfLines={1} style={{ flexShrink: 1 }}>{label}</Txt>
     </Tap>
   );
 }

@@ -1,76 +1,63 @@
-// The big moments of onboarding: the round card between rounds, holding to sign the contract, the
-// flash when it is signed, the walk out to the ring, and the arrival fade inside the app.
+// The quiet moments of onboarding: the title card between parts, holding to press your seal on
+// the vow, the soft flash when it is sealed, the welcome, and the arrival fade inside the app.
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Svg, { Polygon } from 'react-native-svg';
-import { CutBox, cutPoints, useSize } from '../cut';
-import { Icon } from '../icons';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { BrushBar, BrushRule, HankoSeal, PaperTexture } from '../ink';
 import { Txt } from '../ui';
-import { C, CUT, F, onColor, SHADOW, STROKE } from '../../lib/theme';
+import { C, F, RADIUS } from '../../lib/theme';
 
-/** The round card: a slanted wipe in your colour carrying the next round's number and name. Calls `onSwap` mid-wipe, `onEnd` when gone. */
+/** The title card between parts: the page clears to night washi, the part's number and name are set in Mincho over a brush rule, then it lifts. Calls `onSwap` while covered, `onEnd` when gone. */
 export function ChapterCard({ n, t, total, acc, bg, onSwap, onEnd }: { n: number; t: string; total: number; acc: string; bg: string; onSwap: () => void; onEnd: () => void }) {
-  const { width: W, height: H } = useWindowDimensions();
   const [v] = useState(() => new Animated.Value(0));
   useEffect(() => {
     const swap = setTimeout(onSwap, 380);
-    Animated.timing(v, { toValue: 1, duration: 980, easing: Easing.bezier(0.75, 0, 0.25, 1), useNativeDriver: true }).start(() => onEnd());
+    Animated.timing(v, { toValue: 1, duration: 980, easing: Easing.bezier(0.4, 0, 0.2, 1), useNativeDriver: true }).start(() => onEnd());
     return () => clearTimeout(swap);
     // Runs once per card.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const wipe = (lag: number) => ({
-    transform: [
-      { translateX: v.interpolate({ inputRange: [0, 0.38 + lag, 0.62 + lag, 1], outputRange: [-1.5 * W, 0, 0, 1.5 * W], extrapolate: 'clamp' }) },
-      { skewX: `-${CUT}deg` },
-    ],
-  });
-  const card = {
-    opacity: v.interpolate({ inputRange: [0, 0.26, 0.4, 0.64, 0.82, 1], outputRange: [0, 0, 1, 1, 0, 0] }),
-    transform: [{ scale: v.interpolate({ inputRange: [0, 0.26, 0.4, 0.64, 0.82, 1], outputRange: [1.35, 1.35, 1, 1, 0.94, 0.94] }) }],
+  const words = {
+    opacity: v.interpolate({ inputRange: [0, 0.22, 0.36, 0.7, 0.86, 1], outputRange: [0, 0, 1, 1, 0, 0] }),
+    transform: [{ translateY: v.interpolate({ inputRange: [0, 0.22, 0.36, 1], outputRange: [8, 8, 0, 0] }) }],
   };
-  const panel = { position: 'absolute' as const, top: -H * 0.2, left: -W * 0.45, width: W * 1.9, height: H * 1.4 };
-  const ink = onColor(acc);
   return (
-    <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, { zIndex: 60, overflow: 'hidden' }]}>
-      <Animated.View style={[panel, { backgroundColor: F.chalk }, wipe(0)]} />
-      <Animated.View style={[panel, { backgroundColor: acc }, wipe(0.05)]} />
-      <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }, card]}>
-        <Txt face="display" exact size={18} lh={1.25} color={ink}>ROUND</Txt>
-        <Txt face="display" exact size={104} lh={1.15} color={ink}>{String(n).padStart(2, '0')}</Txt>
-        <Txt face="label" w={600} size={14} ls={0.2} color={ink}>{`OF ${total}`}</Txt>
-        <CutBox fill={bg} stroke={F.arena} strokeWidth={STROKE} shadow={F.chalk} style={{ marginTop: 18, marginHorizontal: 20, minHeight: 52, paddingHorizontal: 18, justifyContent: 'center' }}>
-          <Txt face="display" exact size={18} lh={1.25} color={acc} fit>{t}</Txt>
-        </CutBox>
+    <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, { zIndex: 60 }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: bg, opacity: v.interpolate({ inputRange: [0, 0.3, 0.72, 1], outputRange: [0, 1, 1, 0] }) }]}>
+        <PaperTexture />
+      </Animated.View>
+      <Animated.View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 12 }, words]}>
+        <Txt face="mono" raw size={13} lh={1.35} color={acc}>{`Part ${n} of ${total}`}</Txt>
+        <Txt face="display" exact size={34} lh={1.2} align="center">{t}</Txt>
+        <BrushRule long height={6} color={F.rule} style={{ alignSelf: 'center', width: 160 }} />
       </Animated.View>
     </View>
   );
 }
 
-/** A quick chalk flash, for the moment the contract is signed. */
+/** A soft wash of rice paper, for the moment the vow is sealed. */
 export function Flash({ onEnd }: { onEnd: () => void }) {
   const [v] = useState(() => new Animated.Value(0));
   useEffect(() => {
     Animated.sequence([
-      Animated.timing(v, { toValue: 1, duration: 110, useNativeDriver: true }),
-      Animated.timing(v, { toValue: 0, duration: 990, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(v, { toValue: 1, duration: 160, useNativeDriver: true }),
+      Animated.timing(v, { toValue: 0, duration: 940, easing: Easing.out(Easing.quad), useNativeDriver: true }),
     ]).start(() => onEnd());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 70, backgroundColor: C.text, opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0, 0.85] }) }]} />;
+  return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 70, backgroundColor: C.text, opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0, 0.5] }) }]} />;
 }
 
-const SEAL_H = 72;
+const SEAL_H = 80;
 
 /**
- * The signature slab: press and hold for 1.6 s and your colour inks across it; letting go drains
- * it back. With a screen reader, activating it signs straight away (a timed hold isn't possible there).
+ * Your seal on the vow: press and hold for 1.6 s and the red seal inks in while a brush stroke
+ * crosses the card; letting go lets it fade back. With a screen reader, activating it seals
+ * straight away (a timed hold isn't possible there).
  */
 export function HoldSeal({ acc, onSeal }: { acc: string; onSeal: () => void }) {
   const [v] = useState(() => new Animated.Value(0));
   const [hold, setHold] = useState(0);
-  const [size, onLayout] = useSize();
   const sealed = useRef(false);
   useEffect(() => {
     const id = v.addListener(({ value }) => setHold(value));
@@ -97,48 +84,34 @@ export function HoldSeal({ acc, onSeal }: { acc: string; onSeal: () => void }) {
     v.stopAnimation(h => Animated.timing(v, { toValue: 0, duration: h * 400, useNativeDriver: false }).start());
   };
 
-  const w = size?.w ?? 0, dx = 0;
-  // The ink's leading edge, measured at the middle of the slab (the edge itself is cut).
-  const inkW = hold > 0 ? dx + (w - dx) * hold : 0;
-  const words = (color: string) => (
-    <View style={{ width: w, height: SEAL_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-      <Icon name="scroll" size={24} color={color} tint={0} strokeWidth={2.2} />
-      <Txt face="display" exact size={17} lh={1.25} color={color}>HOLD TO SIGN</Txt>
-    </View>
-  );
   return (
     <View style={{ gap: 8 }}>
       <Pressable
         onPressIn={start} onPressOut={end}
-        accessibilityRole="button" accessibilityLabel="Sign the contract" accessibilityHint="Press and hold to sign"
+        accessibilityRole="button" accessibilityLabel="Seal your vow" accessibilityHint="Press and hold to seal it"
         accessibilityActions={[{ name: 'activate' }]} onAccessibilityAction={done}
-        style={{ paddingRight: SHADOW, paddingBottom: SHADOW }}
+        style={{ minHeight: SEAL_H, paddingHorizontal: 16, paddingVertical: 12, gap: 10, justifyContent: 'center', backgroundColor: F.canvas, borderWidth: 1, borderColor: hold > 0 ? F.seal : F.rule, borderRadius: RADIUS.card }}
       >
-        <View onLayout={onLayout} style={{ height: SEAL_H, transform: hold > 0 ? [{ translateX: SHADOW / 2 }, { translateY: SHADOW / 2 }] : undefined }}>
-          {size ? (
-            <>
-              <Svg width={w + SHADOW} height={SEAL_H + SHADOW} style={{ position: 'absolute', left: 0, top: 0 }}>
-                {hold > 0 ? null : <Polygon points={cutPoints(w, SEAL_H, { ends: 'none', ox: SHADOW, oy: SHADOW })} fill={acc} />}
-                <Polygon points={cutPoints(w, SEAL_H, { ends: 'none', inset: STROKE / 2 })} fill={F.canvas} stroke={F.chalk} strokeWidth={STROKE} />
-                {inkW > 0 ? <Polygon points={cutPoints(inkW, SEAL_H, { ends: 'none', inset: STROKE })} fill={acc} /> : null}
-              </Svg>
-              {words(F.chalk)}
-              {/* The same words in ink, shown only where your colour has reached. */}
-              <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, height: SEAL_H, width: Math.max(0, inkW - dx / 2), overflow: 'hidden' }}>
-                {words(onColor(acc))}
-              </View>
-            </>
-          ) : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <View style={{ width: 44, height: 44 }}>
+            <HankoSeal size={44} earned={false} icon="check" />
+            <View style={{ position: 'absolute', left: 0, top: 0, opacity: hold, transform: [{ scale: 1.25 - 0.25 * hold }] }}>
+              <HankoSeal size={44} icon="check" ground={F.canvas} />
+            </View>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Txt face="heading" size={18} lh={1.35}>Hold to seal</Txt>
+            <Txt face="mono" raw size={12} lh={1.35} color={F.smoke}>{hold > 0 ? `Sealing · ${Math.round(hold * 100)}%` : 'Press and hold'}</Txt>
+          </View>
         </View>
+        <BrushBar pct={hold} color={acc} height={6} />
       </Pressable>
-      <Txt face="label" w={600} size={12} ls={0.14} color={F.smoke} align="center">{hold > 0 ? `SIGNING · ${Math.round(hold * 100)}%` : 'YOUR SIGNATURE · PRESS AND HOLD'}</Txt>
     </View>
   );
 }
 
-/** The walk out: the arena goes dark, your lights sweep across, the announcer calls your name, then the cut to the app. */
+/** The welcome: the page clears to night washi, your name is set in Mincho over a brush rule, then it hands over to the app. */
 export function EnterFx({ name, acc, bg, onEnd }: { name: string; acc: string; bg: string; onEnd: () => void }) {
-  const { width: W, height: H } = useWindowDimensions();
   const [v] = useState(() => new Animated.Value(0));
   useEffect(() => {
     Animated.timing(v, { toValue: 1, duration: 2400, easing: Easing.bezier(0.45, 0, 0.25, 1), useNativeDriver: true }).start();
@@ -146,44 +119,26 @@ export function EnterFx({ name, acc, bg, onEnd }: { name: string; acc: string; b
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const band = (width: number, from: number, to: number, opacity: number) => (
-    <Animated.View
-      style={{
-        position: 'absolute', top: -H * 0.2, left: 0, width, height: H * 1.4, backgroundColor: acc, opacity,
-        transform: [{ translateX: v.interpolate({ inputRange: [0, from, to, 1], outputRange: [-W * 0.8, -W * 0.8, W * 1.6, W * 1.6] }) }, { skewX: `-${CUT}deg` }],
-      }}
-    />
-  );
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 80, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }]}>
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: bg, opacity: v.interpolate({ inputRange: [0, 0.16, 1], outputRange: [0, 1, 1] }) }]} />
-      {band(W * 0.34, 0.1, 0.52, 0.22)}
-      {band(W * 0.08, 0.16, 0.6, 0.9)}
-      {band(W * 0.03, 0.22, 0.66, 0.9)}
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 80, alignItems: 'center', justifyContent: 'center' }]}>
+      {/* The ground comes up and stays: the app's first screen fades in from it (see `Arrival`). */}
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: bg, opacity: v.interpolate({ inputRange: [0, 0.16, 1], outputRange: [0, 1, 1] }) }]}>
+        <PaperTexture />
+      </Animated.View>
       <Animated.View
         style={{
-          alignSelf: 'stretch', paddingHorizontal: 16, alignItems: 'center', gap: 6,
-          opacity: v.interpolate({ inputRange: [0, 0.2, 0.34, 0.7, 0.8, 1], outputRange: [0, 0, 1, 1, 0, 0] }),
-          transform: [{ scale: v.interpolate({ inputRange: [0, 0.2, 0.34, 0.7, 1], outputRange: [1.3, 1.3, 1, 1.04, 1.04] }) }],
+          alignSelf: 'stretch', paddingHorizontal: 32, alignItems: 'center', gap: 12,
+          opacity: v.interpolate({ inputRange: [0, 0.2, 0.36, 0.72, 0.86, 1], outputRange: [0, 0, 1, 1, 0, 0] }),
+          transform: [{ translateY: v.interpolate({ inputRange: [0, 0.2, 0.36, 1], outputRange: [10, 10, 0, 0] }) }],
         }}
       >
-        <Txt face="labelItalic" size={14} color={acc}>NOW ENTERING THE RING</Txt>
-        <Txt face="display" size={76} lh={1.1} align="center" fit>{name.toUpperCase()}</Txt>
-        <Txt face="label" size={14} color={F.smoke}>DAY ONE · FIRST BELL</Txt>
+        <Txt face="mono" raw size={13} lh={1.35} color={acc}>Day one</Txt>
+        <Txt face="display" exact size={44} lh={1.15} align="center" fit>{name}</Txt>
+        <Animated.View style={{ width: 200, transform: [{ scaleX: v.interpolate({ inputRange: [0, 0.3, 0.5, 1], outputRange: [0, 0, 1, 1] }) }] }}>
+          <BrushRule long height={6} color={F.smoke} />
+        </Animated.View>
+        <Txt face="voice" size={17} lh={1.5} color={F.smoke} align="center">The page is blank. Begin.</Txt>
       </Animated.View>
-      {/* The cut to the app: the arena colour wipes across and stays. */}
-      <Animated.View
-        style={{
-          position: 'absolute', top: -H * 0.2, left: -W * 0.45, width: W * 1.9, height: H * 1.4, backgroundColor: acc,
-          transform: [{ translateX: v.interpolate({ inputRange: [0, 0.72, 0.94, 1], outputRange: [-2 * W, -2 * W, 0, 0] }) }, { skewX: `-${CUT}deg` }],
-        }}
-      />
-      <Animated.View
-        style={{
-          position: 'absolute', top: -H * 0.2, left: -W * 0.45, width: W * 1.9, height: H * 1.4, backgroundColor: bg,
-          transform: [{ translateX: v.interpolate({ inputRange: [0, 0.78, 1], outputRange: [-2 * W, -2 * W, 0] }) }, { skewX: `-${CUT}deg` }],
-        }}
-      />
     </View>
   );
 }
@@ -194,7 +149,7 @@ export const markArrival = () => {
   arriving = true;
 };
 
-/** Over the first app screen after onboarding: the walkout's colour fades away as REI settles in. */
+/** Over the first app screen after onboarding: the welcome's ground fades away as REI settles in. */
 export function Arrival({ bg = F.arena }: { bg?: string }) {
   const [show] = useState(() => {
     const a = arriving;

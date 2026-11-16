@@ -5,11 +5,12 @@ import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
-import { CallHeader, CoachLine, CornerLine, inputType, LevelBars, SendArrow, SlabButton } from '../components/corner';
+import { CallHeader, CoachLine, CornerLine, inputType, LevelBars, RingNote, SendArrow, SlabButton } from '../components/corner';
 import { CutButton } from '../components/fight';
+import { ReiSeal } from '../components/ink';
 import { Dots, IconButton, Txt } from '../components/ui';
 import { hhmm, type Message, speakVoice, splitLead, stripTags } from '@rei/shared';
-import { C, HIT, SP } from '../lib/theme';
+import { C, HIT, RADIUS, SP } from '../lib/theme';
 import { newSpeaker, premiumVoice, type Speaker, stopwatch, transcribe, voiceOffReason, warmVoice } from '../lib/voice';
 import { useStore } from '../state/store';
 
@@ -66,7 +67,7 @@ export default function Voice() {
     if (!canRecord) {
       // Keyboard path: the iOS keyboard's mic does the dictation. Say why, so it isn't a mystery.
       const why = s.cloud ? voiceOffReason() : 'Voice needs a signed-in account.';
-      if (why) setNotes(n => (n.some(x => x.text.startsWith('VOICE OFF')) ? n : [...n, { role: 'sys', text: `VOICE OFF · ${why} Using keyboard dictation.`, time: hhmm() }]));
+      if (why) setNotes(n => (n.some(x => x.text.startsWith('Voice off')) ? n : [...n, { role: 'sys', text: `Voice off · ${why} Using keyboard dictation.`, time: hhmm() }]));
       setTyping(true);
       setPhase('listening');
       setTimeout(() => input.current?.focus(), 50);
@@ -150,10 +151,10 @@ export default function Voice() {
     router.back();
   };
 
-  const label = phase === 'listening' ? 'LISTENING' : phase === 'thinking' ? 'THINKING' : phase === 'speaking' ? 'SPEAKING' : 'READY';
+  const label = phase === 'listening' ? 'Listening' : phase === 'thinking' ? 'Thinking' : phase === 'speaking' ? 'Speaking' : 'Ready';
   const hint = phase === 'listening'
-    ? canRecord ? 'LISTENING · TAP TO SEND' : 'DICTATE OR TYPE · SEND'
-    : phase === 'thinking' ? 'THINKING' : phase === 'speaking' ? 'TAP TO INTERRUPT' : 'TAP TO TALK';
+    ? canRecord ? 'Listening · tap to send' : 'Dictate or type, then send'
+    : phase === 'thinking' ? 'Thinking' : phase === 'speaking' ? 'Tap to interrupt' : 'Tap to talk';
 
   const onAir = phase === 'listening' || phase === 'speaking';
   const toggleTyping = () => {
@@ -175,15 +176,18 @@ export default function Voice() {
         <ScrollView
           ref={scroll}
           style={{ flex: 1 }}
-          contentContainerStyle={{ flexGrow: 1, padding: SP.lg, gap: SP.xl }}
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: SP.xxl, paddingVertical: SP.xl, gap: SP.xl }}
           onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
           keyboardShouldPersistTaps="handled"
         >
           {!turns.length && phase !== 'thinking' ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-start', gap: SP.md }}>
-              <Txt face="labelItalic" w={600} size={13} ls={0.14} color={accent}>REI · IN YOUR CORNER</Txt>
-              <Txt face="display" size={40} lh={1.12}>{"WHAT'S ON YOUR MIND?"}</Txt>
-              <Txt size={16} w={500} lh={1.45} color={C.smoke}>{"Hit the button and talk. I'll answer out loud."}</Txt>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
+                <ReiSeal size={28} ground={C.arena} />
+                <Txt face="mono" size={12} lh={1.35} color={C.smoke}>REI · voice</Txt>
+              </View>
+              <Txt face="display" exact size={30} lh={1.2}>What is on your mind?</Txt>
+              <Txt face="voice" size={17} lh={1.5} color={C.smoke}>Tap the button and talk. I will answer out loud.</Txt>
             </View>
           ) : null}
           {turns.map((t, i) => {
@@ -192,20 +196,21 @@ export default function Voice() {
             return <CoachLine key={i} lead={lead} text={rest || undefined} time={t.time} maxWidth="94%" />;
           })}
           {notes.map((n, i) => (
-            <Txt key={`n${i}`} face="label" w={600} size={13} ls={0.1} lh={1.35} color={C.smoke}>{n.text}</Txt>
+            <RingNote key={`n${i}`} text={n.text} />
           ))}
           {live ? <CoachLine text={stripTags(live)} maxWidth="94%" /> : null}
           {phase === 'thinking' && !live ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
-              <Txt face="labelItalic" w={600} size={12} ls={0.14} color={accent}>REI</Txt>
+              <ReiSeal size={24} ground={C.arena} />
+              <Txt face="mono" size={12} lh={1.35} color={C.smoke}>REI is thinking</Txt>
               <Dots />
             </View>
           ) : null}
         </ScrollView>
 
-        <View style={{ paddingHorizontal: SP.lg, paddingTop: SP.sm, paddingBottom: Math.max(insets.bottom, SP.lg), gap: SP.md, borderTopWidth: 2, borderTopColor: C.line, backgroundColor: C.arena }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, display: typing ? 'flex' : 'none' }}>
-            <View style={{ flex: 1, height: 52, backgroundColor: C.canvas, borderWidth: 2, borderColor: C.smoke, justifyContent: 'center', paddingHorizontal: SP.md }}>
+        <View style={{ paddingHorizontal: SP.xxl, paddingTop: SP.md, paddingBottom: Math.max(insets.bottom, SP.lg), gap: SP.md, borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.arena }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm, display: typing ? 'flex' : 'none' }}>
+            <View style={{ flex: 1, height: 48, backgroundColor: C.canvas, borderWidth: 1, borderColor: draft.trim() ? C.smoke : C.rule, borderRadius: RADIUS.sm, justifyContent: 'center', paddingHorizontal: SP.lg }}>
               <TextInput
                 ref={input}
                 value={draft}
@@ -217,7 +222,7 @@ export default function Voice() {
                   setPhase(p => (p === 'listening' && !canRecord ? 'idle' : p));
                 }}
                 placeholder="Tap the mic on your keyboard, or type"
-                placeholderTextColor={C.dim}
+                placeholderTextColor={C.faint}
                 returnKeyType="send"
                 keyboardAppearance="dark"
                 accessibilityLabel="Message to REI"
@@ -233,7 +238,7 @@ export default function Voice() {
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
             <IconButton size={HIT} onPress={toggleTyping} accessibilityLabel={typing ? 'Hide the keyboard' : 'Type instead'}>
-              <Txt face="label" w={600} size={16} color={typing ? accent : C.chalk}>Aa</Txt>
+              <Txt face="heading" raw size={16} lh={1.25} color={typing ? accent : C.chalk}>Aa</Txt>
             </IconButton>
             {/* The one action: talk, send, or cut REI off. */}
             <CutButton label={hint} icon="voice" disabled={phase === 'thinking'} onPress={() => void listen()} style={{ flex: 1 }} />

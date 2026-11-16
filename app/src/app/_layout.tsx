@@ -1,8 +1,7 @@
-// Manga Panel's two faces. Import each weight from its own path so unused weights stay out of the bundle.
-import { DelaGothicOne_400Regular } from '@expo-google-fonts/dela-gothic-one/400Regular';
-import { ZenMaruGothic_500Medium } from '@expo-google-fonts/zen-maru-gothic/500Medium';
-import { ZenMaruGothic_700Bold } from '@expo-google-fonts/zen-maru-gothic/700Bold';
-import { ZenMaruGothic_900Black } from '@expo-google-fonts/zen-maru-gothic/900Black';
+// Sumi & Hanko's three faces. The Mincho and the gothic are Latin subsets cut from the
+// @expo-google-fonts packages by scripts/subset-fonts.py (the full Japanese files are 15 MB a weight).
+import { IBMPlexMono_400Regular } from '@expo-google-fonts/ibm-plex-mono/400Regular';
+import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono/500Medium';
 import { configureExerciseImages } from '@rei/shared';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -17,8 +16,17 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // Exercise thumbnails from your Firebase Hosting when set (see app/.env.example).
 configureExerciseImages(process.env.EXPO_PUBLIC_IMAGES_BASE_URL);
 
-/** Display (Dela Gothic One) and body and labels (Zen Maru Gothic): the whole type system, loaded before the splash lifts. */
-const FONTS = { DelaGothicOne_400Regular, ZenMaruGothic_500Medium, ZenMaruGothic_700Bold, ZenMaruGothic_900Black };
+/** Headings (Shippori Mincho B1), body and labels (Zen Kaku Gothic New) and numbers (IBM Plex Mono): the whole type system, loaded before the splash lifts. */
+const FONTS = {
+  ShipporiMinchoB1_500Medium: require('../../assets/fonts/ShipporiMinchoB1_500Medium.ttf'),
+  ShipporiMinchoB1_700Bold: require('../../assets/fonts/ShipporiMinchoB1_700Bold.ttf'),
+  ShipporiMinchoB1_800ExtraBold: require('../../assets/fonts/ShipporiMinchoB1_800ExtraBold.ttf'),
+  ZenKakuGothicNew_400Regular: require('../../assets/fonts/ZenKakuGothicNew_400Regular.ttf'),
+  ZenKakuGothicNew_500Medium: require('../../assets/fonts/ZenKakuGothicNew_500Medium.ttf'),
+  ZenKakuGothicNew_700Bold: require('../../assets/fonts/ZenKakuGothicNew_700Bold.ttf'),
+  IBMPlexMono_400Regular,
+  IBMPlexMono_500Medium,
+};
 
 function Root() {
   const ready = useStore(s => s.ready), theme = useStore(s => s.theme), account = useStore(s => s.account), program = useStore(s => s.program);

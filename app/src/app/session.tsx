@@ -2,7 +2,7 @@
 // own picks. Nothing runs until you start: train now (live timer and rests), or log one you've
 // already done (just the duration). Tick sets as you finish them; every exercise shows its XP.
 //
-// This is the fight itself: each exercise is a round, each set a hit landed, the rest timer a round break.
+// The screen stays quiet while you train: the clock, the lift you are on, its sets, and the rest timer.
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -10,17 +10,18 @@ import { Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from '../components/Backdrop';
 import { ConfirmSheet } from '../components/ConfirmSheet';
-import { CutBox, CutShape } from '../components/cut';
 import { Chip, Field, QuietButton, StatStrip } from '../components/dojo';
 import { ExerciseSheet } from '../components/ExerciseSheet';
 import { CutButton, MeterBar, MoveRow, RoundStamp, SectionHeader, useTierColors } from '../components/fight';
 import { Icon } from '../components/icons';
+import { InkDot } from '../components/ink';
+import { PAGE_X } from '../components/Screen';
 import { IconButton, Tap, Txt } from '../components/ui';
 import {
   clock, defaultSets, e1rm, type Exercise, exerciseXp, findExercise, isBodyweight, lastLifts, type LibExercise, liftKey, pad, PICK_GROUPS,
   dayName, nextPlan, records, restSeconds, searchExercises, sessionLine, sessionXp, SESSIONS, type SessionPlan, type SetLog, todaysPlan,
 } from '@rei/shared';
-import { C, F, fontFamily, HIT, onColor, SP } from '../lib/theme';
+import { C, F, fontFamily, HIT, onColor, RADIUS, SP } from '../lib/theme';
 import { useStore } from '../state/store';
 
 interface Rest {
@@ -38,14 +39,14 @@ interface Row {
   done: boolean[];
 }
 
-/** The fight as it ended, frozen when you finish: what the ROUND WON card shows. */
+/** The workout as it ended, frozen when you finish: what the summary shows. */
 interface Summary {
   title: string;
   seconds: number;
   done: number;
   total: number;
   xp: number;
-  /** Kilograms moved (weight × reps over the sets that landed). */
+  /** Kilograms moved (weight × reps over the sets done). */
   volume: number;
   reps: number;
   /** Lifts that beat their best, with the set that did it. */
@@ -121,9 +122,9 @@ export default function Session() {
   const done = rows.reduce((a, r) => a + r.done.filter(Boolean).length, 0);
   const total = rows.reduce((a, r) => a + r.done.length, 0);
   const xp = done ? sessionXp({ date: s.day, plan: 'GYM', done, total, seconds: elapsed, sets: setLogs }) : 0;
-  // The round you're in: the first exercise with a set still to land.
+  // The lift you're on: the first exercise with a set still to do.
   const open = rows.findIndex(r => r.done.some(v => !v));
-  const round = exercises.length ? (open < 0 ? exercises.length : open + 1) : 0;
+  const current = exercises.length ? (open < 0 ? exercises.length : open + 1) : 0;
 
   const update = (i: number, f: (r: Row) => Row) => setRows(all => all.map((r, a) => (a === i ? f(r) : r)));
 
@@ -191,8 +192,8 @@ export default function Session() {
       const beat = rows[i].done.map((_, j) => j).filter(j => isPr(i, j)).sort((a, b) => (e1rm(rows[i].kg[b], rows[i].reps[b]) ?? 0) - (e1rm(rows[i].kg[a], rows[i].reps[a]) ?? 0));
       return beat.length ? [{ name: e.name, set: `${rows[i].kg[beat[0]]} × ${rows[i].reps[beat[0]]}` }] : [];
     });
-    const landed = rows.flatMap(r => r.done.map((v, j) => (v ? { reps: r.reps[j], kg: r.kg[j] ?? 0 } : null))).filter(x => x !== null);
-    setSummary({ title: name, seconds: elapsed, done, total, xp, volume: landed.reduce((a, x) => a + x.kg * x.reps, 0), reps: landed.reduce((a, x) => a + x.reps, 0), prs });
+    const kept = rows.flatMap(r => r.done.map((v, j) => (v ? { reps: r.reps[j], kg: r.kg[j] ?? 0 } : null))).filter(x => x !== null);
+    setSummary({ title: name, seconds: elapsed, done, total, xp, volume: kept.reduce((a, x) => a + x.kg * x.reps, 0), reps: kept.reduce((a, x) => a + x.reps, 0), prs });
     setRest(null);
     s.finishSession(done, total, elapsed, setLogs, name);
   };
@@ -205,71 +206,72 @@ export default function Session() {
     return prev != null && est != null && est > prev;
   };
 
-  const title = free ? 'GYM WORKOUT' : today ? `TODAY · ${plan.title.toUpperCase()}` : `EXTRA · ${plan.title.toUpperCase()}`;
+  const title = free ? 'Gym workout' : today ? `Today · ${plan.title}` : `Extra · ${plan.title}`;
   const live = phase === 'live';
+  const lifts = `${exercises.length} lift${exercises.length === 1 ? '' : 's'}`;
 
   return (
     <View style={{ flex: 1 }}>
       <Backdrop />
 
-      {/* The HUD: which fight, which round, the clock and the hits landed */}
-      <View style={{ paddingTop: insets.top + 6, paddingHorizontal: SP.lg, paddingBottom: SP.md, gap: SP.sm, borderBottomWidth: 2, borderBottomColor: F.rope }}>
+      {/* The header: which workout, which lift, the clock and the sets done */}
+      <View style={{ paddingTop: insets.top + SP.sm, paddingHorizontal: PAGE_X, paddingBottom: SP.lg, gap: SP.md, borderBottomWidth: 1, borderBottomColor: F.line }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
           <IconButton size={HIT} onPress={leave} accessibilityLabel="Close workout">
-            <Icon name="close" size={20} color={F.chalk} tint={0} strokeWidth={2} />
+            <Icon name="close" size={20} color={F.chalk} tint={0} strokeWidth={1.6} />
           </IconButton>
-          <View accessibilityRole="header" style={{ flex: 1 }}>
-            <Txt face="labelItalic" w={600} size={14} ls={0.14} numberOfLines={1}>{title}</Txt>
-            <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} numberOfLines={1}>{round ? `ROUND ${round} OF ${exercises.length}` : 'NO ROUNDS YET'}</Txt>
+          <View accessibilityRole="header" style={{ flex: 1, gap: 2 }}>
+            <Txt face="heading" size={17} lh={1.35} numberOfLines={1}>{title}</Txt>
+            <Txt face="mono" size={12} lh={1.35} color={F.smoke} numberOfLines={1}>{current ? `Lift ${current} of ${exercises.length}` : 'No lifts yet'}</Txt>
           </View>
-          <RoundStamp label={`+${xp} XP`} tone={xp ? 'accent' : 'outline'} size="sm" />
+          <RoundStamp label={`+${xp} XP`} tone={xp ? 'accent' : 'outline'} size="sm" style={{ alignSelf: 'center' }} />
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: SP.md }}>
           {phase === 'past' ? (
             <View style={{ gap: SP.xs }}>
-              <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>HOW LONG IT TOOK</Txt>
+              <Txt face="label" size={12} color={F.smoke}>How long it took</Txt>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
                 <IconButton size={HIT} onPress={() => setMinutes(m => Math.max(5, m - 5))} accessibilityLabel="5 minutes less">−</IconButton>
-                <View accessible accessibilityLabel={`${minutes} minutes`} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-                  <Txt face="display" size={44} lh={1.1}>{`${minutes}`}</Txt>
-                  <Txt face="label" w={600} size={14} ls={0.1} color={F.smoke}>MIN</Txt>
+                <View accessible accessibilityLabel={`${minutes} minutes`} style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 6, minWidth: 88 }}>
+                  <Txt face="display" exact size={34} lh={1.2}>{`${minutes}`}</Txt>
+                  <Txt face="mono" size={12} color={F.smoke}>min</Txt>
                 </View>
                 <IconButton size={HIT} onPress={() => setMinutes(m => Math.min(300, m + 5))} accessibilityLabel="5 minutes more">+</IconButton>
               </View>
             </View>
           ) : (
-            <View style={{ alignItems: 'flex-start' }}>
-              <Txt face="label" w={600} size={12} ls={0.12} color={live ? accent : F.smoke}>{live ? 'TRAINING' : 'NOT STARTED'}</Txt>
-              <Txt face="display" size={56} lh={1.08} ls={0.01} color={live ? F.chalk : F.smoke} accessibilityLabel={`${Math.floor(elapsed / 60)} minutes ${elapsed % 60} seconds`}>{`${pad(Math.floor(elapsed / 60))}:${pad(elapsed % 60)}`}</Txt>
+            <View style={{ alignItems: 'flex-start', gap: 2 }}>
+              <Txt face="label" size={12} color={live ? accent : F.smoke}>{live ? 'Training' : 'Not started'}</Txt>
+              <Txt face="display" exact size={40} lh={1.15} color={live ? F.chalk : F.smoke} accessibilityLabel={`${Math.floor(elapsed / 60)} minutes ${elapsed % 60} seconds`}>{`${pad(Math.floor(elapsed / 60))}:${pad(elapsed % 60)}`}</Txt>
             </View>
           )}
-          <View accessible accessibilityLabel={`${done} of ${total} sets done`} style={{ alignItems: 'flex-end', paddingBottom: 4 }}>
-            <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>HITS LANDED</Txt>
+          <View accessible accessibilityLabel={`${done} of ${total} sets done`} style={{ alignItems: 'flex-end', gap: 2, paddingBottom: 4 }}>
+            <Txt face="label" size={12} color={F.smoke}>Sets done</Txt>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-              <Txt face="display" size={36} lh={1.12} color={done ? accent : F.chalk}>{done}</Txt>
-              <Txt face="label" w={400} size={18} ls={0.03} color={F.smoke}>{`/ ${total}`}</Txt>
+              <Txt face="num" size={28} lh={1.3} color={done ? accent : F.chalk}>{done}</Txt>
+              <Txt face="mono" size={14} color={F.smoke}>{`/ ${total}`}</Txt>
             </View>
           </View>
         </View>
 
-        <MeterBar pct={total ? done / total : 0} segments={total > 1 && total <= 24 ? total : undefined} height={16} accessibilityLabel={`${done} of ${total} sets done`} />
+        <MeterBar pct={total ? done / total : 0} height={8} accessibilityLabel={`${done} of ${total} sets done`} />
         {/* REI's line always has its two lines of room, so a longer or shorter one never moves the set rows under your thumb. */}
         {!free ? (
-          <View accessibilityLiveRegion="polite" style={{ height: 2 * 14 * 1.4 * s.settings.textSize, justifyContent: 'center' }}>
-            <Txt size={14} w={500} lh={1.4} color={F.smoke} numberOfLines={2}>
+          <View accessibilityLiveRegion="polite" style={{ height: 2 * 15 * 1.45 * s.settings.textSize, justifyContent: 'center' }}>
+            <Txt face={live ? 'voice' : 'sans'} size={15} lh={1.45} color={live ? F.chalk : F.smoke} numberOfLines={2}>
               {live ? sessionLine(total ? done / total : 0, plan) : phase === 'past' ? 'Tick the sets you did and set how long it took.' : exercises.length ? 'Start the clock, or just tick your first set: that starts it too.' : 'Use today’s plan, or build your own below.'}
             </Txt>
           </View>
         ) : null}
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: SP.lg, paddingHorizontal: SP.lg, paddingBottom: SP.xxl, gap: SP.lg }} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: SP.xxl, paddingHorizontal: PAGE_X, paddingBottom: SP.huge, gap: SP.lg }} keyboardShouldPersistTaps="handled">
         {!exercises.length ? (
           <TodayPlan plan={today} next={next} byRei={!!s.program} onUse={usePlan} onBuild={() => setAdding(true)} />
         ) : (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
-            <Txt face="label" w={400} size={12} ls={0.1} lh={1.3} color={F.smoke} style={{ flex: 1 }}>TAP THE BOX WHEN A SET LANDS · TAP NUMBERS TO CHANGE · TAP A NAME FOR FORM TIPS</Txt>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.lg }}>
+            <Txt face="label" w={400} size={13} lh={1.4} color={F.smoke} style={{ flex: 1 }}>Tick a set when it is done. Tap a number to change it, a name for form tips.</Txt>
             <QuietButton lit icon="rei" label="Ask REI" accessibilityLabel="Ask REI to change today's workout" onPress={() => router.push({ pathname: '/talk', params: { draft: 'Change today’s workout: ' } })} />
           </View>
         )}
@@ -278,31 +280,32 @@ export default function Session() {
           const r = rows[i];
           const n = r.done.filter(Boolean).length;
           const won = n === r.done.length;
+          const on = i + 1 === current && !won;
           return (
-            <View key={`${i}-${ex.name}`} style={{ backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${won ? accent : n ? F.chalk : F.rope}`, paddingVertical: SP.md, paddingLeft: SP.md, paddingRight: SP.sm, gap: SP.md }}>
+            <View key={`${i}-${ex.name}`} style={{ backgroundColor: F.canvas, borderWidth: 1, borderColor: F.line, borderRadius: RADIUS.card, paddingTop: SP.md, paddingBottom: SP.lg, paddingHorizontal: CARD_PAD, gap: SP.md }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
-                <Tap haptic={false} onPress={() => setInfo(i)} accessibilityLabel={`Round ${i + 1}, ${ex.name}. ${n} of ${r.done.length} sets done`} accessibilityHint="Form tips and swaps" style={{ flex: 1, minHeight: HIT, justifyContent: 'center', gap: 2 }}>
+                <Tap haptic={false} onPress={() => setInfo(i)} accessibilityLabel={`Lift ${i + 1}, ${ex.name}. ${n} of ${r.done.length} sets done`} accessibilityHint="Form tips and swaps" style={{ flex: 1, minHeight: HIT, justifyContent: 'center', gap: 2 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
-                    <Txt face="labelItalic" w={600} size={12} ls={0.14} color={i + 1 === round && !won ? accent : F.smoke}>{`ROUND ${i + 1}`}</Txt>
-                    <View style={{ flexDirection: 'row', gap: 3 }}>
-                      {r.done.slice(0, 10).map((v, j) => <CutShape key={j} width={9} height={12} fill={v ? (isPr(i, j) ? gold : F.chalk) : F.rope} />)}
+                    <Txt face="mono" size={12} lh={1.35} color={on ? accent : F.smoke}>{`Lift ${i + 1}`}</Txt>
+                    <View style={{ flexDirection: 'row', gap: 4 }}>
+                      {r.done.slice(0, 10).map((v, j) => <InkDot key={j} size={8} color={v ? (isPr(i, j) ? gold : accent) : F.rope} />)}
                     </View>
                   </View>
-                  <Txt size={17} w={600} lh={1.25} numberOfLines={1}>{ex.name}</Txt>
-                  <Txt face="label" w={400} size={12} ls={0.08} color={F.smoke} numberOfLines={1}>{(last[liftKey(ex.name)] ?? (ex.last || 'First time · tap for form tips')).toUpperCase()}</Txt>
+                  <Txt face="heading" size={17} lh={1.35} numberOfLines={1}>{ex.name}</Txt>
+                  <Txt face="mono" size={12} lh={1.35} color={F.smoke} numberOfLines={1}>{last[liftKey(ex.name)] ?? (ex.last || 'First time · tap for form tips')}</Txt>
                 </Tap>
-                {won ? <RoundStamp label={`+${exerciseXp(n)} XP`} size="sm" /> : <RoundStamp label={n ? `+${exerciseXp(n)} XP` : `${r.done.length} sets`} tone={n ? 'accent' : 'outline'} size="sm" />}
-                <Tap onPress={() => removeExercise(i)} accessibilityLabel={`Remove ${ex.name}`} style={{ width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="close" size={16} color={F.smoke} tint={0} strokeWidth={2} />
+                {won ? <RoundStamp label={`+${exerciseXp(n)} XP`} size="sm" style={{ alignSelf: 'center' }} /> : <RoundStamp label={n ? `+${exerciseXp(n)} XP` : `${r.done.length} sets`} tone={n ? 'accent' : 'outline'} size="sm" style={{ alignSelf: 'center' }} />}
+                <Tap onPress={() => removeExercise(i)} accessibilityLabel={`Remove ${ex.name}`} style={{ width: HIT, height: HIT, marginRight: -SP.sm, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="close" size={16} color={F.smoke} tint={0} strokeWidth={1.6} />
                 </Tap>
               </View>
 
-              <View style={{ gap: SP.xs, paddingRight: SP.xs }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: SET_GAP, paddingHorizontal: 6 }}>
-                  <Txt face="label" w={600} size={12} ls={0.08} color={F.smoke} style={{ width: SET_TAG }}>SET</Txt>
-                  <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} align="center" style={{ flex: 1.2 }}>WEIGHT · KG</Txt>
-                  <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke} align="center" style={{ flex: 1 }}>REPS</Txt>
-                  <Txt face="label" size={12} color={F.smoke} align="center" numberOfLines={1} style={{ width: SET_TICK }}>DONE</Txt>
+              <View style={{ gap: SP.sm }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: SET_GAP }}>
+                  <Txt face="mono" size={12} color={F.smoke} style={{ width: SET_TAG }}>Set</Txt>
+                  <Txt face="mono" size={12} color={F.smoke} align="center" style={{ flex: KG_FLEX }}>Weight · kg</Txt>
+                  <Txt face="mono" size={12} color={F.smoke} align="center" style={{ flex: 1 }}>Reps</Txt>
+                  <Txt face="mono" size={12} color={F.smoke} align="center" numberOfLines={1} style={{ width: SET_TICK }}>Done</Txt>
                 </View>
                 {r.reps.map((reps, j) => (
                   <SetRow
@@ -321,7 +324,7 @@ export default function Session() {
                 ))}
               </View>
 
-              <View style={{ flexDirection: 'row', gap: SP.sm, paddingRight: SP.xs }}>
+              <View style={{ flexDirection: 'row', gap: SP.sm }}>
                 <QuietButton icon="plus" label="Add set" onPress={() => addSet(i)} accessibilityLabel={`Add a set to ${ex.name}`} style={{ flex: 1 }} />
                 {r.reps.length > 1 && !r.done[r.done.length - 1] ? <QuietButton icon="close" label="Last set" onPress={() => dropSet(i)} accessibilityLabel={`Remove the last set of ${ex.name}`} /> : null}
               </View>
@@ -332,29 +335,29 @@ export default function Session() {
         {exercises.length ? <QuietButton icon="plus" label="Add exercise" onPress={() => setAdding(true)} style={{ minHeight: 52 }} /> : null}
       </ScrollView>
 
-      {/* The round break */}
+      {/* The rest between sets */}
       {rest && live ? (
-        <View accessibilityLiveRegion="polite" style={{ marginHorizontal: SP.lg, marginBottom: SP.sm, padding: SP.md, backgroundColor: F.canvas, borderWidth: 2, borderColor: restLeft ? F.smoke : accent, gap: SP.sm }}>
+        <View accessibilityLiveRegion="polite" style={{ marginHorizontal: PAGE_X, marginBottom: SP.md, paddingVertical: SP.md, paddingHorizontal: SP.lg, backgroundColor: F.canvas, borderWidth: 1, borderColor: restLeft ? F.line : accent, borderRadius: RADIUS.card, gap: SP.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SP.md }}>
-            <View style={{ alignItems: 'flex-start', flexShrink: 1 }}>
-              <Txt face="labelItalic" w={600} size={12} ls={0.14} color={restLeft ? F.smoke : accent}>{restLeft ? 'ROUND BREAK' : 'BELL'}</Txt>
-              <Txt face="display" size={32} lh={1.15} color={restLeft ? F.chalk : accent} accessibilityLabel={restLeft ? `Rest, ${restLeft} seconds left` : 'Rest over. Next set'}>{restLeft ? clock(restLeft) : 'NEXT SET'}</Txt>
+            <View style={{ alignItems: 'flex-start', flexShrink: 1, gap: 2 }}>
+              <Txt face="label" size={12} color={restLeft ? F.smoke : accent}>{restLeft ? 'Rest' : 'Rest over'}</Txt>
+              <Txt face="display" exact size={28} lh={1.2} color={restLeft ? F.chalk : accent} accessibilityLabel={restLeft ? `Rest, ${restLeft} seconds left` : 'Rest over. Next set'}>{restLeft ? clock(restLeft) : 'Next set'}</Txt>
             </View>
             <View style={{ flexDirection: 'row', gap: SP.sm }}>
-              {restLeft ? <QuietButton label="+30" accessibilityLabel="Rest 30 seconds longer" onPress={() => setRest(x => (x ? { ...x, endsAt: x.endsAt + 30000, total: x.total + 30 } : x))} style={{ minWidth: 56 }} /> : null}
-              <QuietButton label={restLeft ? 'Skip' : 'OK'} accessibilityLabel={restLeft ? 'Skip the rest' : 'Dismiss'} onPress={() => setRest(null)} style={{ minWidth: 56 }} />
+              {restLeft ? <QuietButton label="+30" accessibilityLabel="Rest 30 seconds longer" onPress={() => setRest(x => (x ? { ...x, endsAt: x.endsAt + 30000, total: x.total + 30 } : x))} style={{ minWidth: 64 }} /> : null}
+              <QuietButton label={restLeft ? 'Skip' : 'OK'} accessibilityLabel={restLeft ? 'Skip the rest' : 'Dismiss'} onPress={() => setRest(null)} style={{ minWidth: 64 }} />
             </View>
           </View>
           <MeterBar pct={1 - restLeft / rest.total} height={8} accessibilityLabel="Rest timer" />
         </View>
       ) : null}
 
-      <View style={{ paddingTop: SP.md, paddingHorizontal: SP.lg, paddingBottom: Math.max(insets.bottom, SP.lg), borderTopWidth: 2, borderTopColor: F.rope, backgroundColor: F.arena, gap: SP.sm }}>
+      <View style={{ paddingTop: SP.md, paddingHorizontal: PAGE_X, paddingBottom: Math.max(insets.bottom, SP.lg), borderTopWidth: 1, borderTopColor: F.line, backgroundColor: F.arena, gap: SP.xs }}>
         {phase === 'ready' ? (
           <>
-            <CutButton icon="timer" label={exercises.length ? 'Start workout' : 'Pick exercises first'} meta={exercises.length ? `${exercises.length} round${exercises.length === 1 ? '' : 's'}` : undefined} disabled={!exercises.length} onPress={start} />
+            <CutButton icon="timer" label={exercises.length ? 'Start workout' : 'Pick exercises first'} meta={exercises.length ? lifts : undefined} disabled={!exercises.length} onPress={start} />
             <Tap onPress={() => setPhase('past')} disabled={!exercises.length} style={{ minHeight: HIT, alignItems: 'center', justifyContent: 'center' }}>
-              <Txt face="label" w={600} size={14} ls={0.08} color={exercises.length ? F.chalk : C.faint} align="center">ALREADY DONE? LOG IT WITHOUT THE TIMER</Txt>
+              <Txt face="label" size={13} lh={1.4} color={exercises.length ? F.smoke : C.faint} align="center">Already done? Log it without the timer</Txt>
             </Tap>
           </>
         ) : (
@@ -376,88 +379,84 @@ export default function Session() {
         />
       </AddExercise>
       <ExerciseSheet name={info === null ? null : exercises[info]?.name ?? null} onClose={() => setInfo(null)} onSwap={to => info !== null && swap(info, to)} />
-      {summary ? <RoundWon sum={summary} gold={gold} onLeave={leave} /> : null}
+      {summary ? <WorkoutDone sum={summary} gold={gold} onLeave={leave} /> : null}
     </View>
   );
 }
 
 const big = (n: number) => Math.round(n).toLocaleString('en-US');
 
-/** The payoff: the fight card once the workout is saved. Time, hits, volume, records and the XP it earned, then one way out. */
-function RoundWon({ sum, gold, onLeave }: { sum: Summary; gold: string; onLeave: () => void }) {
+/** The summary once the workout is saved: time, sets, volume, records and the XP it earned, then one way out. */
+function WorkoutDone({ sum, gold, onLeave }: { sum: Summary; gold: string; onLeave: () => void }) {
   const accent = useStore(s => s.accent);
   const insets = useSafeAreaInsets();
   const clean = sum.done === sum.total;
   const stats = [
     { k: 'Time', v: clock(sum.seconds) },
-    { k: 'Hits landed', v: `${sum.done}/${sum.total}` },
+    { k: 'Sets done', v: `${sum.done}/${sum.total}` },
     sum.volume > 0 ? { k: 'Volume', v: sum.volume >= 10000 ? `${(sum.volume / 1000).toFixed(1)} t` : `${big(sum.volume)} kg` } : { k: 'Reps', v: big(sum.reps) },
-    { k: 'PRs', v: String(sum.prs.length), hot: sum.prs.length > 0 },
+    { k: 'Records', v: String(sum.prs.length), hot: sum.prs.length > 0 },
   ];
   return (
     <View accessibilityViewIsModal style={[StyleSheet.absoluteFill, { backgroundColor: F.arena }]}>
       <Backdrop glow="bottom" />
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingTop: insets.top + SP.xl, paddingHorizontal: SP.lg, paddingBottom: SP.xl, gap: SP.xl }}>
-        <View style={{ alignItems: 'flex-start', gap: SP.sm }}>
-          <RoundStamp label={sum.title} tone="outline" size="sm" />
-          <View accessibilityRole="header" accessibilityLiveRegion="polite">
-            <Txt face="display" size={68} lh={1.05} color={accent} fit>ROUND WON</Txt>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingTop: insets.top + SP.xxl, paddingHorizontal: PAGE_X, paddingBottom: SP.xxl, gap: SP.huge }}>
+        <View style={{ alignItems: 'flex-start', gap: SP.md }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+            <RoundStamp label="Done" size="sm" style={{ alignSelf: 'center' }} />
+            <Txt face="mono" size={12} lh={1.35} color={F.smoke} numberOfLines={1} style={{ flexShrink: 1 }}>{sum.title}</Txt>
           </View>
-          <Txt size={15} w={500} lh={1.4} color={F.smoke}>{clean ? 'Every set landed. Eat, then sleep: that’s where it turns into muscle.' : `${sum.done} of ${sum.total} sets landed. Every one of them counts.`}</Txt>
+          <View accessibilityRole="header" accessibilityLiveRegion="polite">
+            <Txt face="display" exact size={34} lh={1.2} fit>Workout saved</Txt>
+          </View>
+          <Txt face="voice" size={17} lh={1.5}>{clean ? 'Every set done. Eat, then sleep. That is where it turns into muscle.' : `${sum.done} of ${sum.total} sets done. Every one of them counts.`}</Txt>
         </View>
 
-        <View style={{ gap: SP.sm }}>
+        <View style={{ gap: SP.md }}>
           <View accessible accessibilityLabel={`${sum.xp} XP earned`} style={{ flexDirection: 'row', alignItems: 'baseline', gap: SP.md }}>
-            <Txt face="display" size={72} lh={1.08}>{`+${big(sum.xp)}`}</Txt>
-            <Txt face="labelItalic" w={600} size={16} ls={0.12} color={F.smoke}>XP EARNED</Txt>
+            <Txt face="display" exact size={44} lh={1.2} color={accent}>{`+${big(sum.xp)}`}</Txt>
+            <Txt face="label" size={13} color={F.smoke}>XP earned</Txt>
           </View>
-          <MeterBar pct={sum.total ? sum.done / sum.total : 0} segments={sum.total > 1 && sum.total <= 24 ? sum.total : undefined} height={16} accessibilityLabel={`${sum.done} of ${sum.total} sets landed`} />
+          <MeterBar pct={sum.total ? sum.done / sum.total : 0} height={8} accessibilityLabel={`${sum.done} of ${sum.total} sets done`} />
         </View>
 
         <StatStrip items={stats} />
 
         {sum.prs.length ? (
           <View style={{ gap: SP.md }}>
-            <SectionHeader title="New records" meta={`${sum.prs.length}`} accent={gold} />
-            <View style={{ gap: SP.xs }}>
-              {sum.prs.map(p => <MoveRow key={p.name} name={p.name} value={p.set} accent={gold} style={{ borderLeftWidth: 4, borderLeftColor: gold }} />)}
+            <SectionHeader title="New records" meta={`${sum.prs.length}`} />
+            <View>
+              {sum.prs.map(p => <MoveRow key={p.name} name={p.name} value={p.set} done accent={gold} />)}
             </View>
           </View>
         ) : null}
       </ScrollView>
-      <View style={{ paddingTop: SP.md, paddingHorizontal: SP.lg, paddingBottom: Math.max(insets.bottom, SP.lg), borderTopWidth: 2, borderTopColor: F.rope, backgroundColor: F.arena }}>
-        <CutButton icon="check" label="Leave the ring" meta="Saved" accessibilityLabel="Leave the workout. It is saved" onPress={onLeave} />
+      <View style={{ paddingTop: SP.md, paddingHorizontal: PAGE_X, paddingBottom: Math.max(insets.bottom, SP.lg), borderTopWidth: 1, borderTopColor: F.line, backgroundColor: F.arena }}>
+        <CutButton icon="check" label="Done" meta="Saved to your log" accessibilityLabel="Leave the workout. It is saved" onPress={onLeave} />
       </View>
     </View>
   );
 }
 
-// Widths of the set row's fixed columns: the set number, the gaps and the landed box.
-const SET_TAG = 24, SET_GAP = 6, SET_TICK = 48;
+// The set row's fixed columns: the set number, the gaps and the tick box. The card's side padding
+// stays at 12 so two steppers still fit on a narrow phone.
+const CARD_PAD = SP.md, SET_TAG = 24, SET_GAP = 6, SET_TICK = HIT, KG_FLEX = 1.25;
 /** A stepper button is drawn 40pt wide; slop on its outer side makes the target 44. */
 const STEP_W = 40, STEP_SLOP = HIT - STEP_W;
 
-/** One set: weight and reps you can step or type, and the hit button. Bodyweight shows BW until a load is added. */
+/** One set: weight and reps you can step or type, and the tick box. Bodyweight shows BW until a load is added. */
 function SetRow({ n, kg, reps, done, pr, acc, gold, onKg, onReps, onToggle }: { n: number; kg: number | null; reps: number; done: boolean; pr: boolean; acc: string; gold: string; onKg: (v: number | null) => void; onReps: (v: number) => void; onToggle: () => void }) {
   const lit = pr ? gold : acc;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: SET_GAP, padding: 4, borderWidth: 2, borderColor: done ? lit : F.smoke, backgroundColor: done ? F.canvas2 : F.arena }}>
-      <View accessible accessibilityLabel={pr ? `Set ${n}, personal record` : `Set ${n}`} style={{ width: SET_TAG, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-        <CutShape width={SET_TAG} height={24} fill={done ? lit : F.canvas2} style={{ position: 'absolute', left: 0, top: 0 }} />
-        <Txt face="label" w={600} size={pr ? 11 : 14} color={done ? onColor(lit) : F.smoke}>{pr ? 'PR' : String(n)}</Txt>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: SET_GAP }}>
+      <View accessible accessibilityLabel={pr ? `Set ${n}, personal record` : `Set ${n}`} style={{ width: SET_TAG, height: HIT, justifyContent: 'center' }}>
+        <Txt face="num" size={pr ? 12 : 14} color={done ? lit : F.smoke}>{pr ? 'PR' : String(n)}</Txt>
       </View>
-      <Stepper flex={1.2} what={`Set ${n} weight`} value={kg} step={2.5} min={0} decimals onChange={v => onKg(v === 0 ? null : v)} empty="BW" />
+      <Stepper flex={KG_FLEX} what={`Set ${n} weight`} value={kg} step={2.5} min={0} decimals onChange={v => onKg(v === 0 ? null : v)} empty="BW" />
       <Stepper flex={1} what={`Set ${n} reps`} value={reps} step={1} min={1} onChange={v => onReps(Math.max(1, Math.round(v ?? 1)))} />
-      {/* Still to land: an empty box, quiet. Landed: filled in your colour (gold for a record) with the tick. Never a tick on an open set. */}
-      <Tap haptic={false} onPress={onToggle} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`Set ${n} done`} style={{ width: SET_TICK, height: HIT }}>
-        <CutBox fill={done ? lit : F.arena} stroke={done ? undefined : F.smoke} style={{ width: SET_TICK, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
-          {/* In a View so it stacks above the cut shape on the web too. */}
-          {done ? (
-            <View>
-              <Icon name="check" size={22} color={onColor(lit)} tint={0} strokeWidth={2.6} />
-            </View>
-          ) : null}
-        </CutBox>
+      {/* Still to do: an empty box, quiet. Done: filled in your colour (gold for a record) with the tick. Never a tick on an open set. */}
+      <Tap haptic={false} onPress={onToggle} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`Set ${n} done`} style={{ width: SET_TICK, height: HIT, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? lit : F.arena, borderWidth: 1, borderColor: done ? lit : F.rule, borderRadius: RADIUS.sm }}>
+        {done ? <Icon name="check" size={20} color={onColor(lit)} tint={0} strokeWidth={2} /> : null}
       </Tap>
     </View>
   );
@@ -474,11 +473,12 @@ function Stepper({ value, step, min, onChange, empty, decimals, flex, what }: { 
     setText(null);
     onChange(v);
   };
-  const btn = { width: STEP_W, height: HIT, alignItems: 'center' as const, justifyContent: 'center' as const };
+  // The frame's 1pt border comes out of the buttons, so the row stays 44pt tall.
+  const btn = { width: STEP_W - 1, height: HIT - 2, alignItems: 'center' as const, justifyContent: 'center' as const };
   return (
-    <View style={{ flex, flexDirection: 'row', alignItems: 'center', backgroundColor: F.canvas2 }}>
+    <View style={{ flex, flexDirection: 'row', alignItems: 'center', backgroundColor: F.arena, borderWidth: 1, borderColor: F.rule, borderRadius: RADIUS.sm }}>
       <Tap haptic={false} onPress={() => bump(-step)} accessibilityLabel={`${what}: ${step} less`} hitSlop={{ left: STEP_SLOP }} style={btn}>
-        <Txt size={20} w={600} color={F.smoke}>−</Txt>
+        <Txt size={18} w={500} lh={1.3} color={F.smoke}>−</Txt>
       </Tap>
       <TextInput
         value={shown}
@@ -495,16 +495,16 @@ function Stepper({ value, step, min, onChange, empty, decimals, flex, what }: { 
         keyboardType={decimals ? 'decimal-pad' : 'number-pad'}
         keyboardAppearance="dark"
         selectTextOnFocus
-        style={{ flex: 1, minWidth: 0, height: HIT, padding: 0, textAlign: 'center', fontFamily: fontFamily('display', 400), fontSize: 18 * s.settings.textSize, color: F.chalk }}
+        style={{ flex: 1, minWidth: 0, height: HIT - 2, padding: 0, textAlign: 'center', fontFamily: fontFamily('num'), fontSize: 16 * s.settings.textSize, color: F.chalk }}
       />
       <Tap haptic={false} onPress={() => bump(step)} accessibilityLabel={`${what}: ${step} more`} hitSlop={{ right: STEP_SLOP }} style={btn}>
-        <Txt size={20} w={600} color={F.smoke}>+</Txt>
+        <Txt size={18} w={500} lh={1.3} color={F.smoke}>+</Txt>
       </Tap>
     </View>
   );
 }
 
-/** "4 × 6 · 82.5 kg" → the loud part ("4 × 6") and the quiet part ("82.5 kg"). */
+/** "4 × 6 · 82.5 kg" → the sets and reps ("4 × 6") and the load ("82.5 kg"). */
 const splitTarget = (target: string): [string, string | undefined] => {
   const [value, ...rest] = target.split(' · ');
   return [value, rest.length ? rest.join(' · ') : undefined];
@@ -517,32 +517,34 @@ function TodayPlan({ plan, next, byRei, onUse, onBuild }: { plan: SessionPlan | 
     <>
       <SectionHeader title={`${dayName()}'s plan`} meta={byRei ? 'Written by REI' : 'Default split'} />
       {plan ? (
-        <View style={{ gap: SP.md }}>
-          <View style={{ alignItems: 'flex-start', gap: 2 }}>
-            <Txt face="display" size={32} lh={1.15}>{plan.title.toUpperCase()}</Txt>
-            <Txt size={14} w={500} lh={1.4} color={F.smoke}>{plan.sub}</Txt>
+        <View style={{ gap: SP.lg }}>
+          <View style={{ alignItems: 'flex-start', gap: SP.xs }}>
+            <Txt face="display" exact size={24} lh={1.25}>{plan.title}</Txt>
+            <Txt size={15} lh={1.45} color={F.smoke}>{plan.sub}</Txt>
           </View>
-          <View style={{ gap: SP.xs }}>
+          <View>
             {plan.exercises.map((e, i) => {
               const [value, detail] = splitTarget(e.target);
               return <MoveRow key={e.name} index={i + 1} name={e.name} detail={detail} value={value} />;
             })}
           </View>
-          <CutButton size="md" icon="check" label="Use today’s plan" meta={`${plan.exercises.length} rounds`} onPress={() => onUse(plan)} />
-          <QuietButton lit icon="rei" label="Ask REI to change it" onPress={askRei} />
+          <View style={{ gap: SP.sm }}>
+            <CutButton size="md" icon="check" label="Use today’s plan" meta={`${plan.exercises.length} lift${plan.exercises.length === 1 ? '' : 's'}`} onPress={() => onUse(plan)} />
+            <QuietButton lit icon="rei" label="Ask REI to change it" onPress={askRei} />
+          </View>
         </View>
       ) : (
-        <View style={{ gap: SP.md }}>
+        <View style={{ gap: SP.lg }}>
           <View style={{ alignItems: 'flex-start', gap: SP.xs }}>
-            <Txt face="display" size={28} lh={1.2}>{`${dayName()} · REST DAY`.toUpperCase()}</Txt>
-            <Txt size={14} w={500} lh={1.4} color={F.smoke}>REI planned recovery today. Training anyway? Pull your next session forward or build your own.</Txt>
+            <Txt face="display" exact size={24} lh={1.25}>{`${dayName()} · rest day`}</Txt>
+            <Txt size={15} lh={1.45} color={F.smoke}>REI planned recovery today. Training anyway? Pull your next session forward or build your own.</Txt>
           </View>
           {next ? (
             <>
-              <View style={{ backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${F.rope}`, padding: SP.md, gap: 2 }}>
-                <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{`NEXT UP · ${next.day.toUpperCase()}`}</Txt>
-                <Txt size={17} w={600}>{next.plan.title}</Txt>
-                <Txt size={13} w={500} color={F.smoke} numberOfLines={1}>{next.plan.exercises.map(e => e.name).join(' · ')}</Txt>
+              <View style={{ backgroundColor: F.canvas, borderWidth: 1, borderColor: F.line, borderRadius: RADIUS.card, padding: SP.lg, gap: SP.xs }}>
+                <Txt face="mono" size={12} lh={1.35} color={F.smoke}>{`Next up · ${next.day}`}</Txt>
+                <Txt face="heading" size={17} lh={1.35}>{next.plan.title}</Txt>
+                <Txt size={13} lh={1.4} color={F.smoke} numberOfLines={1}>{next.plan.exercises.map(e => e.name).join(' · ')}</Txt>
               </View>
               <CutButton size="md" label={`Do ${next.day}'s ${next.plan.title} today`} onPress={() => onUse(next.plan)} />
             </>
@@ -553,6 +555,8 @@ function TodayPlan({ plan, next, byRei, onUse, onBuild }: { plan: SessionPlan | 
     </>
   );
 }
+
+const capFirst = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
 
 /** Pick exercises: your lifts, today's plan, a muscle group, or search the whole library. `children` render inside the modal (a confirm on top of it). */
 function AddExercise({ open, onClose, onAdd, onRemove, have, planned, planTitle, yours, children }: { open: boolean; onClose: () => void; onAdd: (name: string) => void; onRemove: (name: string) => void; have: string[]; planned: string[]; planTitle: string; yours: string[]; children?: ReactNode }) {
@@ -568,62 +572,60 @@ function AddExercise({ open, onClose, onAdd, onRemove, have, planned, planTitle,
   return (
     <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: F.arena }}>
-        <View style={{ paddingTop: SP.lg, paddingHorizontal: SP.lg, paddingBottom: SP.md, gap: SP.md, borderBottomWidth: 2, borderBottomColor: F.rope }}>
+        <View style={{ paddingTop: SP.xxl, paddingHorizontal: PAGE_X, paddingBottom: SP.lg, gap: SP.lg, borderBottomWidth: 1, borderBottomColor: F.line }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
-            <View style={{ flex: 1, alignItems: 'flex-start' }}>
+            <View style={{ flex: 1, alignItems: 'flex-start', gap: 2 }}>
               <View accessibilityRole="header">
-                <Txt face="display" size={26} lh={1.2}>ADD EXERCISES</Txt>
+                <Txt face="display" exact size={24} lh={1.25}>Add exercises</Txt>
               </View>
-              <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{`${have.length} IN THIS WORKOUT · TAP AGAIN TO REMOVE`}</Txt>
+              <Txt face="mono" size={12} lh={1.35} color={F.smoke}>{`${have.length} added · tap again to remove`}</Txt>
             </View>
-            <Tap onPress={onClose} accessibilityLabel="Done adding exercises" style={{ minHeight: HIT, minWidth: 72, paddingHorizontal: SP.lg, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}>
-              <Txt face="display" lean={false} size={18} ls={0.04} color={onColor(accent)}>DONE</Txt>
-            </Tap>
+            <QuietButton label="Done" onPress={onClose} accessibilityLabel="Done adding exercises" style={{ minWidth: 72 }} />
           </View>
           <View>
             <Field value={q} onChangeText={setQ} placeholder="Search 750+ exercises" accessibilityLabel="Search exercises" autoCorrect={false} />
             {q ? (
               <Tap onPress={() => setQ('')} accessibilityLabel="Clear search" style={{ position: 'absolute', right: 2, top: 2, width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="close" size={16} color={F.smoke} tint={0} strokeWidth={2} />
+                <Icon name="close" size={16} color={F.smoke} tint={0} strokeWidth={1.6} />
               </Tap>
             ) : null}
           </View>
         </View>
-        <ScrollView contentContainerStyle={{ padding: SP.lg, paddingBottom: insets.bottom + SP.huge, gap: SP.lg }} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ paddingTop: SP.xxl, paddingHorizontal: PAGE_X, paddingBottom: insets.bottom + SP.huge, gap: SP.md }} keyboardShouldPersistTaps="handled">
           {!q.trim() ? (
             <>
               <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: SP.sm }}>
                 {([['plan', 'Today’s plan', planTitle], ['yours', 'Your lifts', yours.length ? `${yours.length} logged` : 'none yet']] as const).map(([id, label, sub]) => (
-                  <Chip key={id} label={label} sub={sub} on={group === id} onPress={() => setGroup(id)} style={{ flex: 1, minHeight: 52 }} />
+                  <Chip key={id} label={label} sub={sub} on={group === id} onPress={() => setGroup(id)} style={{ flex: 1, minHeight: 56 }} />
                 ))}
               </View>
-              <SectionHeader title="By muscle" />
+              <SectionHeader title="By muscle" style={{ marginTop: SP.md }} />
               <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm }}>
                 {PICK_GROUPS.map(x => <Chip key={x.id} label={x.name} on={group === x.id} onPress={() => setGroup(x.id)} style={{ width: '31%', flexGrow: 1, alignItems: 'center' }} />)}
               </View>
             </>
           ) : null}
-          <SectionHeader title={title} meta={`${list.length}`} />
-          <View style={{ gap: SP.xs }}>
+          <SectionHeader title={title} meta={`${list.length}`} style={{ marginTop: q.trim() ? 0 : SP.md }} />
+          <View>
             {list.map((name, i) => {
               const added = have.includes(liftKey(name));
               const lib = findExercise(name);
               return (
                 <Tap key={`${name}-${i}`} onPress={() => (added ? onRemove(name) : onAdd(name))} accessibilityRole="checkbox" accessibilityState={{ checked: added }} accessibilityLabel={`${name}${added ? ', added' : ''}`}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: 52, paddingVertical: SP.sm, paddingLeft: SP.md, paddingRight: SP.sm, backgroundColor: F.canvas, borderWidth: 3, borderColor: F.chalk, boxShadow: `4px 4px 0px ${added ? accent : F.canvas}`}}>
-                    <View style={{ flex: 1 }}>
-                      <Txt size={15} w={600} lh={1.3}>{name}</Txt>
-                      {lib ? <Txt face="label" w={400} size={12} ls={0.08} color={F.smoke} numberOfLines={1}>{[lib.primary.join(', '), lib.equipment].filter(Boolean).join(' · ').toUpperCase()}</Txt> : null}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: 56, paddingVertical: SP.sm, borderBottomWidth: 1, borderBottomColor: C.line }}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Txt size={15} w={500} lh={1.35}>{name}</Txt>
+                      {lib ? <Txt face="mono" size={12} lh={1.35} color={F.smoke} numberOfLines={1}>{capFirst([lib.primary.join(', '), lib.equipment].filter(Boolean).join(' · '))}</Txt> : null}
                     </View>
-                    {added ? <Txt face="label" w={600} size={12} ls={0.12} color={accent}>ADDED</Txt> : null}
-                    <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: added ? accent : F.arena, borderWidth: 2, borderColor: added ? accent : F.smoke }}>
-                      <Icon name={added ? 'check' : 'plus'} size={18} color={added ? onColor(accent) : F.chalk} tint={0} strokeWidth={2.2} />
+                    {added ? <Txt face="label" size={12} color={accent}>Added</Txt> : null}
+                    <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: added ? accent : F.canvas, borderWidth: 1, borderColor: added ? accent : F.rule, borderRadius: RADIUS.sm }}>
+                      <Icon name={added ? 'check' : 'plus'} size={18} color={added ? onColor(accent) : F.chalk} tint={0} strokeWidth={1.75} />
                     </View>
                   </View>
                 </Tap>
               );
             })}
-            {!list.length ? <Txt size={14} w={500} color={F.smoke}>{group === 'yours' && !q ? 'Lifts you log show up here.' : 'Nothing found. Try another word.'}</Txt> : null}
+            {!list.length ? <Txt size={15} lh={1.45} color={F.smoke}>{group === 'yours' && !q ? 'Lifts you log show up here.' : 'Nothing found. Try another word.'}</Txt> : null}
           </View>
         </ScrollView>
       </View>

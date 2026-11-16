@@ -8,7 +8,7 @@ import { SectionHeader } from '../components/fight';
 import { Icon } from '../components/icons';
 import { ListScreen, SubHeader } from '../components/Screen';
 import { Tap, Txt } from '../components/ui';
-import { F, HIT, SP } from '../lib/theme';
+import { C, F, SP } from '../lib/theme';
 
 const GROUPS: [string, string[]][] = [
   ['All', []],
@@ -20,6 +20,8 @@ const GROUPS: [string, string[]][] = [
   ['Core', ['abdominals']],
   ['Cardio', []],
 ];
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function Exercises() {
   const [q, setQ] = useState('');
@@ -33,11 +35,12 @@ export default function Exercises() {
   const header = (
     <View>
       <SubHeader title="Exercise library" onBack={() => router.back()} />
-      <Field value={q} onChangeText={setQ} placeholder="Search 750+ exercises" accessibilityLabel="Search exercises" autoCorrect={false} style={{ marginTop: SP.lg }} />
+      <Field value={q} onChangeText={setQ} placeholder="Search 750+ exercises" accessibilityLabel="Search exercises" autoCorrect={false} style={{ marginTop: SP.xxl }} />
       <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm, marginTop: SP.md }}>
         {GROUPS.map(([g]) => <Chip key={g} label={g} on={g === group} onPress={() => setGroup(g)} />)}
       </View>
-      <SectionHeader title={`${list.length} exercises`} meta="free-exercise-db" style={{ marginTop: SP.xl, marginBottom: SP.md }} />
+      <SectionHeader title={group === 'All' ? 'Exercises' : group} meta={`${list.length} · free-exercise-db`} style={{ marginTop: SP.huge, marginBottom: SP.xs }} />
+      {!list.length ? <Txt size={15} lh={1.45} color={F.smoke} style={{ marginTop: SP.sm }}>Nothing found. Try another word.</Txt> : null}
     </View>
   );
 
@@ -46,12 +49,12 @@ export default function Exercises() {
 
 const Row = memo(function Row({ e }: { e: LibExercise }) {
   return (
-    <Tap onPress={() => router.push({ pathname: '/lift', params: { name: e.name, id: e.id } })} accessibilityLabel={`${e.name}. ${e.primary.join(', ')}, ${e.equipment}, ${e.level}`} style={{ minHeight: HIT, marginBottom: SP.xs, paddingVertical: SP.sm, paddingHorizontal: SP.md, backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+    <Tap onPress={() => router.push({ pathname: '/lift', params: { name: e.name, id: e.id } })} accessibilityLabel={`${e.name}. ${e.primary.join(', ')}, ${e.equipment}, ${e.level}`} style={{ minHeight: 60, paddingVertical: SP.sm, borderBottomWidth: 1, borderBottomColor: C.line, flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
       <View style={{ flex: 1, gap: 2 }}>
-        <Txt size={15} w={600} lh={1.3}>{e.name}</Txt>
-        <Txt face="label" w={400} size={12} ls={0.08} color={F.smoke} numberOfLines={1}>{`${e.primary.join(', ')} · ${e.equipment} · ${e.level}`.toUpperCase()}</Txt>
+        <Txt size={15} w={500} lh={1.35}>{e.name}</Txt>
+        <Txt face="mono" size={12} lh={1.35} color={F.smoke} numberOfLines={1}>{cap([e.primary.join(', '), e.equipment, e.level].filter(Boolean).join(' · '))}</Txt>
       </View>
-      <Icon name="chevron" size={16} color={F.smoke} tint={0} strokeWidth={2} />
+      <Icon name="chevron" size={16} color={F.smoke} tint={0} strokeWidth={1.6} />
     </Tap>
   );
 });

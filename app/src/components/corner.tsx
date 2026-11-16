@@ -1,103 +1,90 @@
-// Talking with REI, as manga dialogue: REI speaks through the jagged paper bubble (REI's alone),
-// you answer in an ink panel edged in your colour. Shared by Talk, Voice and Live.
-import { shout } from '@rei/shared';
+// Talking with REI: REI's lines are set in Mincho beside a small red seal, with a thin vermilion
+// rule down their left edge; your lines sit in a quiet sumi card on the right. Shared by Talk,
+// Voice and Live. The file keeps its old name so the screens switch through it.
 import { useEffect, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Animated, Easing, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
-import { CutBox } from './cut';
 import { RoundStamp } from './fight';
 import { Icon } from './icons';
-import { ReiAvatar, ShoutBubble } from './ink';
+import { BrushRule, ReiSeal } from './ink';
 import { IconButton, Tap, Txt } from './ui';
-import { C, contrast, F, fontFamily, HIT, onColor, SHADOW, SP, STROKE } from '../lib/theme';
+import { C, contrast, F, fontFamily, HIT, RADIUS, SP } from '../lib/theme';
 import { useStore } from '../state/store';
 
-/** `color` if it reads on `bg` (4.5:1), else chalk. For colours that come from data (a voice's own colour). */
+/** `color` if it reads on `bg` (4.5:1), else rice paper. For colours that come from data (a voice's own colour). */
 export const readable = (color: string, bg: string = F.canvas): string => (contrast(color, bg) >= 4.5 ? color : F.chalk);
 
 /** Type style for a text input: body face at the app's text size. */
 export const inputType = (textSize: number, size = 16): TextStyle => ({ fontFamily: fontFamily('body', 500), fontSize: size * textSize, color: C.chalk });
 
-/** A lead sentence short enough to shout in display type. */
-const SHOUT_MAX = 64;
-
 /**
- * REI's line: a small avatar, then the jagged paper bubble on a hard shadow in your colour.
- * `lead` is the first sentence, set loud (display type when short; capitals only for Latin
- * script); `callout` marks REI calling you out, with the pop red.
+ * REI's line: the red seal and a mono tag, then the words in Mincho behind a thin vermilion rule.
+ * `lead` is the first sentence, set a little heavier; `callout` marks REI calling you out (the
+ * tag says so; the voice stays level).
  */
 export function CoachLine({ text, lead, time, callout, maxWidth = '94%', children }: { text?: string; lead?: string; time?: string; callout?: boolean; maxWidth?: ViewStyle['maxWidth']; children?: ReactNode }) {
-  const accent = useStore(s => s.accent);
-  const edge = callout ? F.rival : accent;
-  const tag = `${callout ? 'REI · CALL-OUT' : 'REI'}${time ? ` · ${time}` : ''}`;
+  const tag = `${callout ? 'REI · call-out' : 'REI'}${time ? ` · ${time}` : ''}`;
   return (
-    <View style={{ alignSelf: 'flex-start', maxWidth, gap: 4, paddingRight: SHADOW + 2, paddingBottom: SHADOW + 2 }}>
-      <Txt face="labelItalic" size={12} color={edge} style={{ marginLeft: 46 }}>{tag}</Txt>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-        <View style={{ paddingTop: 6 }}>
-          <ReiAvatar size={34} accent={edge} />
-        </View>
-        <ShoutBubble accent={edge} tailY={22} style={{ flexShrink: 1, gap: SP.xs, minHeight: 52, paddingVertical: 16 }}>
-          {lead ? (
-            lead.length <= SHOUT_MAX
-              ? <Txt face="display" exact size={15} lh={1.35} color={F.arena}>{shout(lead)}</Txt>
-              : <Txt size={17} w={600} lh={1.4} color={F.arena}>{lead}</Txt>
-          ) : null}
-          {text ? <Txt size={16} w={500} lh={1.45} color={F.arena}>{text}</Txt> : null}
-          {children}
-        </ShoutBubble>
+    <View style={{ alignSelf: 'flex-start', maxWidth, gap: SP.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
+        <ReiSeal size={24} ground={F.arena} />
+        <Txt face="mono" raw size={12} lh={1.35} color={callout ? F.rival : F.smoke}>{tag}</Txt>
+      </View>
+      <View style={{ borderLeftWidth: 1.5, borderLeftColor: F.seal, paddingLeft: 14, marginLeft: 11, gap: SP.xs }}>
+        {lead ? <Txt face="voice" w={600} size={18} lh={1.5}>{lead}</Txt> : null}
+        {text ? <Txt face="voice" size={17} lh={1.53}>{text}</Txt> : null}
+        {children}
       </View>
     </View>
   );
 }
 
-/** Your line: an ink panel in a paper stroke, on a hard shadow in your colour. */
+/** Your line: a quiet sumi card on the right. */
 export function CornerLine({ text, time, maxWidth = '82%' }: { text: string; time?: string; maxWidth?: ViewStyle['maxWidth'] }) {
-  const accent = useStore(s => s.accent);
   return (
-    <View style={{ alignSelf: 'flex-end', alignItems: 'flex-end', maxWidth, gap: 4, paddingRight: SHADOW, paddingBottom: SHADOW }}>
-      <Txt face="labelItalic" size={12} color={F.smoke}>{`YOU${time ? ` · ${time}` : ''}`}</Txt>
-      <View style={{ backgroundColor: F.canvas, borderWidth: 2, borderColor: F.chalk, paddingVertical: 10, paddingHorizontal: SP.md, boxShadow: `${SHADOW}px ${SHADOW}px 0px ${accent}` }}>
+    <View style={{ alignSelf: 'flex-end', alignItems: 'flex-end', maxWidth, gap: SP.xs }}>
+      <Txt face="mono" raw size={12} lh={1.35} color={F.smoke}>{`You${time ? ` · ${time}` : ''}`}</Txt>
+      <View style={{ backgroundColor: F.canvas, borderWidth: 1, borderColor: F.line, borderRadius: RADIUS.card, paddingVertical: 10, paddingHorizontal: SP.lg }}>
         <Txt size={16} w={500} lh={1.45}>{text}</Txt>
       </View>
     </View>
   );
 }
 
-/** A note from the app in the middle of a conversation ("LOGGED · 380 KCAL"). */
+/** A note from the app in the middle of a conversation ("Logged · 380 kcal"). */
 export function RingNote({ text, style }: { text: string; style?: StyleProp<ViewStyle> }) {
   return (
-    <View style={[{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }, style]}>
-      <View style={{ flex: 1, minWidth: 12, height: 2, backgroundColor: F.rope }} />
-      <Txt face="label" size={12} color={F.smoke} align="center" style={{ flexShrink: 1 }}>{text.toUpperCase()}</Txt>
-      <View style={{ flex: 1, minWidth: 12, height: 2, backgroundColor: F.rope }} />
+    <View style={[{ flexDirection: 'row', alignItems: 'center', gap: SP.md }, style]}>
+      <BrushRule style={{ flex: 1, minWidth: 12, transform: [{ scaleX: -1 }] }} />
+      <Txt face="mono" size={12} lh={1.35} color={F.smoke} align="center" style={{ flexShrink: 1 }}>{text}</Txt>
+      <BrushRule style={{ flex: 1, minWidth: 12 }} />
     </View>
   );
 }
 
-/** Top of a call screen (Voice, Live): display title, a status stamp, close. */
-export function CallHeader({ title, status, live, top, onClose }: { title: string; status: string; /** The status is "on air": filled in your colour. */ live?: boolean; /** Safe-area inset. */ top: number; onClose: () => void }) {
+/** Top of a call screen (Voice, Live): the title in Mincho, a status tag, close. */
+export function CallHeader({ title, status, live, top, onClose }: { title: string; status: string; /** The status is "on air": drawn in your colour. */ live?: boolean; /** Safe-area inset. */ top: number; onClose: () => void }) {
   return (
-    <View style={{ paddingTop: top + 6, paddingHorizontal: SP.lg, paddingBottom: SP.sm, flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: HIT, borderBottomWidth: STROKE, borderBottomColor: F.chalk }}>
-      <View accessibilityRole="header" style={{ flexShrink: 1 }}>
-        <Txt face="display" exact size={18} lh={1.25} fit>{title.toUpperCase()}</Txt>
+    <View style={{ paddingTop: top + 8, paddingHorizontal: SP.xxl, paddingBottom: SP.sm, gap: SP.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, minHeight: HIT }}>
+        <View accessibilityRole="header" style={{ flexShrink: 1 }}>
+          <Txt face="display" exact size={24} lh={1.25} fit>{title}</Txt>
+        </View>
+        <View accessibilityLiveRegion="polite" style={{ flex: 1, alignItems: 'flex-start' }}>
+          <RoundStamp label={status} tone={live ? 'accent' : 'outline'} size="sm" />
+        </View>
+        <IconButton size={HIT} onPress={onClose} accessibilityLabel="Close">✕</IconButton>
       </View>
-      <View accessibilityLiveRegion="polite" style={{ flex: 1, alignItems: 'flex-start' }}>
-        <RoundStamp label={status} tone={live ? 'accent' : 'outline'} size="sm" />
-      </View>
-      <IconButton size={HIT} onPress={onClose} accessibilityLabel="Close">✕</IconButton>
+      <BrushRule long height={6} />
     </View>
   );
 }
 
-/** A small inked button in your colour on a paper shadow: the send button beside a text box. `children` gets the ink colour. */
+/** A small rice-paper button: the send button beside a text box. `children` gets the ink colour. */
 export function SlabButton({ onPress, accessibilityLabel, disabled, children }: { onPress: () => void; accessibilityLabel: string; disabled?: boolean; children: (ink: string) => ReactNode }) {
-  const accent = useStore(s => s.accent);
-  const ink = disabled ? F.smoke : onColor(accent);
+  const ink = disabled ? C.faint : F.arena;
   return (
-    <Tap onPress={onPress} disabled={disabled} accessibilityLabel={accessibilityLabel} style={{ paddingRight: SHADOW, paddingBottom: SHADOW }}>
-      <CutBox fill={disabled ? F.canvas2 : accent} stroke={disabled ? F.rope : F.chalk} strokeWidth={STROKE} shadow={disabled ? undefined : F.chalk} style={{ width: 56, height: 48, alignItems: 'center', justifyContent: 'center' }}>
-        {children(ink)}
-      </CutBox>
+    <Tap onPress={onPress} disabled={disabled} accessibilityLabel={accessibilityLabel} style={{ width: 52, height: 48, borderRadius: RADIUS.sm, backgroundColor: disabled ? F.canvas2 : F.chalk, alignItems: 'center', justifyContent: 'center' }}>
+      {children(ink)}
     </Tap>
   );
 }
@@ -106,7 +93,7 @@ export function SlabButton({ onPress, accessibilityLabel, disabled, children }: 
 export function SendArrow({ color }: { color: string }) {
   return (
     <View style={{ transform: [{ rotate: '-90deg' }] }}>
-      <Icon name="chevron" size={24} color={color} strokeWidth={2.6} />
+      <Icon name="chevron" size={22} color={color} tint={0} strokeWidth={1.9} />
     </View>
   );
 }
@@ -114,7 +101,7 @@ export function SendArrow({ color }: { color: string }) {
 const BARS = [0.45, 0.8, 1, 0.65, 0.35];
 
 /**
- * The mic level: five flat bars that bounce while `active` and rest when not. Flat colour, no
+ * The mic level: five soft bars that rise and fall while `active` and rest when not. Flat colour, no
  * glow. Holds still when Reduce Motion is on.
  */
 export function LevelBars({ active, color, height = 40 }: { active: boolean; color?: string; height?: number }) {
@@ -148,7 +135,7 @@ export function LevelBars({ active, color, height = 40 }: { active: boolean; col
   return (
     <View accessibilityElementsHidden importantForAccessibility="no" style={{ height, flexDirection: 'row', alignItems: 'center', gap: w * 0.75 }}>
       {BARS.map((k, i) => (
-        <Animated.View key={i} style={{ width: w, height: height * k, backgroundColor: active ? col : F.rope, transform: [{ scaleY: vs[i].interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }} />
+        <Animated.View key={i} style={{ width: w, height: height * k, borderRadius: w / 2, backgroundColor: active ? col : F.rope, transform: [{ scaleY: vs[i].interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }} />
       ))}
     </View>
   );

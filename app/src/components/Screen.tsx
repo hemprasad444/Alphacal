@@ -3,23 +3,24 @@ import type { ReactElement, ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Backdrop } from './Backdrop';
+import { BrushRule } from './ink';
 import { IconButton, Txt } from './ui';
-import { HIT, STROKE, C } from '../lib/theme';
+import { HIT } from '../lib/theme';
 
-/** Room the tab bar takes at the bottom of a tab screen, above the safe area (bar plus the raised REI button). */
-export const TAB_BAR_ROOM = 94;
+/** Room the tab bar takes at the bottom of a tab screen, above the safe area (bar plus the raised REI seal). */
+export const TAB_BAR_ROOM = 88;
 
-/** Side margin of every page (pt). */
-export const PAGE_X = 16;
+/** Side margin of every page (pt): three steps of the 8pt grid. */
+export const PAGE_X = 24;
 
-/** Scrolling page on the ink backdrop. `tabs` leaves room for the tab bar. */
+/** Scrolling page on the night-washi backdrop. `tabs` leaves room for the tab bar. */
 export function Screen({ children, tabs = true }: { children: ReactNode; tabs?: boolean }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1 }}>
       <Backdrop />
       <ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + 8, paddingHorizontal: PAGE_X, paddingBottom: tabs ? Math.max(insets.bottom, 12) + TAB_BAR_ROOM + 20 : insets.bottom + 40 }}
+        contentContainerStyle={{ paddingTop: insets.top + 8, paddingHorizontal: PAGE_X, paddingBottom: tabs ? Math.max(insets.bottom, 12) + TAB_BAR_ROOM + 24 : insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
@@ -52,14 +53,17 @@ export function ListScreen<T>({ header, data, renderItem, keyExtractor, footer }
   );
 }
 
-/** Back button and the page name as a display title, on an ink rule. */
+/** Back button and the page name in Mincho, over a brush rule. */
 export function SubHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: HIT, paddingTop: 6, paddingBottom: 10, borderBottomWidth: STROKE, borderBottomColor: C.chalk }}>
-      <IconButton size={HIT} onPress={onBack} accessibilityLabel="Back">‹</IconButton>
-      <View accessibilityRole="header" style={{ flex: 1, alignItems: 'flex-start' }}>
-        <Txt face="display" exact size={20} lh={1.25} fit>{title.toUpperCase()}</Txt>
+    <View style={{ paddingTop: 4, gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: HIT }}>
+        <IconButton size={HIT} onPress={onBack} accessibilityLabel="Back">‹</IconButton>
+        <View accessibilityRole="header" style={{ flex: 1, alignItems: 'flex-start' }}>
+          <Txt face="display" exact size={24} lh={1.25} fit>{title}</Txt>
+        </View>
       </View>
+      <BrushRule long height={6} />
     </View>
   );
 }

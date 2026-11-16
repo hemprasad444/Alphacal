@@ -10,7 +10,7 @@ const now = new Date(2026, 9, 3, 12, 0);
 const d = (over: Partial<Intake> = {}): Intake => ({ ...DEFAULT_INTAKE, name: 'Hem', ...over });
 
 describe('onboarding', () => {
-  it('has fourteen rounds between the cover and the walkout; the account comes before, not inside', () => {
+  it('has fourteen parts between the cover and the welcome; the account comes before, not inside', () => {
     expect(CHAPTERS).toBe(14);
     expect(STEPS[0].id).toBe('boot');
     expect(STEPS.map(s => s.id).slice(-2)).toEqual(['pact', 'done']);
@@ -61,9 +61,9 @@ describe('onboarding', () => {
   });
 
   it('greets with the chosen partner on the partner chapter', () => {
-    expect(reiLine('partner', d())).toMatch(/corner/);
+    expect(reiLine('partner', d())).toMatch(/voice/);
     expect(reiLine('partner', d({ character: 'naruto' }))).toMatch(/^Kai\./);
-    expect(pactRows(d({ character: 'gojo' })).find(([k]) => k === 'CORNER')?.[1]).toMatch(/^Ace/);
+    expect(pactRows(d({ character: 'gojo' })).find(([k]) => k === 'Voice')?.[1]).toMatch(/^Ace/);
   });
 
   it('runs the fuel numbers from Mifflin–St Jeor, activity and the goal', () => {

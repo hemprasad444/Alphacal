@@ -1,5 +1,5 @@
-// The weekly leaderboard as a ladder: live rows from Firestore (a sample board in demo mode).
-// Your rung is always on it, wherever you stand, with what it takes to climb.
+// This week's board: live rows from Firestore (a sample board in demo mode).
+// Your row is always on it, wherever you stand, with what it takes to move up.
 import { isoWeek, RANKS } from '@rei/shared';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -44,8 +44,8 @@ export function BoardLadder({ rows, limit, you, rank }: { rows: Player[]; limit?
       <Ladder rows={shown} showGap={false} />
       {lines ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: SP.md, rowGap: 2 }}>
-          <Txt face="label" w={600} size={12} ls={0.12} color={accent}>{lines.next}</Txt>
-          {lines.top ? <Txt face="label" w={600} size={12} ls={0.12} color={F.smoke}>{lines.top}</Txt> : null}
+          <Txt face="mono" raw size={12} lh={1.35} color={accent}>{lines.next}</Txt>
+          {lines.top ? <Txt face="mono" raw size={12} lh={1.35} color={F.smoke}>{lines.top}</Txt> : null}
         </View>
       ) : null}
     </View>
@@ -58,7 +58,7 @@ export function BoardPreview({ you, rank }: { you: number; rank?: string }) {
   const rows = useBoard();
   const list = rows ?? [];
   if (!list.length) {
-    return <Txt size={14} w={500} lh={1.4} color={F.smoke}>{cloud ? 'Nobody on the board yet this week. Log anything to claim first place.' : 'Sign in to join the weekly board.'}</Txt>;
+    return <Txt size={15} w={500} lh={1.5} color={F.smoke}>{cloud ? 'Nobody is on the board yet this week. Log anything to take first place.' : 'Sign in to join this week’s board.'}</Txt>;
   }
   return <BoardLadder rows={list} limit={3} you={you} rank={rank} />;
 }

@@ -1,11 +1,11 @@
-// First-run onboarding (the pre-fight training camp): fourteen short rounds in which REI learns who
+// First-run onboarding (setting up with REI): fourteen short parts in which REI learns who
 // the user is, then turns the answers into their profile, targets, settings and lasting memory.
 // Screens live in the app (app/src/app/onboarding.tsx); everything that decides numbers is here.
 //
-// The rounds are ordered by what REI needs first: who you are and what you want (name, look, goal),
+// The parts are ordered by what REI needs first: who you are and what you want (name, look, goal),
 // the numbers the targets come from (body, target), then what the first week is built on (training,
-// kitchen). The corner pick is the breather before the last short forms; the fuel numbers are the
-// payoff once everything they depend on is in; the optional extras come last, then the contract.
+// kitchen). The voice pick is the breather before the last short forms; the fuel numbers are the
+// payoff once everything they depend on is in; the optional extras come last, then the vow.
 import { characterOf } from './characters';
 import type { IconKey } from './icons';
 import { isoDate } from './time';
@@ -29,21 +29,21 @@ export interface Archetype {
 }
 
 export const ARCHETYPES: Archetype[] = [
-  { id: 'shinobi', icon: 'kunai', name: 'The Shadow', ref: 'Lean · fast', bf: 11, gain: 0, goal: 'lean', bars: [55, 92, 40], spec: '10–12% BF · LEAN · QUICK', disc: ['Calisthenics', 'Running', 'Hypertrophy'], quip: 'The Shadow. Lean, fast, nothing wasted. That means a real cut and a lot of conditioning. No hiding.' },
-  { id: 'swordsman', icon: 'sword', name: 'The Swordsman', ref: 'Broad · dense', bf: 11, gain: 3, goal: 'recomp', bars: [86, 66, 74], spec: '10–12% BF · BROAD · DENSE', disc: ['Hypertrophy', 'Strength'], quip: 'The Swordsman. Broad back, dense shoulders, heavy lifting. Rows and presses become your religion.' },
-  { id: 'slayer', icon: 'flame', name: 'The Engine', ref: 'Athletic · tireless', bf: 12, gain: 1, goal: 'lean', bars: [62, 82, 50], spec: '11–13% BF · ATHLETIC', disc: ['Running', 'Calisthenics', 'Hypertrophy'], quip: 'The Engine. A motor that never quits. Expect early runs and breath work. Full focus.' },
-  { id: 'sorcerer', icon: 'eye', name: 'The Apex', ref: 'Shredded · powerful', bf: 9, gain: 4, goal: 'recomp', bars: [92, 86, 80], spec: '8–10% BF · SHREDDED', disc: ['Hypertrophy', 'Strength', 'Calisthenics', 'Running'], quip: 'The Apex. Shredded and powerful. The hardest one on this list. Good. I wanted to see if you would pick it.' },
-  { id: 'symbol', icon: 'star', name: 'The Titan', ref: 'Maximum size', bf: 14, gain: 8, goal: 'size', bars: [100, 48, 100], spec: '12–15% BF · MAXIMUM SIZE', disc: ['Hypertrophy', 'Strength'], quip: 'The Titan. Maximum size. That means eating a lot more than you want to, every day. No days off.' },
-  { id: 'caped', icon: 'fist', name: 'The Minimalist', ref: 'Simply fit', bf: 13, gain: 0, goal: 'lean', bars: [74, 72, 38], spec: '12–14% BF · SIMPLY FIT', disc: ['Calisthenics', 'Running'], quip: 'The Minimalist. Push, pull, squat, run. No machines, no fuss. Simple is the hardest thing to do every single day.' },
+  { id: 'shinobi', icon: 'kunai', name: 'The Shadow', ref: 'Lean · fast', bf: 11, gain: 0, goal: 'lean', bars: [55, 92, 40], spec: '10–12% body fat · lean · quick', disc: ['Calisthenics', 'Running', 'Hypertrophy'], quip: 'The Shadow. Lean, fast, nothing wasted. That means a real cut and a lot of conditioning. No hiding.' },
+  { id: 'swordsman', icon: 'sword', name: 'The Swordsman', ref: 'Broad · dense', bf: 11, gain: 3, goal: 'recomp', bars: [86, 66, 74], spec: '10–12% body fat · broad · dense', disc: ['Hypertrophy', 'Strength'], quip: 'The Swordsman. Broad back, dense shoulders, heavy lifting. Rows and presses become your religion.' },
+  { id: 'slayer', icon: 'flame', name: 'The Engine', ref: 'Athletic · tireless', bf: 12, gain: 1, goal: 'lean', bars: [62, 82, 50], spec: '11–13% body fat · athletic', disc: ['Running', 'Calisthenics', 'Hypertrophy'], quip: 'The Engine. A motor that never quits. Expect early runs and breath work. Full focus.' },
+  { id: 'sorcerer', icon: 'eye', name: 'The Apex', ref: 'Shredded · powerful', bf: 9, gain: 4, goal: 'recomp', bars: [92, 86, 80], spec: '8–10% body fat · shredded', disc: ['Hypertrophy', 'Strength', 'Calisthenics', 'Running'], quip: 'The Apex. Shredded and powerful. The hardest one on this list. Good. I wanted to see if you would pick it.' },
+  { id: 'symbol', icon: 'star', name: 'The Titan', ref: 'Maximum size', bf: 14, gain: 8, goal: 'size', bars: [100, 48, 100], spec: '12–15% body fat · maximum size', disc: ['Hypertrophy', 'Strength'], quip: 'The Titan. Maximum size. That means eating a lot more than you want to, every day. No days off.' },
+  { id: 'caped', icon: 'fist', name: 'The Minimalist', ref: 'Simply fit', bf: 13, gain: 0, goal: 'lean', bars: [74, 72, 38], spec: '12–14% body fat · simply fit', disc: ['Calisthenics', 'Running'], quip: 'The Minimalist. Push, pull, squat, run. No machines, no fuss. Simple is the hardest thing to do every single day.' },
 ];
 
 export type GoalId = 'lean' | 'size' | 'strong' | 'recomp';
 
 export const GOALS: { id: GoalId; icon: IconKey; tag: string; label: string; sub: string; adj: number }[] = [
-  { id: 'lean', icon: 'flame', tag: 'CUT', label: 'Get lean', sub: 'Drop fat, keep muscle', adj: -0.18 },
-  { id: 'size', icon: 'gym', tag: 'BULK', label: 'Build size', sub: 'Add muscle, little fat', adj: 0.1 },
-  { id: 'strong', icon: 'strength', tag: 'STRENGTH', label: 'Get strong', sub: 'Move bigger numbers', adj: 0.03 },
-  { id: 'recomp', icon: 'progress', tag: 'RECOMP', label: 'Recomp', sub: 'Lose fat, gain muscle', adj: -0.08 },
+  { id: 'lean', icon: 'flame', tag: 'Cut', label: 'Get lean', sub: 'Drop fat, keep muscle', adj: -0.18 },
+  { id: 'size', icon: 'gym', tag: 'Bulk', label: 'Build size', sub: 'Add muscle, little fat', adj: 0.1 },
+  { id: 'strong', icon: 'strength', tag: 'Strength', label: 'Get strong', sub: 'Move bigger numbers', adj: 0.03 },
+  { id: 'recomp', icon: 'progress', tag: 'Recomp', label: 'Recomp', sub: 'Lose fat, gain muscle', adj: -0.08 },
 ];
 
 export const TONES: { id: Tone; icon: IconKey; sub: string }[] = [
@@ -55,44 +55,44 @@ export const TONES: { id: Tone; icon: IconKey; sub: string }[] = [
 export type StepId = 'boot' | 'name' | 'ideal' | 'vow' | 'body' | 'target' | 'train' | 'kitchen' | 'partner' | 'life' | 'fuel' | 'power' | 'weak' | 'tone' | 'pact' | 'done';
 
 /**
- * In order. Rounds have an `icon` and a title `t`; the cover and the walkout after the contract don't.
+ * In order. Parts have an `icon` and a title `t`; the cover and the welcome after the vow don't.
  * The account comes first (sign-in screen), so there is no account step in here.
  *
- * What each round collects, and why it sits where it does:
- * - name: `name`. Everything REI says uses it; the corner voices are prepared from it.
+ * What each part collects, and why it sits where it does:
+ * - name: `name`. Everything REI says uses it; the voices are prepared from it.
  * - ideal: `arch` (and through it a starting `goal`, `disc` and target). One tap.
  * - vow: `goal`, `weeks`, `why`. The goal drives calories; the weeks set the deadline.
  * - body: `sex`, `height`, `weight`, `bf`, `age`. Calories, the target and the first program need them.
  * - target: `targetWeight`, `targetBf`. Needs the look and the body; judged against the weeks.
  * - train: `exp`, `disc`, `sessions`, `length`, `time`, `equip`. What the first program is built on.
  * - kitchen: `diet`, `cuisine`, `meals`, `cook`, `alcohol`. What REI plans meals around.
- * - partner: `character`, `theme`. The breather: pick the corner voice and the world.
+ * - partner: `character`, `theme`. The breather: pick the voice and the world.
  * - life: `job`, `wake`, `bed`, `stress`, `steps`. The job is the last input the calories need.
  * - fuel: `kcalAdj`. The payoff: calories and macros from everything above.
  * - power: `bench`, `squat`, `dead`, `pullups`, `run5k`, `tested`. Optional; skipping is fine.
  * - weak: `quit`, `injuries`, `note`. Optional; lasting memory.
  * - tone: `tone`, `nudge`, `speak`. How REI talks and when.
- * - pact: nothing new. Read it, hold to sign.
+ * - pact: nothing new. Read it, hold to seal.
  *
  * `waist`, `health` and `photo` are still on the intake (old drafts and saved intakes have them)
- * but no round asks for them: nothing in the app read them. `intensity` is only on the type now.
+ * but no part asks for them: nothing in the app read them. `intensity` is only on the type now.
  */
 export const STEPS: { id: StepId; icon?: IconKey; t?: string; cta?: string }[] = [
   { id: 'boot' },
-  { id: 'name', icon: 'profile', t: 'RING NAME', cta: 'That’s me' },
-  { id: 'ideal', icon: 'star', t: 'FIGHTER TYPE', cta: 'This is who I become' },
-  { id: 'vow', icon: 'vow', t: 'THE GOAL', cta: 'Lock the goal' },
-  { id: 'body', icon: 'weight', t: 'WEIGH-IN', cta: 'Weigh-in done' },
-  { id: 'target', icon: 'target', t: 'FIGHT WEIGHT', cta: 'Set the target' },
-  { id: 'train', icon: 'train', t: 'TRAINING CAMP', cta: 'Confirm the camp' },
-  { id: 'kitchen', icon: 'fuel', t: 'KITCHEN', cta: 'That’s how I eat' },
-  { id: 'partner', icon: 'rei', t: 'YOUR CORNER', cta: 'You’re in my corner' },
-  { id: 'life', icon: 'sleep', t: 'DAILY LIFE', cta: 'Run my numbers' },
-  { id: 'fuel', icon: 'kcal', t: 'FUEL', cta: 'Accept the fuel' },
-  { id: 'power', icon: 'strength', t: 'FIGHT RECORD', cta: 'Log my numbers' },
-  { id: 'weak', icon: 'heart', t: 'WEAK POINTS', cta: 'Remember this' },
-  { id: 'tone', icon: 'voice', t: 'CORNER TALK', cta: 'That’s how you talk to me' },
-  { id: 'pact', icon: 'scroll', t: 'THE PACT' },
+  { id: 'name', icon: 'profile', t: 'Your name', cta: 'That’s me' },
+  { id: 'ideal', icon: 'star', t: 'The look', cta: 'This is who I become' },
+  { id: 'vow', icon: 'vow', t: 'The goal', cta: 'Set the goal' },
+  { id: 'body', icon: 'weight', t: 'Where you stand', cta: 'Those are my numbers' },
+  { id: 'target', icon: 'target', t: 'The target', cta: 'Set the target' },
+  { id: 'train', icon: 'train', t: 'Training', cta: 'Confirm the week' },
+  { id: 'kitchen', icon: 'fuel', t: 'Kitchen', cta: 'That’s how I eat' },
+  { id: 'partner', icon: 'rei', t: 'Voice and world', cta: 'Keep this voice' },
+  { id: 'life', icon: 'sleep', t: 'Daily life', cta: 'Run my numbers' },
+  { id: 'fuel', icon: 'kcal', t: 'Fuel', cta: 'Accept the fuel' },
+  { id: 'power', icon: 'strength', t: 'Your bests', cta: 'Log my numbers' },
+  { id: 'weak', icon: 'heart', t: 'Weak points', cta: 'Remember this' },
+  { id: 'tone', icon: 'voice', t: 'How I talk', cta: 'That’s how you talk to me' },
+  { id: 'pact', icon: 'scroll', t: 'Your vow' },
   { id: 'done' },
 ];
 
@@ -247,12 +247,12 @@ export function vowSentence(d: Intake, now: Date): string {
   }[d.goal];
 }
 
-/** What REI says at the top of each round. */
+/** What REI says at the top of each part. */
 export function reiLine(step: StepId, d: Intake): string {
   const n = nameOf(d), a = archetypeOf(d);
   switch (step) {
-    case 'name': return 'Round one. What do I call you? I’ll be using it a lot. Especially when you’re slacking.';
-    case 'ideal': return a ? a.quip : d.arch === 'none' ? 'Your own vision. Good. Describe it in your goal and I’ll reverse-engineer the plan from it.' : `Every fighter has a form they’re chasing, ${n}. Pick yours. Or bring your own.`;
+    case 'name': return 'First things first. What do I call you? I’ll be using it a lot. Especially when you’re slacking.';
+    case 'ideal': return a ? a.quip : d.arch === 'none' ? 'Your own vision. Good. Describe it in your goal and I’ll reverse-engineer the plan from it.' : `Everyone is chasing a shape, ${n}. Pick yours. Or bring your own.`;
     case 'vow': return `Now say it properly, ${n}. Not a wish. A target with a date. And tell me why, because I’ll quote it back to you.`;
     case 'body': return 'Step on the scale. Real numbers. I can’t fix what you round down.';
     case 'target': {
@@ -264,7 +264,7 @@ export function reiLine(step: StepId, d: Intake): string {
       if (pct < 0.25) return pre + `${x} kg a week. Comfortable doesn’t change physiques. Tighten the date.`;
       return pre + `${x} kg a week for ${d.weeks} weeks. Realistic. Which means there’s no excuse.`;
     }
-    case 'power': return 'Your record so far. Best recent numbers, so your first targets aren’t from a template. Skip what you don’t know.';
+    case 'power': return 'Your bests so far. Recent numbers, so your first targets aren’t from a template. Skip what you don’t know.';
     case 'train': return 'How many days can you actually train? Pick what you’ll do on a bad week, not a good one.';
     case 'life': {
       const h = sleepHours(d);
@@ -272,18 +272,18 @@ export function reiLine(step: StepId, d: Intake): string {
     }
     case 'kitchen': return 'How you actually eat, not how you wish you ate. I plan your meals around this.';
     case 'fuel': return `I ran your numbers. This is your daily fuel, ${n}. Protein first, every single day.`;
-    case 'weak': return 'Every fighter has a weakness. Tell me yours now. I’ll be waiting for it.';
-    case 'tone': return 'How do you want me to talk to you between rounds? Choose carefully. I stick to it.';
+    case 'weak': return 'Everyone has a weak point. Tell me yours now. I’ll be waiting for it.';
+    case 'tone': return 'How do you want me to talk to you day to day? Choose carefully. I stick to it.';
     case 'partner': {
       const c = characterOf(d.character);
-      return c.id === 'rei' ? 'Halfway. Take a breather. Who’s in your corner? Me, by default. Or pick another voice. Tap one to hear them.' : `${c.name}. Good pick. They’ll speak for me on calls and replies. Tap anyone else to hear them.`;
+      return c.id === 'rei' ? 'Halfway. Take a breath. Whose voice do you want to hear? Mine, by default. Or pick another. Tap one to hear them.' : `${c.name}. Good pick. They’ll speak for me on calls and replies. Tap anyone else to hear them.`;
     }
-    case 'pact': return 'Your contract. Read it. Then hold to sign it. Once it’s signed, I hold you to every line.';
+    case 'pact': return 'Your vow. Read it. Then hold to seal it. Once it’s sealed, I hold you to every line.';
     default: return '';
   }
 }
 
-/** How REI would sound in each voice, for the tone round. */
+/** How REI would sound in each voice, for the tone part. */
 export function toneSample(tone: Tone, d: Intake): string {
   const n = nameOf(d), t = trainTime(d);
   if (tone === 'Coach') return `Two sessions missed this week, ${n}. Tonight’s push puts you back on plan. ${t}, 52 minutes, top set 82.5 × 6.`;
@@ -294,12 +294,12 @@ export function toneSample(tone: Tone, d: Intake): string {
 export function pactRows(d: Intake): [string, string][] {
   const a = archetypeOf(d), c = fuel(d);
   return [
-    ['IDEAL', a ? `${a.name} · ${a.ref}` : 'My own reference'],
-    ['TRAIN', `${d.sessions}× a week · ${d.length} min · ${trainTime(d)}`],
-    ['FUEL', `${c.kcal.toLocaleString('en-US')} kcal · ${c.p} g protein`],
-    ['SLEEP', `${clockOf(d.bed)} → ${clockOf(d.wake)} · ${sleepHours(d).toFixed(1)} h`],
-    ['WATCH FOR', picked(d.quit).slice(0, 2).join(', ') || 'Nothing. We will see.'],
-    ['CORNER', `${characterOf(d.character).name} · ${d.tone}`],
+    ['Ideal', a ? `${a.name} · ${a.ref}` : 'My own reference'],
+    ['Train', `${d.sessions}× a week · ${d.length} min · ${trainTime(d)}`],
+    ['Fuel', `${c.kcal.toLocaleString('en-US')} kcal · ${c.p} g protein`],
+    ['Sleep', `${clockOf(d.bed)} → ${clockOf(d.wake)} · ${sleepHours(d).toFixed(1)} h`],
+    ['Watch for', picked(d.quit).slice(0, 2).join(', ') || 'Nothing. We will see.'],
+    ['Voice', `${characterOf(d.character).name} · ${d.tone}`],
   ];
 }
 

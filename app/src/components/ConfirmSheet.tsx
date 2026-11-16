@@ -1,8 +1,9 @@
-// The in-app confirm: an ink sheet that replaces the native alert. One question, one clear
+// The in-app confirm: a sumi sheet that replaces the native alert. One question, one clear
 // answer, and a quiet way out. With `cancelLabel={null}` it is a notice with a single button.
 import { Modal, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CutButton } from './fight';
+import { BrushRule } from './ink';
 import { Txt } from './ui';
 import { F, SP, STROKE } from '../lib/theme';
 
@@ -16,7 +17,7 @@ export interface ConfirmSheetProps {
   confirmLabel?: string;
   /** The way out. `null` hides it (a notice with one button). */
   cancelLabel?: string | null;
-  /** The action can't be undone: the confirm button is drawn in paper, not the accent. */
+  /** The action can't be undone. Drawn the same: the words carry it. */
   destructive?: boolean;
   /** Called when the confirm button is pressed, before `onClose`. */
   onConfirm?: () => void;
@@ -32,12 +33,13 @@ export function ConfirmSheet({ open, visible, title, message, confirmLabel = 'OK
   return (
     <Modal visible={!!(open ?? visible)} transparent animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={cancelLabel ?? 'Dismiss'} onPress={onClose} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(14,14,16,0.8)' }} />
-        <View accessibilityViewIsModal style={{ backgroundColor: F.arena, borderTopWidth: STROKE, borderTopColor: F.chalk, paddingHorizontal: SP.lg, paddingTop: SP.xl, paddingBottom: Math.max(insets.bottom, SP.lg) + SP.sm, gap: SP.md }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={cancelLabel ?? 'Dismiss'} onPress={onClose} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(10,9,8,0.78)' }} />
+        <View accessibilityViewIsModal style={{ backgroundColor: F.canvas, borderTopWidth: STROKE, borderTopColor: F.rule, borderTopLeftRadius: 12, borderTopRightRadius: 12, paddingHorizontal: SP.xxl, paddingTop: SP.xxl, paddingBottom: Math.max(insets.bottom, SP.lg) + SP.sm, gap: SP.md }}>
           <View accessibilityRole="header" style={{ alignItems: 'flex-start' }}>
-            <Txt face="display" exact size={18} lh={1.3}>{title.toUpperCase()}</Txt>
+            <Txt face="display" exact size={22} lh={1.3}>{title}</Txt>
           </View>
-          {message ? <Txt size={15} w={500} lh={1.4} color={F.smoke}>{message}</Txt> : null}
+          <BrushRule />
+          {message ? <Txt size={15} w={400} lh={1.5} color={F.smoke}>{message}</Txt> : null}
           <View style={{ gap: SP.sm, marginTop: SP.sm }}>
             <CutButton
               size="md"
